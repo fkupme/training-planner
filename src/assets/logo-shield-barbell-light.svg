@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgL" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F2F2F2"/>
+    </linearGradient>
+  </defs>
+  <!-- Shield background -->
+  <path d="M256 32 C 320 64 384 64 448 64 L 448 224 C 448 336 368 416 256 480 C 144 416 64 336 64 224 L 64 64 C 128 64 192 64 256 32 Z"
+        fill="url(#bgL)" stroke="#D8D8D8" stroke-width="4"/>
+  <!-- Inner stroke -->
+  <path d="M256 54 C 314 82 372 84 432 84 L 432 222 C 432 323 362 392 256 452 C 150 392 80 323 80 222 L 80 84 C 140 84 198 82 256 54 Z"
+        fill="none" stroke="#E6E6E6" stroke-width="4"/>
+  <!-- Barbell (black, scaled 0.612 and centered) -->
+  <g fill="#000000" transform="translate(256 256) scale(0.612) translate(-256 -256)">
+    <polygon points="496 176 438 176 438 112 362 112 362 234 150 234 150 112 74 112 74 176 16 176 16 336 74 336 74 400 150 400 150 278 362 278 362 400 438 400 438 336 496 336 496 176"/>
+  </g>
+</svg>

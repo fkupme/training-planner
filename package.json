@@ -1,0 +1,39 @@
+{
+	"name": "training-planner",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vue-tsc --noEmit && vite build",
+		"preview": "vite preview",
+		"tauri": "tauri",
+		"doctor": "tauri doctor",
+		"android:init": "tauri android init",
+		"android:dev": "tauri android dev",
+		"android:build": "tauri android build",
+		"android:studio": "tauri android open"
+	},
+	"dependencies": {
+		"@tauri-apps/api": "^2",
+		"@tauri-apps/plugin-http": "^2.5.1",
+		"@tauri-apps/plugin-notification": "^2.3.0",
+		"@tauri-apps/plugin-opener": "^2",
+		"@tauri-apps/plugin-sql": "^2.3.0",
+		"@tauri-apps/plugin-store": "^2.3.0",
+		"@vant/use": "^1.6.0",
+		"dayjs": "^1.11.13",
+		"pinia": "^3.0.3",
+		"vant": "^4.9.21",
+		"vue": "^3.5.13",
+		"vue-router": "^4.5.1"
+	},
+	"devDependencies": {
+		"@tauri-apps/cli": "^2",
+		"@vitejs/plugin-vue": "^5.2.1",
+		"sass": "^1.90.0",
+		"typescript": "~5.6.2",
+		"vite": "^6.0.3",
+		"vue-tsc": "^2.1.10"
+	}
+}

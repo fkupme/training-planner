@@ -1,0 +1,165 @@
+/* Base tokens */
+:root {
+	--font-sans: Inter, Manrope, system-ui, sans-serif;
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+	--fs-sm: 0.875rem;
+	--fs-md: 1rem;
+	--fs-lg: 1.125rem;
+	--fs-xl: 1.375rem;
+	--fs-2xl: 1.75rem;
+	--lh-body: 1.45;
+	--lh-heading: 1.3;
+	--lh-title: 1.25;
+	--fw-regular: 400;
+	--fw-semibold: 600;
+	--fw-bold: 700;
+
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 20px;
+	--space-6: 24px;
+	--space-7: 32px;
+	--space-8: 40px;
+
+	--radius-s: 6px;
+	--radius-m: 8px;
+	--radius-l: 12px;
+	--radius-xl: 16px;
+	--radius-pill: 999px;
+
+	--dur-1: 120ms;
+	--dur-2: 160ms;
+	--dur-3: 200ms;
+	--dur-4: 240ms;
+	--dur-5: 300ms;
+	--ease-std: cubic-bezier(0.2, 0, 0, 1);
+
+	/* ime + safe area */
+	--ime-bottom: 0px;
+	--safe-bottom: env(safe-area-inset-bottom, 0px);
+
+	/* elevation */
+	--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+	--shadow-md: 0 6px 14px rgba(0, 0, 0, 0.22);
+	--shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+/* Force body resizing on mobile for ime handling */
+html,
+body,
+#app {
+	height: 100%;
+}
+body {
+	overflow: auto;
+}
+
+/* Theme 1: Minimal Blue (dark/light) */
+.theme-minimal-blue {
+	/* dark */
+	--color-bg: #25274d;
+	--color-surface: #464866;
+	--color-elevated: #2b2f56;
+	--color-border: rgba(255, 255, 255, 0.12);
+	--color-text: #e6e8ee;
+	--color-text-muted: #aaabb8;
+	--color-accent: #2e9cca;
+	--color-accent-contrast: #08141a;
+
+	/* super-accent gradients */
+	--grad-1: linear-gradient(135deg, #2e9cca 0%, #29648a 100%);
+	--grad-2: linear-gradient(135deg, #2e9cca 0%, #6ec1e4 100%);
+	--grad-3: linear-gradient(135deg, #29648a 0%, #2e9cca 50%, #aaabb8 100%);
+}
+.theme-minimal-blue.light {
+	--color-bg: #f5f7fa;
+	--color-surface: #ffffff;
+	--color-elevated: #ffffff;
+	--color-border: rgba(15, 23, 42, 0.1);
+	--color-text: #0f172a;
+	--color-text-muted: #64748b;
+	--color-accent: #2e9cca;
+	--color-accent-contrast: #ffffff;
+	--grad-1: linear-gradient(135deg, #2e9cca 0%, #29648a 100%);
+	--grad-2: linear-gradient(135deg, #2e9cca 0%, #6ec1e4 100%);
+	--grad-3: linear-gradient(135deg, #29648a 0%, #2e9cca 60%, #94a3b8 100%);
+}
+
+/* Theme 2: Gray + Lime (dark/light) */
+.theme-gray-lime {
+	--color-bg: #222629;
+	--color-surface: #474b4f;
+	--color-elevated: #5a5f64;
+	--color-border: rgba(255, 255, 255, 0.14);
+	--color-text: #edeef0;
+	--color-text-muted: #bfc3c7;
+	--color-accent: #86c232;
+	--color-accent-contrast: #0a1106;
+	--grad-1: linear-gradient(135deg, #86c232 0%, #61892f 100%);
+	--grad-2: linear-gradient(135deg, #a3ff12 0%, #86c232 100%);
+	--grad-3: linear-gradient(135deg, #86c232 0%, #86c232 50%, #2e2f33 100%);
+}
+.theme-gray-lime.light {
+	--color-bg: #f6f7f8;
+	--color-surface: #ffffff;
+	--color-elevated: #ffffff;
+	--color-border: rgba(2, 2, 2, 0.08);
+	--color-text: #1f2937;
+	--color-text-muted: #6b7280;
+	--color-accent: #86c232;
+	--color-accent-contrast: #061005;
+	--grad-1: linear-gradient(135deg, #86c232 0%, #61892f 100%);
+	--grad-2: linear-gradient(135deg, #a3ff12 0%, #86c232 100%);
+	--grad-3: linear-gradient(135deg, #86c232 0%, #c7f464 100%);
+}
+
+/* Theme 3: Deep Teal (из твоей палитры 1) */
+.theme-deep-teal {
+	--color-bg: #022140;
+	--color-surface: #1e4258;
+	--color-elevated: #265077;
+	--color-border: rgba(255, 255, 255, 0.12);
+	--color-text: #e6e8ee;
+	--color-text-muted: #9fb4c7;
+	--color-accent: #2d5f5d;
+	--color-accent-contrast: #071110;
+	--grad-1: linear-gradient(135deg, #2d5f5d 0%, #1e4258 100%);
+	--grad-2: linear-gradient(135deg, #2d5f5d 0%, #49b68b 100%);
+	--grad-3: linear-gradient(135deg, #265077 0%, #2d5f5d 50%, #49b68b 100%);
+}
+.theme-deep-teal.light {
+	--color-bg: #f3f7fa;
+	--color-surface: #ffffff;
+	--color-elevated: #ffffff;
+	--color-border: rgba(2, 2, 2, 0.08);
+	--color-text: #0f172a;
+	--color-text-muted: #64748b;
+	--color-accent: #2d5f5d;
+	--color-accent-contrast: #ffffff;
+	--grad-1: linear-gradient(135deg, #2d5f5d 0%, #1e4258 100%);
+	--grad-2: linear-gradient(135deg, #2d5f5d 0%, #49b68b 100%);
+	--grad-3: linear-gradient(135deg, #265077 0%, #2d5f5d 60%, #a5d6c1 100%);
+}
+
+/* Vant bindings */
+:root,
+.theme-minimal-blue,
+.theme-gray-lime,
+.theme-deep-teal,
+.theme-minimal-blue.light,
+.theme-gray-lime.light,
+.theme-deep-teal.light {
+	--van-primary-color: var(--color-accent);
+	--van-text-color: var(--color-text);
+	--van-active-color: var(--color-accent);
+	--van-background: var(--color-bg);
+	--van-background-2: var(--color-surface);
+	--van-border-color: var(--color-border);
+}
+
+/* Utility to pad bottom by ime + safe area */
+.pad-bottom-safe {
+	padding-bottom: calc(var(--safe-bottom) + var(--ime-bottom));
+}

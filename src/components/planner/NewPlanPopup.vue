@@ -1,0 +1,608 @@
+<script setup lang="ts">
+// @ts-ignore - Vue SFC default export is provided by shim
+import KeyboardPopup from "@/components/ui/KeyboardPopup.vue";
+import { usePlannerStore } from "@/stores/planner";
+import { showToast } from "vant";
+import { computed, defineEmits, defineProps, ref, watch } from "vue";
+
+const props = defineProps<{ show: boolean; programId?: number | null }>();
+const emit = defineEmits<{
+	(e: "update:show", v: boolean): void;
+	(e: "saved"): void;
+}>();
+
+const modelShow = computed({
+	get: () => props.show,
+	set: (v: boolean) => emit("update:show", v),
+});
+
+const name = ref("");
+
+// Диапазон дат через Calendar (будем использовать только start)
+const showCalendar = ref(false);
+const dateRange = ref<[Date, Date] | null>(null);
+const dateLabel = computed(() => {
+	if (!dateRange.value) return "выбрать";
+	const [s] = dateRange.value;
+	const fmt = (d: Date) =>
+		`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+			d.getDate()
+		).padStart(2, "0")}`;
+	return fmt(s);
+});
+
+// Единицы
+const units = ref<"kg" | "lb">("kg");
+
+// Настройки цикла
+const isWeekly = ref(true);
+
+// weekly
+const weeklyDays = ref<number[]>([0, 0, 0, 0, 0, 0, 0]); // Пн..Вс — 0/1/2
+const showTimePicker = ref(false);
+const timeParts = ref<string[]>(["18", "30"]); // [HH, mm]
+const defaultReminderTime = computed(
+	() =>
+		`${timeParts.value[0]?.padStart(2, "0")}:${timeParts.value[1]?.padStart(
+			2,
+			"0"
+		)}`
+);
+
+// custom
+const customLength = ref(10);
+const customDays = ref<number[]>(
+	Array.from({ length: customLength.value }, () => 0)
+);
+const showTimePickerCustom = ref(false);
+const timePartsCustom = ref<string[]>(["18", "30"]);
+const defaultReminderTimeCustom = computed(
+	() =>
+		`${timePartsCustom.value[0]?.padStart(
+			2,
+			"0"
+		)}:${timePartsCustom.value[1]?.padStart(2, "0")}`
+);
+
+// Цель через picker
+const showGoalPicker = ref(false);
+const goal = ref<
+	"cut" | "maintain" | "bulk" | "strength" | "endurance" | "rest"
+>("maintain");
+const goalPickerValues = ref<Array<string | number>>([]);
+const goalLabel = computed(
+	() =>
+		((
+			{
+				cut: "сушка",
+				maintain: "поддержание",
+				bulk: "набор массы",
+				strength: "сила",
+				endurance: "выносливость",
+				rest: "отдых",
+			} as const
+		)[goal.value])
+);
+const goalColumns = [
+	{ text: "сушка", value: "cut" },
+	{ text: "поддержание", value: "maintain" },
+	{ text: "набор массы", value: "bulk" },
+	{ text: "сила", value: "strength" },
+	{ text: "выносливость", value: "endurance" },
+	{ text: "отдых", value: "rest" },
+];
+const goalIndex = computed(() =>
+	Math.max(
+		0,
+		goalColumns.findIndex((c) => c.value === goal.value)
+	)
+);
+
+function onOpenGoalPicker() {
+	goalPickerValues.value = [goal.value];
+	showGoalPicker.value = true;
+}
+
+// Длительность недель
+const durationWeeks = ref(8);
+
+// Микроциклы: поддержка 2 циклов конфигураций (A/B)
+const microEnabled = ref(false);
+const microCount = ref(2);
+const microLabels = ref<string[]>(["A", "B"]);
+// Для простоты создаём по копии сетки для B, если включено
+const weeklyDaysB = ref<number[]>([0, 0, 0, 0, 0, 0, 0]);
+const customDaysB = ref<number[]>(
+	Array.from({ length: customLength.value }, () => 0)
+);
+
+const weeklyGridSets = computed(() =>
+	microEnabled.value && microCount.value >= 2
+		? [weeklyDays.value, weeklyDaysB.value]
+		: [weeklyDays.value]
+);
+const customGridSets = computed(() =>
+	microEnabled.value && microCount.value >= 2
+		? [customDays.value, customDaysB.value]
+		: [customDays.value]
+);
+
+const totalWeeklySessions = computed(() =>
+	weeklyDays.value.reduce((a, b) => a + b, 0)
+);
+const totalCustomSessions = computed(() =>
+	customDays.value.reduce((a, b) => a + b, 0)
+);
+const canSave = computed(() => name.value.trim().length > 0);
+
+const planner = usePlannerStore();
+
+function parseDatePartsToEpochFromRange(r: [Date, Date] | null) {
+	if (!r) return null;
+	const s = r[0];
+	const d = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+	return d.getTime();
+}
+
+// см. универсальные cycleDayWeeklyAt / cycleDayCustomAt
+
+function dayLabel(idx: number) {
+	return ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"][idx];
+}
+
+function syncMicroLabels() {
+	const n = Math.max(1, microCount.value);
+	if (microLabels.value.length < n) {
+		while (microLabels.value.length < n) microLabels.value.push("");
+	} else if (microLabels.value.length > n) {
+		microLabels.value.splice(n);
+	}
+}
+
+watch(customLength, (n) => {
+	const len = Math.max(1, Math.min(365, Number(n) || 1));
+	customLength.value = len;
+	const arr = Array.from({ length: len }, (_, i) => customDays.value[i] ?? 0);
+	const arrB = Array.from({ length: len }, (_, i) => customDaysB.value[i] ?? 0);
+	customDays.value = arr;
+	customDaysB.value = arrB;
+});
+
+function loadFromProgram() {
+	const p = planner.currentProgram;
+	if (!p) return;
+	name.value = p.name;
+	units.value = p.units === "lb" ? "lb" : "kg";
+	try {
+		const cfg = p.config ? JSON.parse(p.config) : {};
+		goal.value = cfg.goal ?? "maintain";
+		durationWeeks.value = cfg.durationWeeks ?? 8;
+		if (cfg.cycleType === "weekly") {
+			isWeekly.value = true;
+			weeklyDays.value = Array.isArray(cfg.weekly?.days)
+				? cfg.weekly.days
+				: [0, 0, 0, 0, 0, 0, 0];
+			weeklyDaysB.value = Array.isArray(cfg.weekly?.daysB)
+				? cfg.weekly.daysB
+				: [0, 0, 0, 0, 0, 0, 0];
+			if (cfg.weekly?.defaultReminderTime) {
+				const [hh, mm] = String(cfg.weekly.defaultReminderTime).split(":");
+				timeParts.value = [hh ?? "18", mm ?? "30"];
+			}
+		} else {
+			isWeekly.value = false;
+			const len = Number(cfg.custom?.length) || 10;
+			customLength.value = len;
+			customDays.value = Array.isArray(cfg.custom?.days)
+				? cfg.custom.days.slice(0, len)
+				: Array.from({ length: len }, () => 0);
+			customDaysB.value = Array.isArray(cfg.custom?.daysB)
+				? cfg.custom.daysB.slice(0, len)
+				: Array.from({ length: len }, () => 0);
+			if (cfg.custom?.defaultReminderTime) {
+				const [hh, mm] = String(cfg.custom.defaultReminderTime).split(":");
+				timePartsCustom.value = [hh ?? "18", mm ?? "30"];
+			}
+		}
+		if (cfg.microcycles?.enabled) {
+			microEnabled.value = true;
+			microCount.value = cfg.microcycles.count ?? 2;
+			microLabels.value = Array.isArray(cfg.microcycles.labels)
+				? cfg.microcycles.labels
+				: microLabels.value;
+			syncMicroLabels();
+		} else {
+			microEnabled.value = false;
+		}
+	} catch {
+		// ignore
+	}
+}
+
+watch(modelShow, (v) => {
+	if (v) loadFromProgram();
+});
+// при открытии прокрутим к текущей цели через default-index
+
+function onCalendarConfirm(val: Date | Date[]) {
+	try {
+		if (Array.isArray(val)) {
+			if (val.length >= 1)
+				dateRange.value = [val[0], val[val.length - 1]] as [Date, Date];
+		} else if (val) {
+			dateRange.value = [val, val];
+		}
+	} finally {
+		showCalendar.value = false;
+	}
+}
+
+function onGoalConfirm({ selectedValues }: { selectedValues: any[] }) {
+	goalPickerValues.value = selectedValues;
+	const v = selectedValues?.[0];
+	if (v) goal.value = v as typeof goal.value;
+	showGoalPicker.value = false;
+}
+function onGoalChange({ selectedValues }: { selectedValues: any[] }) {
+	goalPickerValues.value = selectedValues;
+}
+
+async function onSave() {
+	if (!canSave.value) return;
+	if (isWeekly.value) {
+		if (totalWeeklySessions.value === 0) {
+			showToast("Выберите трен‑дни (≥ 1)");
+			return;
+		}
+	} else {
+		if (totalCustomSessions.value === 0) {
+			showToast("Настройте сетку дней");
+			return;
+		}
+	}
+
+	const config: Record<string, unknown> = {
+		goal: goal.value,
+		durationWeeks: durationWeeks.value,
+		cycleType: isWeekly.value ? "weekly" : "custom",
+		weekly: isWeekly.value
+			? {
+					days: weeklyDays.value,
+					daysB:
+						microEnabled.value && microCount.value >= 2
+							? weeklyDaysB.value
+							: undefined,
+					defaultReminderTime: defaultReminderTime.value,
+			  }
+			: undefined,
+		custom: !isWeekly.value
+			? {
+					length: customLength.value,
+					days: customDays.value,
+					daysB:
+						microEnabled.value && microCount.value >= 2
+							? customDaysB.value
+							: undefined,
+					defaultReminderTime: defaultReminderTimeCustom.value,
+			  }
+			: undefined,
+		microcycles: microEnabled.value
+			? {
+					enabled: true,
+					count: microCount.value,
+					labels: microLabels.value,
+			  }
+			: { enabled: false },
+	};
+
+	const startDate = parseDatePartsToEpochFromRange(dateRange.value);
+
+	if (props.programId) {
+		await planner.updateProgram(props.programId, {
+			name: name.value.trim(),
+			start_date: startDate,
+			units: units.value,
+			config,
+		});
+	} else {
+		await planner.createProgram({
+			name: name.value.trim(),
+			start_date: startDate,
+			units: units.value,
+			config,
+		});
+	}
+	modelShow.value = false;
+	emit("saved");
+}
+
+function gridTitle(setIdx: number) {
+	return setIdx === 0 ? "Сетка" : `Сетка (${microLabels.value[setIdx] || "B"})`;
+}
+
+function cycleDayWeeklyAt(dayIdx: number, setIdx: number) {
+	if (setIdx === 0)
+		weeklyDays.value[dayIdx] = (weeklyDays.value[dayIdx] + 1) % 3;
+	else weeklyDaysB.value[dayIdx] = (weeklyDaysB.value[dayIdx] + 1) % 3;
+}
+function cycleDayCustomAt(dayIdx: number, setIdx: number) {
+	if (setIdx === 0)
+		customDays.value[dayIdx] = (customDays.value[dayIdx] + 1) % 3;
+	else customDaysB.value[dayIdx] = (customDaysB.value[dayIdx] + 1) % 3;
+}
+</script>
+
+<template>
+	<KeyboardPopup v-model:show="modelShow" height="85%" title="Новый план">
+		<div class="plan-new">
+			<van-cell-group inset>
+				<van-field
+					v-model="name"
+					label="Название"
+					placeholder="Мой первый цикл"
+				/>
+
+				<van-cell
+					title="Дата"
+					:value="dateLabel"
+					@click="showCalendar = true"
+				/>
+				<van-calendar
+					v-model:show="showCalendar"
+					type="single"
+					@confirm="onCalendarConfirm"
+					days-of-week="1,2,3,4,5,6,7"
+				/>
+
+				<van-field label="Единицы">
+					<template #input>
+						<van-radio-group v-model="units" direction="horizontal">
+							<van-radio name="kg">кг</van-radio>
+							<van-radio name="lb">фунты</van-radio>
+						</van-radio-group>
+					</template>
+				</van-field>
+			</van-cell-group>
+
+			<van-divider>Тип цикла</van-divider>
+			<van-cell-group inset>
+				<van-field label="Недельный цикл">
+					<template #input>
+						<van-switch v-model="isWeekly" size="20" />
+					</template>
+				</van-field>
+			</van-cell-group>
+
+			<template v-if="isWeekly">
+				<van-cell-group inset>
+					<van-cell
+						title="Сетки недели"
+						:label="`Сессий в неделю: ${totalWeeklySessions}`"
+					/>
+
+					<template v-for="(setList, setIdx) in weeklyGridSets" :key="setIdx">
+						<van-cell :title="gridTitle(setIdx)" />
+						<div class="plan-new__grid plan-new__grid--7">
+							<div
+								v-for="(v, idx) in setList"
+								:key="idx"
+								class="plan-new__day"
+								:class="{
+									'plan-new__day--rest': v === 0,
+									'plan-new__day--one': v === 1,
+									'plan-new__day--two': v === 2,
+								}"
+								@click="cycleDayWeeklyAt(idx, setIdx)"
+							>
+								<span class="plan-new__label">{{ dayLabel(idx) }}</span>
+								<span class="plan-new__count">{{ v }}</span>
+							</div>
+						</div>
+					</template>
+
+					<van-cell
+						title="Время напоминаний"
+						:value="defaultReminderTime"
+						is-link
+						@click="showTimePicker = true"
+					/>
+					<van-popup v-model:show="showTimePicker" position="bottom" round>
+						<van-time-picker
+							v-model="timeParts"
+							title="Время напоминаний"
+							:columns-type="['hour', 'minute']"
+							@confirm="showTimePicker = false"
+							@cancel="showTimePicker = false"
+						/>
+					</van-popup>
+				</van-cell-group>
+			</template>
+
+			<template v-else>
+				<van-cell-group inset>
+					<van-field label="Длина цикла (дни)">
+						<template #input>
+							<van-stepper v-model="customLength" min="1" max="365" />
+						</template>
+					</van-field>
+					<van-cell :title="`Сессий по сетке: ${totalCustomSessions}`" />
+
+					<template v-for="(setList, setIdx) in customGridSets" :key="setIdx">
+						<van-cell :title="gridTitle(setIdx)" />
+						<div class="plan-new__grid plan-new__grid--custom">
+							<div
+								v-for="(v, idx) in setList"
+								:key="idx"
+								class="plan-new__day"
+								:class="{
+									'plan-new__day--rest': v === 0,
+									'plan-new__day--one': v === 1,
+									'plan-new__day--two': v === 2,
+								}"
+								@click="cycleDayCustomAt(idx, setIdx)"
+							>
+								<span class="plan-new__label">Д{{ idx + 1 }}</span>
+								<span class="plan-new__count">{{ v }}</span>
+							</div>
+						</div>
+					</template>
+
+					<van-cell
+						title="Время напоминаний"
+						:value="defaultReminderTimeCustom"
+						is-link
+						@click="showTimePickerCustom = true"
+					/>
+					<van-popup
+						v-model:show="showTimePickerCustom"
+						position="bottom"
+						round
+					>
+						<van-time-picker
+							v-model="timePartsCustom"
+							title="Время напоминаний"
+							:columns-type="['hour', 'minute']"
+							@confirm="showTimePickerCustom = false"
+							@cancel="showTimePickerCustom = false"
+						/>
+					</van-popup>
+				</van-cell-group>
+			</template>
+
+			<van-divider>Цель и длительность</van-divider>
+			<van-cell-group inset>
+				<van-field
+					is-link
+					readonly
+					label="Цель"
+					:value="goalLabel"
+					placeholder="выбрать"
+					@click="onOpenGoalPicker"
+				/>
+				<van-popup
+					v-model:show="showGoalPicker"
+					destroy-on-close
+					round
+					position="bottom"
+				>
+					<van-picker
+						:model-value="goalPickerValues"
+						:columns="goalColumns"
+						:default-index="goalIndex"
+						title="Цель"
+						@cancel="showGoalPicker = false"
+						@confirm="onGoalConfirm"
+						@change="onGoalChange"
+					/>
+				</van-popup>
+				<van-field label="Длительность (недели)">
+					<template #input>
+						<van-stepper v-model="durationWeeks" min="1" max="52" />
+					</template>
+				</van-field>
+			</van-cell-group>
+
+			<van-divider>Микроциклы</van-divider>
+			<van-cell-group inset>
+				<van-field label="Включить">
+					<template #input>
+						<van-switch v-model="microEnabled" size="20" />
+					</template>
+				</van-field>
+				<template v-if="microEnabled">
+					<van-field label="Количество">
+						<template #input>
+							<van-stepper
+								v-model="microCount"
+								min="1"
+								max="6"
+								@change="syncMicroLabels"
+							/>
+						</template>
+					</van-field>
+					<div class="plan-new__micro">
+						<van-field
+							v-for="(_, i) in microLabels"
+							:key="i"
+							:label="`Метка ${i + 1}`"
+							v-model="microLabels[i]"
+							placeholder="например, A/B"
+						/>
+					</div>
+				</template>
+			</van-cell-group>
+		</div>
+
+		<van-action-bar class="plan-new__action-bar">
+			<van-action-bar-button type="default" @click="modelShow = false"
+				>Отмена</van-action-bar-button
+			>
+			<van-action-bar-button type="primary" :disabled="!canSave" @click="onSave"
+				>Сохранить</van-action-bar-button
+			>
+		</van-action-bar>
+	</KeyboardPopup>
+</template>
+
+<style lang="scss" scoped>
+.plan-new {
+	background: var(--color-bg);
+	padding: var(--space-3) var(--space-3) 110px var(--space-3);
+	&__action-bar {
+		border-top: 1px solid var(--van-border-color);
+		padding-top: var(--space-2);
+		background: var(--color-bg);
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+	}
+	&__grid {
+		display: grid;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-3) var(--space-3) var(--space-3);
+	}
+	&__grid--7 {
+		grid-template-columns: repeat(7, 1fr);
+	}
+	&__grid--custom {
+		grid-template-columns: repeat(7, 1fr);
+	}
+	&__day {
+		border-radius: var(--radius-m);
+		padding: 10px 8px;
+		text-align: center;
+		cursor: pointer;
+		user-select: none;
+		border: 1px solid var(--van-border-color);
+		background: var(--color-surface);
+		color: var(--color-text);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 56px;
+		transition: background var(--dur-2) var(--ease-std);
+	}
+	&__label {
+		font-size: var(--fs-sm);
+		opacity: 0.9;
+	}
+	&__count {
+		font-weight: var(--fw-semibold);
+		margin-top: 6px;
+	}
+	&__day--rest {
+		opacity: 0.7;
+	}
+	&__day--one {
+		background: linear-gradient(180deg, rgba(64, 158, 255, 0.15), transparent);
+	}
+	&__day--two {
+		background: linear-gradient(180deg, rgba(64, 158, 255, 0.28), transparent);
+	}
+	&__micro {
+		padding: 0 var(--space-3) var(--space-2) var(--space-3);
+	}
+}
+</style>
