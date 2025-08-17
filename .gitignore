@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Android keystore and env
+src-tauri/android-keystore/
+src-tauri/gen/android/app/keystore.properties
+.env
+.env.*
