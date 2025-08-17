@@ -40,6 +40,19 @@ function installImeFocusScroll() {
 	window.addEventListener('focusin', onFocus);
 }
 
+function lockScreenOrientation() {
+	// Блокируем ориентацию в portrait режиме
+	if ('screen' in window && 'orientation' in window.screen) {
+		try {
+			(window.screen.orientation as any).lock('portrait').catch(() => {
+				// Игнорируем ошибки блокировки ориентации
+			});
+		} catch {
+			// Браузер не поддерживает
+		}
+	}
+}
+
 (async () => {
 	await ensureSchema();
 	applyInitialTheme();
@@ -53,6 +66,7 @@ function installImeFocusScroll() {
 
 	await setupGuards(router);
 	installImeFocusScroll();
+	lockScreenOrientation();
 
 	app.mount('#app');
 })();

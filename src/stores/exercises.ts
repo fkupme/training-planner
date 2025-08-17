@@ -118,11 +118,55 @@ export const useExercisesStore = defineStore('exercises', {
 			return back[0]?.id ?? null;
 		},
 		async searchByName(q: string) {
+			if (!q.trim()) {
+				// Если запрос пустой, показываем все упражнения
+				const rows = await query<any>(
+					`SELECT e.id, e.name, e.description, e.primary_muscle_id, e.equipment, e.media_path, e.media_kind, e.created_at,
+						(SELECT group_concat(m.name, ',') FROM exercise_secondary_muscles esm JOIN muscles m ON m.id = esm.muscle_id WHERE esm.exercise_id = e.id) as secondaryNames
+					 FROM exercises e 
+					 ORDER BY e.name LIMIT 100`
+				);
+				this.list = rows as ExerciseRow[] as any;
+				return rows;
+			}
+
+			// Расширенный поиск по названию, оборудованию и основной мышце
+			const searchTerm = `%${q.trim()}%`;
 			const rows = await query<any>(
-				`SELECT e.id, e.name, e.description, e.primary_muscle_id, e.equipment, e.media_path, e.media_kind, e.created_at,
-					(SELECT group_concat(m.name, ',') FROM exercise_secondary_muscles esm JOIN muscles m ON m.id = esm.muscle_id WHERE esm.exercise_id = e.id) as secondaryNames
-				 FROM exercises e WHERE e.name LIKE ? ORDER BY e.name LIMIT 50`,
-				[`%${q}%`]
+				`SELECT DISTINCT e.id, e.name, e.description, e.primary_muscle_id, e.equipment, e.media_path, e.media_kind, e.created_at,
+					(SELECT group_concat(m.name, ',') FROM exercise_secondary_muscles esm JOIN muscles m ON m.id = esm.muscle_id WHERE esm.exercise_id = e.id) as secondaryNames,
+					pm.name as primaryMuscleName
+				 FROM exercises e 
+				 LEFT JOIN muscles pm ON pm.id = e.primary_muscle_id
+				 WHERE 
+					e.name LIKE ? OR 
+					e.description LIKE ? OR
+					e.equipment LIKE ? OR
+					pm.name LIKE ? OR
+					EXISTS (
+						SELECT 1 FROM exercise_secondary_muscles esm 
+						JOIN muscles sm ON sm.id = esm.muscle_id 
+						WHERE esm.exercise_id = e.id AND sm.name LIKE ?
+					)
+				 ORDER BY 
+					CASE 
+						WHEN e.name LIKE ? THEN 1 
+						WHEN pm.name LIKE ? THEN 2
+						WHEN e.equipment LIKE ? THEN 3
+						ELSE 4 
+					END,
+					e.name 
+				 LIMIT 100`,
+				[
+					searchTerm,
+					searchTerm,
+					searchTerm,
+					searchTerm,
+					searchTerm,
+					searchTerm,
+					searchTerm,
+					searchTerm,
+				]
 			);
 			this.list = rows as ExerciseRow[] as any;
 			return rows;

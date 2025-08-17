@@ -88,7 +88,7 @@ async function onSubmit() {
 					</div>
 				</van-space>
 				<van-form class="auth__form" @submit="onSubmit">
-					<van-nav-bar class="auth__nav" title="Регистрация" />
+					<div class="auth__title">Регистрация</div>
 					<van-cell-group inset class="auth__group">
 						<van-field
 							v-model="displayName"
@@ -166,8 +166,11 @@ async function onSubmit() {
 		border-radius: var(--radius-l);
 		background-color: var(--color-bg);
 	}
-	&__nav {
-		background-color: var(--color-bg);
+	&__title {
+		font-size: var(--fs-xl);
+		font-weight: var(--fw-semibold);
+		text-align: center;
+		color: var(--color-text);
 		margin-bottom: var(--space-4);
 	}
 	&__group {

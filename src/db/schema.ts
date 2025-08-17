@@ -75,174 +75,224 @@ async function seedExercisesIfSparse() {
 
 	const groups: Record<string, string[]> = {
 		CHEST: [
-			'Bench Press',
-			'Incline Bench Press',
-			'Decline Bench Press',
-			'Dumbbell Bench Press',
-			'Dumbbell Fly',
-			'Cable Fly',
-			'Push-up',
-			'Machine Chest Press',
+			'Жим штанги лёжа',
+			'Жим штанги на наклонной скамье',
+			'Жим штанги на скамье с отрицательным наклоном',
+			'Жим гантелей лёжа',
+			'Разводка гантелей лёжа',
+			'Сведение рук в кроссовере',
+			'Отжимания от пола',
+			'Жим в тренажёре',
+			'Жим гантелей на наклонной скамье',
+			'Пуловер с гантелью',
+			'Отжимания на брусьях',
+			'Жим в хаммере',
 		],
 		BACK: [
-			'Barbell Row',
-			'Pendlay Row',
-			'T-Bar Row',
-			'Seated Cable Row',
-			'Chest-Supported Row',
-			'Machine Row',
-			'Straight-Arm Pullover',
-			'Inverted Row',
+			'Тяга штанги в наклоне',
+			'Тяга Пендлея',
+			'Тяга Т-грифа',
+			'Тяга нижнего блока сидя',
+			'Тяга в тренажёре с упором в грудь',
+			'Тяга в хаммере',
+			'Пуловер на прямых руках',
+			'Горизонтальные подтягивания',
+			'Тяга штанги обратным хватом',
+			'Тяга гантели в наклоне',
+			'Шраги со штангой',
+			'Становая тяга',
 		],
 		LATS: [
-			'Pull-up',
-			'Chin-up',
-			'Lat Pulldown',
-			'Close-Grip Pulldown',
-			'Neutral-Grip Pull-up',
-			'Assisted Pull-up',
-			'Straight-Arm Pulldown',
-			'Single-Arm Pulldown',
+			'Подтягивания',
+			'Подтягивания обратным хватом',
+			'Тяга верхнего блока',
+			'Тяга верхнего блока узким хватом',
+			'Подтягивания нейтральным хватом',
+			'Подтягивания в гравитроне',
+			'Тяга прямыми руками',
+			'Тяга верхнего блока одной рукой',
+			'Подтягивания широким хватом',
+			'Тяга верхнего блока за голову',
 		],
 		TRAPS: [
-			'Barbell Shrug',
-			'Dumbbell Shrug',
-			'Cable Shrug',
-			'Upright Row',
-			'Rack Pull',
-			"Farmer's Walk Shrug",
-			'Behind-the-back Shrug',
-			'Machine Shrug',
+			'Шраги со штангой',
+			'Шраги с гантелями',
+			'Шраги в кроссовере',
+			'Тяга штанги к подбородку',
+			'Становая тяга с плинтов',
+			'Прогулка фермера',
+			'Шраги за спиной',
+			'Шраги в тренажёре',
+			'Шраги в машине Смита',
+			'Шраги лёжа на наклонной скамье',
 		],
 		DELTA_FRONT: [
-			'Overhead Press',
-			'Seated DB Shoulder Press',
-			'Arnold Press',
-			'Front Raise',
-			'Landmine Press',
-			'Barbell Push Press',
-			'Plate Raise',
-			'Cable Front Raise',
+			'Жим штанги стоя',
+			'Жим гантелей сидя',
+			'Жим Арнольда',
+			'Подъёмы гантелей перед собой',
+			'Жим в Landmine',
+			'Армейский жим',
+			'Подъёмы диска перед собой',
+			'Подъёмы в кроссовере перед собой',
+			'Жим гантелей стоя',
+			'Жим в машине Смита',
 		],
 		DELTA_MED: [
-			'Lateral Raise',
-			'Machine Lateral Raise',
-			'Wide-Grip Upright Row',
-			'Cable Lateral Raise',
-			'Leaning Lateral Raise',
-			'Seated Lateral Raise',
-			'DB Y-Raise',
-			'Cable Y-Raise',
+			'Разводка гантелей стоя',
+			'Разводка в тренажёре',
+			'Тяга штанги к подбородку широким хватом',
+			'Разводка в кроссовере',
+			'Разводка в наклоне',
+			'Разводка сидя',
+			'Y-подъёмы с гантелями',
+			'Y-подъёмы в кроссовере',
+			'Разводка одной рукой в наклоне',
+			'Протяжка с гантелями',
 		],
 		DELTA_REAR: [
-			'Rear Delt Fly',
-			'Reverse Pec Deck',
-			'Face Pull',
-			'Cable Rear Delt',
-			'Bent-over DB Raise',
-			'High Row',
-			'Prone Rear Delt Raise',
-			'Band Pull-Apart',
+			'Обратная разводка',
+			'Обратная разводка в тренажёре',
+			'Разводка в кроссовере',
+			'Тяга кроссовера к лицу',
+			'Разводка в наклоне',
+			'Высокая тяга',
+			'Разводка лёжа на животе',
+			'Разведение эластичной ленты',
+			'Тяга гантелей к подбородку',
+			'Обратная разводка в блоке',
 		],
 		BICEPS: [
-			'Barbell Curl',
-			'EZ-Bar Curl',
-			'Dumbbell Curl',
-			'Incline DB Curl',
-			'Concentration Curl',
-			'Preacher Curl',
-			'Cable Curl',
-			'Hammer Curl',
+			'Подъёмы штанги на бицепс',
+			'Подъёмы EZ-штанги',
+			'Подъёмы гантелей на бицепс',
+			'Подъёмы гантелей на наклонной скамье',
+			'Концентрированные подъёмы',
+			'Подъёмы на скамье Скотта',
+			'Подъёмы в кроссовере',
+			'Молот',
+			'Подъёмы штанги обратным хватом',
+			'Подъёмы в блоке одной рукой',
+			'Подъёмы гантелей сидя',
+			'Подъёмы на бицепс-машине',
 		],
 		TRICEPS: [
-			'Close-Grip Bench Press',
-			'Skullcrusher',
-			'Overhead Triceps Extension',
-			'Rope Pushdown',
-			'Straight Bar Pushdown',
-			'Dips',
-			'Kickback',
-			'Floor Press',
+			'Жим узким хватом',
+			'Французский жим',
+			'Разгибания из-за головы',
+			'Разгибания на блоке с канатом',
+			'Разгибания на блоке',
+			'Отжимания на брусьях',
+			'Отведение гантели назад',
+			'Жим лёжа с пола',
+			'Французский жим сидя',
+			'Разгибания одной рукой',
+			'Обратные отжимания',
+			'Алмазные отжимания',
 		],
 		FOREARMS: [
-			'Wrist Curl',
-			'Reverse Wrist Curl',
-			'Reverse Curl',
-			'Zottman Curl',
-			"Farmer's Walk",
-			'Plate Pinch',
-			'Towel Pull-up',
-			'Wrist Roller',
+			'Подъёмы на запястья',
+			'Обратные подъёмы на запястья',
+			'Обратные сгибания',
+			'Молот Зоттмана',
+			'Прогулка фермера',
+			'Удержание дисков',
+			'Подтягивания на полотенце',
+			'Роллер для запястий',
+			'Сжимание кистевого эспандера',
+			'Подъёмы штанги на предплечья',
 		],
 		ABS: [
-			'Crunch',
-			'Hanging Leg Raise',
-			'Cable Crunch',
-			'Plank',
-			'Ab Wheel Rollout',
-			'Reverse Crunch',
-			'V-Up',
-			'Hollow Body Hold',
+			'Скручивания',
+			'Подъёмы ног в висе',
+			'Скручивания в кроссовере',
+			'Планка',
+			'Прокатка с роликом',
+			'Обратные скручивания',
+			'V-образные подъёмы',
+			'Полый корпус',
+			'Альпинист',
+			'Скручивания на фитболе',
+			'Велосипед',
+			'Ножницы',
 		],
 		OBLIQUES: [
-			'Russian Twist',
-			'Side Plank',
-			'Cable Woodchop',
-			'Pallof Press',
-			'Side Bend',
-			'Landmine Twist',
-			'Bicycle Crunch',
-			'Copenhagen Plank',
+			'Русские скручивания',
+			'Боковая планка',
+			'Дровосек в кроссовере',
+			'Паллоф-пресс',
+			'Наклоны в сторону',
+			'Скручивания в Landmine',
+			'Велосипед',
+			'Копенгагенская планка',
+			'Боковые скручивания',
+			'Подъёмы корпуса в сторону',
 		],
 		ERECTORS: [
-			'Back Extension',
-			'Good Morning',
-			'Reverse Hyper',
-			'Hip Hinge Drill',
-			'Isometric Back Extension',
-			'Bird Dog',
-			'Jefferson Curl',
-			'Superman',
+			'Гиперэкстензия',
+			'Доброе утро',
+			'Обратная гиперэкстензия',
+			'Наклоны вперёд',
+			'Изометрическая гиперэкстензия',
+			'Птица-собака',
+			'Сгибания Джефферсона',
+			'Супермен',
+			'Румынская тяга',
+			'Становая тяга сумо',
 		],
 		QUADS: [
-			'Back Squat',
-			'Front Squat',
-			'Hack Squat',
-			'Leg Press',
-			'Lunge',
-			'Bulgarian Split Squat',
-			'Step-up',
-			'Sissy Squat',
+			'Приседания со штангой',
+			'Фронтальные приседания',
+			'Приседания в Гакке',
+			'Жим ногами',
+			'Выпады',
+			'Болгарские приседания',
+			'Зашагивания на тумбу',
+			'Приседания-пистолет',
+			'Приседания в машине Смита',
+			'Разгибания ног в тренажёре',
+			'Кубковые приседания',
+			'Выпады в ходьбе',
 		],
 		HAMSTRINGS: [
-			'Deadlift',
-			'Romanian Deadlift',
-			'Lying Leg Curl',
-			'Seated Leg Curl',
-			'Nordic Curl',
-			'Glute-Ham Raise',
-			'Kettlebell Swing',
-			'Single-Leg RDL',
+			'Становая тяга',
+			'Румынская тяга',
+			'Сгибания ног лёжа',
+			'Сгибания ног сидя',
+			'Скандинавские сгибания',
+			'Подъёмы на GHR',
+			'Махи гирей',
+			'Румынская тяга на одной ноге',
+			'Мёртвая тяга',
+			'Сгибания ног стоя',
+			'Тяга с прямыми ногами',
+			'Доброе утро',
 		],
 		GLUTES: [
-			'Hip Thrust',
-			'Glute Bridge',
-			'Cable Kickback',
-			'Frog Pump',
-			'Hip Abduction Machine',
-			'Banded Walk',
-			'Step-back Lunge',
-			'Single-Leg Hip Thrust',
+			'Ягодичный мостик',
+			'Ягодичный мостик со штангой',
+			'Отведения ноги в кроссовере',
+			'Ягодичный мостик лягушкой',
+			'Отведения ног в тренажёре',
+			'Ходьба в резинке',
+			'Обратные выпады',
+			'Ягодичный мостик на одной ноге',
+			'Приседания-плие',
+			'Отведения ноги назад',
+			'Подъёмы таза лёжа',
+			'Мостик с фитболом',
 		],
 		CALVES: [
-			'Standing Calf Raise',
-			'Seated Calf Raise',
-			'Donkey Calf Raise',
-			'Leg Press Calf Raise',
-			'Single-Leg Calf Raise',
-			'Smith Calf Raise',
-			'Jump Rope',
-			'Tibialis Raise',
+			'Подъёмы на носки стоя',
+			'Подъёмы на носки сидя',
+			'Подъёмы на носки в тренажёре',
+			'Подъёмы на носки в жиме ногами',
+			'Подъёмы на носки на одной ноге',
+			'Подъёмы в машине Смита',
+			'Прыжки на скакалке',
+			'Подъёмы на переднюю часть стопы',
+			'Ходьба на носках',
+			'Прыжки на носках',
 		],
 	};
 
@@ -268,24 +318,88 @@ async function seedExercisesIfSparse() {
 
 	function pickEquipment(name: string): string | null {
 		const n = name.toLowerCase();
-		if (n.includes('db') || n.includes('dumbbell')) return 'dumbbell';
-		if (n.includes('bar') || n.includes('barbell')) return 'barbell';
-		if (n.includes('machine') || n.includes('pec deck') || n.includes('smith'))
-			return 'machine';
-		if (n.includes('cable') || n.includes('pulldown') || n.includes('pushdown'))
-			return 'cable';
-		if (n.includes('kettlebell')) return 'kettlebell';
+		if (n.includes('гантел') || n.includes('db') || n.includes('dumbbell'))
+			return 'dumbbell';
+		if (n.includes('штанг') || n.includes('bar') || n.includes('barbell'))
+			return 'barbell';
 		if (
+			n.includes('тренажёр') ||
+			n.includes('машин') ||
+			n.includes('хаммер') ||
+			n.includes('гакк') ||
+			n.includes('machine') ||
+			n.includes('pec deck') ||
+			n.includes('smith')
+		)
+			return 'machine';
+		if (
+			n.includes('блок') ||
+			n.includes('кроссовер') ||
+			n.includes('cable') ||
+			n.includes('pulldown') ||
+			n.includes('pushdown')
+		)
+			return 'cable';
+		if (n.includes('гир') || n.includes('kettlebell')) return 'kettlebell';
+		if (
+			n.includes('отжимания') ||
+			n.includes('планк') ||
+			n.includes('скручивания') ||
+			n.includes('подтягивания') ||
 			n.includes('push-up') ||
 			n.includes('plank') ||
 			n.includes('crunch') ||
 			n.includes('pull-up') ||
 			n.includes('chin-up') ||
 			n.includes('hollow') ||
-			n.includes('bird dog')
+			n.includes('bird dog') ||
+			n.includes('супермен') ||
+			n.includes('велосипед')
 		)
 			return 'bodyweight';
 		return 'other';
+	}
+
+	function generateExerciseDescription(
+		name: string,
+		targetMuscle: string,
+		equipment: string | null
+	): string {
+		const equipmentDescriptions: Record<string, string> = {
+			dumbbell: 'с гантелями',
+			barbell: 'со штангой',
+			machine: 'в тренажёре',
+			cable: 'в блочном тренажёре',
+			kettlebell: 'с гирей',
+			bodyweight: 'с собственным весом',
+			other: 'со свободным весом',
+		};
+
+		const techniqueDescriptions: Record<string, string> = {
+			'Жим штанги лёжа':
+				'Базовое упражнение для развития грудных мышц. Выполняется лёжа на скамье, контролируемое опускание штанги к груди и мощный подъём.',
+			'Жим гантелей лёжа':
+				'Упражнение для грудных мышц с увеличенной амплитудой движения. Позволяет лучше растянуть мышцы и проработать стабилизаторы.',
+			'Приседания со штангой':
+				'Король всех упражнений. Базовое движение для развития квадрицепсов, ягодичных и всего тела. Опускание до параллели бёдер с полом.',
+			'Становая тяга':
+				'Мощное базовое упражнение для всей задней цепи. Подъём штанги с пола за счёт разгибания в тазобедренном суставе.',
+			Подтягивания:
+				'Базовое упражнение для развития широчайших мышц спины. Подъём тела к перекладине силой мышц спины и рук.',
+			'Тяга штанги в наклоне':
+				'Классическое упражнение для развития широчайших и средней части спины. Выполняется в наклоне с контролем техники.',
+		};
+
+		// Если есть специальное описание - используем его
+		if (techniqueDescriptions[name]) {
+			return techniqueDescriptions[name];
+		}
+
+		// Иначе генерируем базовое описание
+		const equipmentText = equipment
+			? equipmentDescriptions[equipment] || ''
+			: '';
+		return `Эффективное упражнение для развития ${targetMuscle} ${equipmentText}. Выполняется с контролем техники и полной амплитудой движения.`;
 	}
 
 	// Предрасчёт id по кодам
@@ -307,7 +421,7 @@ async function seedExercisesIfSparse() {
 			);
 			if (exists.length > 0) continue;
 			const equipment = pickEquipment(name);
-			const desc = `${name} — базовое упражнение на ${codeToRu[code]}.`;
+			const desc = generateExerciseDescription(name, codeToRu[code], equipment);
 			await exec(
 				`INSERT INTO exercises (name, description, primary_muscle_id, equipment, media_path, media_kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 				[name, desc, primaryId, equipment, null, null, now]
@@ -452,8 +566,81 @@ export async function ensureSchema() {
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
   )`);
 
+	// Тренировочные сессии
+	await exec(`CREATE TABLE IF NOT EXISTS training_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    program_id INTEGER NOT NULL,
+    cycle_type TEXT NOT NULL, -- weekly | custom
+    day_index INTEGER NOT NULL,
+    session_slot INTEGER NOT NULL DEFAULT 0, -- 0 | 1 для разделения A/B тренировок
+    name TEXT,
+    comments TEXT,
+    started_at INTEGER,
+    completed_at INTEGER,
+    duration_minutes INTEGER,
+    status TEXT NOT NULL DEFAULT 'planned', -- planned | in_progress | completed | cancelled
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY(program_id) REFERENCES programs(id) ON DELETE CASCADE
+  )`);
+
+	// Выполненные подходы в рамках сессии
+	await exec(`CREATE TABLE IF NOT EXISTS session_exercise_sets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    day_exercise_id INTEGER NOT NULL, -- ссылка на program_day_exercises
+    set_number INTEGER NOT NULL,
+    reps_completed INTEGER,
+    weight_used REAL,
+    rpe_rir TEXT, -- RPE или RIR
+    rest_seconds INTEGER,
+    notes TEXT,
+    completed_at INTEGER,
+    FOREIGN KEY(session_id) REFERENCES training_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY(day_exercise_id) REFERENCES program_day_exercises(id) ON DELETE CASCADE
+  )`);
+
 	// Сид начальных мышечных групп (идемпотентный)
 	await seedMusclesIfMissing();
 	// Сид библиотеки упражнений (~120, идемпотентный)
 	await seedExercisesIfSparse();
+
+	// --- Таблицы для учёта добавок/препаратов ---
+	await exec(`
+		CREATE TABLE IF NOT EXISTS supplements_plans (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			start_date TEXT NOT NULL,
+			cycle_type TEXT NOT NULL DEFAULT 'weekly',
+			weekly_days TEXT,
+			custom_days TEXT,
+			reminders TEXT,
+			duration_weeks INTEGER,
+			notes TEXT,
+			created_at TEXT DEFAULT (datetime('now')),
+			updated_at TEXT DEFAULT (datetime('now'))
+		)
+	`);
+
+	await exec(`
+		CREATE TABLE IF NOT EXISTS supplements_instances (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			plan_id INTEGER NOT NULL,
+			scheduled_at TEXT NOT NULL,
+			dose TEXT,
+			unit TEXT,
+			medications TEXT,
+			done INTEGER DEFAULT 0,
+			taken_at TEXT,
+			created_at TEXT DEFAULT (datetime('now')),
+			updated_at TEXT DEFAULT (datetime('now')),
+			FOREIGN KEY(plan_id) REFERENCES supplements_plans(id) ON DELETE CASCADE
+		)
+	`);
+
+	await exec(
+		`CREATE INDEX IF NOT EXISTS idx_supplements_instances_schedule ON supplements_instances(scheduled_at)`
+	);
+
+	// ensure medications column exists for older DBs
+	await ensureColumn('supplements_instances', 'medications', 'TEXT');
 }

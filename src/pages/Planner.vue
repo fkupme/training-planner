@@ -109,6 +109,11 @@ const nextSummary = computed(() => {
 	return { totalSets, totalReps };
 });
 
+// Computed для получения веса упражнения
+const getExerciseWeight = (item: DayExerciseDetailed) => {
+	return (item as any).work_weight;
+};
+
 const createdAtLabel = computed(() => {
 	const p = planner.currentProgram;
 	if (!p) return "";
@@ -134,7 +139,9 @@ function findNextDayIndex(): number | null {
 	if (c?.cycleType !== "weekly" || !Array.isArray(c.weekly?.days)) return null;
 	const today = new Date();
 	const w = c.weekly.days as number[];
-	const dow = (today.getDay() + 6) % 7; // 0=Пн
+	const dow = (today.getDay() + 6) % 7; // 0=Пн, 1=Вт, ..., 6=Вс
+
+	// Сначала ищем начиная с сегодняшнего дня
 	for (let i = 0; i < 7; i++) {
 		const idx = (dow + i) % 7;
 		if (w[idx] > 0) return idx;
@@ -142,23 +149,7 @@ function findNextDayIndex(): number | null {
 	return null;
 }
 
-const nextWorkoutHint = computed(() => {
-	const p = planner.currentProgram;
-	if (!p) return "";
-	try {
-		const idx = findNextDayIndex();
-		if (idx != null) {
-			const c = cfg.value;
-			const w = c.weekly.days as number[];
-			return `След. тренировка: ${
-				["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"][idx]
-			} (${w[idx]}×/день)`;
-		}
-		return "Расписание не задано";
-	} catch {
-		return "";
-	}
-});
+// Removed nextWorkoutHint as it wasn't being used
 
 function editProgram() {
 	editProgramId.value = planner.currentProgram?.id ?? null;
@@ -167,12 +158,34 @@ function editProgram() {
 
 async function reloadDayItems() {
 	const p = planner.currentProgram;
-	const idx = findNextDayIndex();
-	if (!p || idx == null) {
+	if (!p) {
 		dayItems.value = [];
 		exerciseInfoMap.value = {};
 		return;
 	}
+
+	const idx = findNextDayIndex();
+	if (idx == null) {
+		// Если нет ближайшего дня в weekly, попробуем загрузить хотя бы первый доступный день
+		const c = cfg.value;
+		if (c?.cycleType === "weekly" && Array.isArray(c.weekly?.days)) {
+			const w = c.weekly.days as number[];
+			const firstActiveDay = w.findIndex((sessions) => sessions > 0);
+			if (firstActiveDay >= 0) {
+				dayItems.value = await exercises.listExercisesForDayDetailed(
+					p.id,
+					"weekly",
+					firstActiveDay
+				);
+				await loadExerciseDetailsFor(dayItems.value);
+				return;
+			}
+		}
+		dayItems.value = [];
+		exerciseInfoMap.value = {};
+		return;
+	}
+
 	dayItems.value = await exercises.listExercisesForDayDetailed(
 		p.id,
 		"weekly",
@@ -224,6 +237,17 @@ const pendingAddTarget = ref<{
 
 function dayOfWeekLabel(idx: number) {
 	return ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"][idx] || `Д${idx + 1}`;
+}
+
+function needsDivider(microSet: any, currentIndex: number): boolean {
+	if (currentIndex === 0) return false; // Первый день не нуждается в разделителе
+
+	const currentDay = microSet.days[currentIndex];
+	const previousDay = microSet.days[currentIndex - 1];
+
+	// Проверяем, есть ли пропуск между днями (означает дни отдыха)
+	const dayGap = currentDay.dayIndex - previousDay.dayIndex;
+	return dayGap > 1;
 }
 
 const microSets = computed(() => {
@@ -390,7 +414,22 @@ async function removeItem(item: DayExerciseDetailed) {
 }
 
 function startWorkout() {
-	router.push("/session");
+	// Передаём данные о текущем дне через query параметры
+	const idx = findNextDayIndex();
+	const p = planner.currentProgram;
+	if (p && idx !== null) {
+		router.push({
+			path: "/session",
+			query: {
+				programId: p.id.toString(),
+				cycleType: "weekly",
+				dayIndex: idx.toString(),
+				slot: "0",
+			},
+		});
+	} else {
+		router.push("/session");
+	}
 }
 
 async function onParamsSaved() {
@@ -732,7 +771,6 @@ async function onSelectMultiple(ids: number[]) {
 </script>
 
 <template>
-	<van-nav-bar class="planner__nav" title="План тренировок" />
 	<div class="planner__content">
 		<template v-if="!planner.hasAnyProgram">
 			<van-empty
@@ -750,7 +788,12 @@ async function onSelectMultiple(ids: number[]) {
 		<template v-else>
 			<van-cell-group>
 				<van-cell
-				style="background: var(--color-elevated); width: 100%; margin-bottom: 12px; border-radius: var(--radius-m);"
+					style="
+						background: var(--color-elevated);
+						width: 100%;
+						margin-bottom: 12px;
+						border-radius: var(--radius-m);
+					"
 					:title="planner.currentProgram?.name || 'План'"
 					:label="createdAtLabel"
 				>
@@ -827,9 +870,9 @@ async function onSelectMultiple(ids: number[]) {
 													>Повторы: {{ Number(it.reps_json) || "" }}</van-tag
 												>
 												<van-tag
-													v-if="it['work_weight']"
+													v-if="getExerciseWeight(it)"
 													class="next-card__chip"
-													>Вес: {{ it["work_weight"] }}
+													>Вес: {{ getExerciseWeight(it) }}
 													{{
 														planner.currentProgram?.units === "lb" ? "lb" : "кг"
 													}}</van-tag
@@ -841,7 +884,7 @@ async function onSelectMultiple(ids: number[]) {
 												>
 											</div>
 											<div class="next-card__tags">
-												<van-tag plain type="primary">{{
+												<van-tag class="next-card__tag" plain type="primary">{{
 													pmName(
 														exerciseInfoMap[it.exercise_id]
 															?.primary_muscle_id || null
@@ -849,6 +892,7 @@ async function onSelectMultiple(ids: number[]) {
 												}}</van-tag>
 												<van-tag
 													v-for="sec in secondaryNames(it.exercise_id)"
+													class="next-card__tag"
 													:key="sec"
 													plain
 													type="success"
@@ -856,6 +900,7 @@ async function onSelectMultiple(ids: number[]) {
 												>
 												<van-tag
 													v-if="exerciseInfoMap[it.exercise_id]?.equipment"
+													class="next-card__tag"
 													plain
 													type="warning"
 													>{{
@@ -911,54 +956,66 @@ async function onSelectMultiple(ids: number[]) {
 					</div>
 				</van-tab>
 				<van-tab name="all" title="Весь план">
-					<template v-if="microSets.length > 0">
-						<div
-							class="planner-week__section"
-							v-for="ms in microSets"
-							:key="ms.key"
-						>
-							<van-cell-group class="planner-week__group">
-								<van-cell
-									style='background: var(--color-bg);'
-									:title="ms.title"
-									:label="
-										ms.cycle_type === 'weekly' ? 'Недельный' : 'Кастомный'
-									"
-								/>
-								<template v-for="d in ms.days" :key="d.dayIndex">
-									<WorkoutCard
-										:title="
-											ms.cycle_type === 'weekly'
-												? dayOfWeekLabel(d.dayIndex)
-												: `День ${d.dayIndex + 1}`
+					<div class="planner-all">
+						<template v-if="microSets.length > 0">
+							<div
+								class="planner-all__content"
+								v-for="ms in microSets"
+								:key="ms.key"
+							>
+								<van-cell-group class="planner-all__group">
+									<van-cell
+										style="background: var(--color-bg)"
+										:title="ms.title"
+										:label="
+											ms.cycle_type === 'weekly' ? 'Недельный' : 'Кастомный'
 										"
-										:cycle-type="ms.cycle_type"
-										:day-index="d.dayIndex"
-										:sessions="d.sessions"
-										:exercises-a="exercisesFor(ms.cycle_type, d.dayIndex).a"
-										:exercises-b="exercisesFor(ms.cycle_type, d.dayIndex).b"
-										:meta-a="metaFor(ms.cycle_type, d.dayIndex).A"
-										:meta-b="metaFor(ms.cycle_type, d.dayIndex).B"
-										:muscle-names-a="musclesFor(ms.cycle_type, d.dayIndex).A"
-										:muscle-names-b="musclesFor(ms.cycle_type, d.dayIndex).B"
-										@openParams="openParams"
-										@removeExercise="removeItem"
-										@addExercise="
-											({ cycleType, dayIndex, slot }) =>
-												openAddForDay(cycleType, dayIndex, slot)
-										"
-										@edit="onOpenWorkoutEdit"
-										@delete="onDeleteWorkout"
 									/>
-								</template>
-							</van-cell-group>
-						</div>
-					</template>
-					<template v-else>
-						<van-empty
-							description="Структура плана будет показана после настройки"
-						/>
-					</template>
+									<template v-for="(d, index) in ms.days" :key="d.dayIndex">
+										<!-- Добавляем разделитель перед днем, если нет тренировки в предыдущем дне -->
+										<van-divider
+											v-if="needsDivider(ms, index)"
+											content-position="left"
+											class="rest-day-divider"
+										>
+											Отдых
+										</van-divider>
+
+										<WorkoutCard
+											:title="
+												ms.cycle_type === 'weekly'
+													? dayOfWeekLabel(d.dayIndex)
+													: `День ${d.dayIndex + 1}`
+											"
+											:cycle-type="ms.cycle_type"
+											:day-index="d.dayIndex"
+											:sessions="d.sessions"
+											:exercises-a="exercisesFor(ms.cycle_type, d.dayIndex).a"
+											:exercises-b="exercisesFor(ms.cycle_type, d.dayIndex).b"
+											:meta-a="metaFor(ms.cycle_type, d.dayIndex).A"
+											:meta-b="metaFor(ms.cycle_type, d.dayIndex).B"
+											:muscle-names-a="musclesFor(ms.cycle_type, d.dayIndex).A"
+											:muscle-names-b="musclesFor(ms.cycle_type, d.dayIndex).B"
+											@openParams="openParams"
+											@removeExercise="removeItem"
+											@addExercise="
+												({ cycleType, dayIndex, slot }) =>
+													openAddForDay(cycleType, dayIndex, slot)
+											"
+											@edit="onOpenWorkoutEdit"
+											@delete="onDeleteWorkout"
+										/>
+									</template>
+								</van-cell-group>
+							</div>
+						</template>
+						<template v-else>
+							<van-empty
+								description="Структура плана будет показана после настройки"
+								class="planner-all__empty"
+							/>
+						</template>
+					</div>
 				</van-tab>
 			</van-tabs>
 
@@ -1008,13 +1065,20 @@ async function onSelectMultiple(ids: number[]) {
 </template>
 
 <style lang="scss" scoped>
+:deep(.van-cell__label) {
+	color: var(--color-text);
+	font-weight: var(--fw-semibold);
+}
+:deep(.van-cell__title) {
+	color: var(--color-text-muted);
+	font-size: var(--fs-xs);
+}
 .planner {
-	
-	&__nav {
-		background-color: var(--color-bg);
-		padding: 22px 0 12px 0;
-	}
+	height: 100%;
+	overflow: unset;
 	&__content {
+		height: 70dvh;
+		overflow: unset;
 		padding: var(--space-3);
 		padding-bottom: 50px;
 	}
@@ -1025,6 +1089,7 @@ async function onSelectMultiple(ids: number[]) {
 		margin-top: var(--space-3);
 	}
 	&__tabs {
+		height: 70dvh;
 		/* pill top corners, no bottom radius; active with bg */
 		:deep(.van-tabs__wrap) {
 			background: transparent;
@@ -1045,15 +1110,13 @@ async function onSelectMultiple(ids: number[]) {
 			width: 100%;
 			padding: 0;
 			margin: 0;
-			
-			
 		}
 		:deep(.van-tab--active) {
 			background: var(--color-bg);
 			color: var(--van-text-color);
 			border: none;
 		}
-		
+
 		:deep(.van-tabs__line) {
 			display: none;
 		}
@@ -1061,8 +1124,9 @@ async function onSelectMultiple(ids: number[]) {
 }
 
 .planner-next {
+	height: 70dvh;
+	overflow: auto;
 	background: var(--color-bg);
-	overflow: hidden;
 	border-radius: var(--radius-m);
 	&__group {
 		background: transparent;
@@ -1074,6 +1138,7 @@ async function onSelectMultiple(ids: number[]) {
 
 	&__summary {
 		.van-cell__label {
+			color: var(--color-text-muted);
 			opacity: 0.95;
 		}
 	}
@@ -1089,7 +1154,7 @@ async function onSelectMultiple(ids: number[]) {
 	}
 
 	&__exercise .van-cell__label {
-		opacity: 0.9;
+		color: var(--color-text-muted);
 	}
 
 	&__footer {
@@ -1150,12 +1215,12 @@ async function onSelectMultiple(ids: number[]) {
 	}
 	&__chip {
 		border: 1px solid var(--van-border-color);
-		border-radius: var(--radius-s);
-		padding: 2px 8px;
-		font-size: 12px;
+		border-radius: var(--radius-xs);
+		padding: 1px 4px;
 		opacity: 0.95;
-		background: var(--color-elevated);
-		font-size: var(--fs-sm);
+		background: transparent;
+		font-size: var(--fs-xxs);
+		color: var(--color-text-muted);
 	}
 	&__chip--muted {
 		opacity: 0.8;
@@ -1163,14 +1228,22 @@ async function onSelectMultiple(ids: number[]) {
 	&__tags {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 6px;
+		column-gap: 4px;
+		row-gap: 2px;
 		margin: 2px 0 0 0;
 	}
+	&__tag {
+		font-size: var(--fs-xxs);
+		background: var(--color-bg);
+	}
 	&__body {
-		/* content column */
+		display: flex;
+		flex-direction: column;
 	}
 	&__desc {
+		color: var(--color-text-muted);
 		margin-top: 4px;
+		font-size: var(--fs-xxs);
 	}
 	&__delete {
 		height: 100%;
@@ -1182,16 +1255,44 @@ async function onSelectMultiple(ids: number[]) {
 	}
 }
 
-.planner-week {
-	&__section {
-		border-radius: var(--radius-m);
+.planner-all {
+	height: 70dvh;
+	overflow-y: auto;
+	overflow-x: hidden;
+	background: var(--color-bg);
+	border-radius: var(--radius-m);
+
+	&__content {
 		margin-bottom: var(--space-3);
+	}
+
+	&__group {
+		border-radius: var(--radius-m);
 		overflow: hidden;
 		box-shadow: var(--shadow-sm);
 		background: var(--color-bg);
+		margin-bottom: var(--space-2);
 	}
-	&__group {
+
+	&__empty {
+		margin: var(--space-6) 0;
+	}
+}
+
+.rest-day-divider {
+	margin: var(--space-4) 0;
+
+	:deep(.van-divider__content) {
+		color: var(--color-text-muted);
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-medium);
 		background: var(--color-bg);
+		padding: 0 var(--space-3);
+	}
+
+	:deep(.van-divider) {
+		border-color: var(--color-border);
+		opacity: 0.7;
 	}
 }
 .action-icon {

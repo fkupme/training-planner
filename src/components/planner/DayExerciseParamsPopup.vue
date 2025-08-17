@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // @ts-ignore - Vue SFC default export is provided by shim
-import KeyboardPopup from "@/components/ui/KeyboardPopup.vue";
-import { useExercisesStore } from "@/stores/exercises";
-import { computed, defineEmits, defineProps, ref, watch } from "vue";
+import KeyboardPopup from '@/components/ui/KeyboardPopup.vue';
+import { useExercisesStore } from '@/stores/exercises';
+import { computed, defineEmits, defineProps, ref, watch } from 'vue';
 
 interface DayExerciseInput {
 	id: number;
@@ -15,24 +15,29 @@ interface DayExerciseInput {
 
 const props = defineProps<{ show: boolean; item: DayExerciseInput | null }>();
 const emit = defineEmits<{
-	(e: "update:show", v: boolean): void;
-	(e: "saved"): void;
+	(e: 'update:show', v: boolean): void;
+	(e: 'saved'): void;
 }>();
 
 const modelShow = computed({
 	get: () => props.show,
-	set: (v: boolean) => emit("update:show", v),
+	set: (v: boolean) => emit('update:show', v),
 });
 
 const setsCount = ref(3);
 const reps = ref<number>(10);
-const intensity = ref<string>("");
+const intensity = ref<string>('');
 const optional = ref(false);
 const workWeight = ref<number>(0);
 
+// Числовая клавиатура
+const showSetsKeyboard = ref(false);
+const showRepsKeyboard = ref(false);
+const showWeightKeyboard = ref(false);
+
 watch(
 	() => props.item,
-	(it) => {
+	it => {
 		if (!it) return;
 		setsCount.value = it.sets_count ?? 3;
 		// reps_json может быть числом в строке или JSON массивом; берём простое число
@@ -52,7 +57,7 @@ watch(
 				reps.value = Number.isNaN(n) ? 0 : n;
 			}
 		}
-		intensity.value = it.intensity ?? "";
+		intensity.value = it.intensity ?? '';
 		optional.value = !!it.optional_flag;
 		workWeight.value = (it as any).work_weight ?? 0;
 	},
@@ -72,8 +77,63 @@ async function onSave() {
 		// @ts-ignore - расширение схемы на поле work_weight поддерживается в БД
 		work_weight: workWeight.value || null,
 	});
-	emit("saved");
+	emit('saved');
 	modelShow.value = false;
+}
+
+// Функции для числовой клавиатуры
+function onSetsInput(value: string) {
+	const current = setsCount.value.toString();
+	const newValue = current + value;
+	const num = Number(newValue);
+	if (!isNaN(num) && num >= 1 && num <= 20) {
+		setsCount.value = num;
+	}
+}
+
+function onSetsDelete() {
+	const current = setsCount.value.toString();
+	if (current.length > 0) {
+		const newValue = current.slice(0, -1);
+		const num = newValue ? Number(newValue) : 1;
+		if (num >= 1) {
+			setsCount.value = num;
+		}
+	}
+}
+
+function onRepsInput(value: string) {
+	const current = reps.value.toString();
+	const newValue = current + value;
+	const num = Number(newValue);
+	if (!isNaN(num) && num >= 0 && num <= 100) {
+		reps.value = num;
+	}
+}
+
+function onRepsDelete() {
+	const current = reps.value.toString();
+	if (current.length > 0) {
+		const newValue = current.slice(0, -1);
+		reps.value = newValue ? Number(newValue) : 0;
+	}
+}
+
+function onWeightInput(value: string) {
+	const current = workWeight.value.toString();
+	const newValue = current + value;
+	const num = Number(newValue);
+	if (!isNaN(num) && num >= 0 && num <= 999) {
+		workWeight.value = num;
+	}
+}
+
+function onWeightDelete() {
+	const current = workWeight.value.toString();
+	if (current.length > 0) {
+		const newValue = current.slice(0, -1);
+		workWeight.value = newValue ? Number(newValue) : 0;
+	}
 }
 </script>
 
@@ -84,12 +144,16 @@ async function onSave() {
 			<van-cell-group inset>
 				<van-field label="Подходы">
 					<template #input>
-						<van-stepper v-model="setsCount" min="1" max="20" />
+						<van-space>
+							<van-stepper v-model="setsCount" min="1" max="20" />
+						</van-space>
 					</template>
 				</van-field>
 				<van-field label="Повторы (за подход)">
 					<template #input>
-						<van-stepper v-model="reps" min="0" max="100" />
+						<van-space>
+							<van-stepper v-model="reps" min="0" max="100" />
+						</van-space>
 					</template>
 				</van-field>
 				<van-field
@@ -99,7 +163,9 @@ async function onSave() {
 				/>
 				<van-field label="Рабочий вес (опц.)">
 					<template #input>
-						<van-stepper v-model="workWeight" min="0" max="999" />
+						<van-space>
+							<van-stepper v-model="workWeight" min="0" max="999" />
+						</van-space>
 					</template>
 				</van-field>
 				<van-field label="Необязательное">
@@ -121,6 +187,38 @@ async function onSave() {
 			>
 		</van-action-bar>
 	</KeyboardPopup>
+
+	<!-- Числовые клавиатуры -->
+	<van-number-keyboard
+		:show="showSetsKeyboard"
+		@blur="showSetsKeyboard = false"
+		@input="onSetsInput"
+		@delete="onSetsDelete"
+		maxlength="2"
+		title="Количество подходов"
+		close-button-text="Готово"
+	/>
+
+	<van-number-keyboard
+		:show="showRepsKeyboard"
+		@blur="showRepsKeyboard = false"
+		@input="onRepsInput"
+		@delete="onRepsDelete"
+		maxlength="3"
+		title="Количество повторений"
+		close-button-text="Готово"
+	/>
+
+	<van-number-keyboard
+		:show="showWeightKeyboard"
+		@blur="showWeightKeyboard = false"
+		@input="onWeightInput"
+		@delete="onWeightDelete"
+		maxlength="4"
+		title="Рабочий вес (кг)"
+		close-button-text="Готово"
+		extra-key="."
+	/>
 </template>
 
 <style lang="scss" scoped>

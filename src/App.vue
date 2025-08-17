@@ -1,20 +1,17 @@
 <script setup lang="ts">
+// @ts-ignore - Vue SFC default export is provided by shim
+import AppLayout from "@/components/layout/AppLayout.vue";
 import OnboardingPopup from "@/components/OnboardingPopup.vue";
 import { useKeyboardInsets } from "@/composables/useKeyboardInsets";
 import { useAuthStore } from "@/stores/auth";
+import { useSettingsStore } from "@/stores/settings";
 import { useUserProfileStore } from "@/stores/userProfile";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
-
-const route = useRoute();
-const hideTabbar = computed(() => {
-	const p = route.path;
-	return p === "/login" || p === "/register";
-});
+import { nextTick, onMounted, ref, watch } from "vue";
 
 const showOnboarding = ref(false);
 const auth = useAuthStore();
 const profileStore = useUserProfileStore();
+const settings = useSettingsStore();
 
 useKeyboardInsets();
 
@@ -31,6 +28,9 @@ async function evalOnboarding() {
 }
 
 onMounted(async () => {
+	await settings.loadSettings();
+	// Применяем тему сразу после загрузки
+	settings.applyTheme();
 	await auth.initFromSession();
 	await evalOnboarding();
 });
@@ -44,55 +44,11 @@ watch(
 </script>
 
 <template>
-	<div class="app-root">
-		<router-view class="router-view" />
+	<AppLayout>
 		<OnboardingPopup v-model:show="showOnboarding" />
-		<van-tabbar v-if="!hideTabbar" route class="app-tabbar">
-			<van-tabbar-item replace to="/planner" icon="notes"
-				>
-				<!-- План -->
-				</van-tabbar-item>
-			<van-tabbar-item replace to="/reminders" icon="fire"
-				>
-				<!-- Напоминания -->
-				</van-tabbar-item>
-			<van-tabbar-item replace to="/results" icon="chart-trending-o"
-				>
-				<!-- Результаты -->
-				</van-tabbar-item>
-			<van-tabbar-item replace to="/supplements" icon="like">
-				<!-- Добавки -->
-				</van-tabbar-item>
-			<van-tabbar-item replace to="/timer" icon="clock"
-				>
-				<!-- Таймер -->
-				</van-tabbar-item>
-		</van-tabbar>
-	</div>
+	</AppLayout>
 </template>
 
 <style>
-html,
-body,
-#app,
-.app-root {
-	height: 100%;
-	padding-bottom: 20px;
-}
-body {
-	margin: 0;
-	padding-bottom: 40px;
-	background: var(--van-background-2);
-}
-.app-root {
-	display: flex;
-	flex-direction: column;
-	padding-bottom: var(--ime-bottom, 0);
-}
-.app-tabbar {
-	padding-bottom: calc(var(--ime-bottom, 0));
-}
-.router-view {
-	flex: 1;
-}
+/* Базовые стили уже в AppLayout компоненте */
 </style>

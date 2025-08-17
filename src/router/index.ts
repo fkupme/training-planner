@@ -6,6 +6,8 @@ const Results = () => import('@/pages/Results.vue');
 const Supplements = () => import('@/pages/Supplements.vue');
 const Timer = () => import('@/pages/Timer.vue');
 const Session = () => import('@/pages/Session.vue');
+const Settings = () => import('@/pages/Settings.vue');
+const TrainingDiary = () => import('@/pages/TrainingDiary.vue');
 
 const AuthLogin = () => import('@/pages/AuthLogin.vue');
 const AuthRegister = () => import('@/pages/AuthRegister.vue');
@@ -20,6 +22,8 @@ export const routes: RouteRecordRaw[] = [
 	{ path: '/supplements', component: Supplements },
 	{ path: '/timer', component: Timer },
 	{ path: '/session', component: Session },
+	{ path: '/settings', component: Settings },
+	{ path: '/diary', component: TrainingDiary },
 ];
 
 export function createAppRouter() {

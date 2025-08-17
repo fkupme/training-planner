@@ -196,6 +196,7 @@ function typeLabel(t?: WorkoutType | null) {
 				/>
 				<template #right>
 					<van-button
+						class="delete-btn"
 						square
 						type="danger"
 						text="Удалить"
@@ -315,6 +316,7 @@ function typeLabel(t?: WorkoutType | null) {
 	margin: 8px 12px;
 	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 	background: var(--color-bg);
+	overflow: auto;
 }
 .action-icon {
 	font-size: 22px;
@@ -346,5 +348,9 @@ function typeLabel(t?: WorkoutType | null) {
 .add{
 	background: var(--grad-2);
 	color: var(--color-accent-contrast);
+}
+.delete-btn {
+	height: 100%;
+	border-radius: 0;
 }
 </style>
