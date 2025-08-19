@@ -134,18 +134,44 @@ const cfg = computed(() => {
 	}
 });
 
-function findNextDayIndex(): number | null {
+function findNextDayIndex(): { cycleType: "weekly" | "custom"; dayIndex: number } | null {
 	const c = cfg.value;
-	if (c?.cycleType !== "weekly" || !Array.isArray(c.weekly?.days)) return null;
-	const today = new Date();
-	const w = c.weekly.days as number[];
-	const dow = (today.getDay() + 6) % 7; // 0=Пн, 1=Вт, ..., 6=Вс
+	if (!c) return null;
 
-	// Сначала ищем начиная с сегодняшнего дня
-	for (let i = 0; i < 7; i++) {
-		const idx = (dow + i) % 7;
-		if (w[idx] > 0) return idx;
+	// Handle weekly cycles
+	if (c.cycleType === "weekly" && Array.isArray(c.weekly?.days)) {
+		const today = new Date();
+		const w = c.weekly.days as number[];
+		const dow = (today.getDay() + 6) % 7; // 0=Пн, 1=Вт, ..., 6=Вс
+
+		// Сначала ищем начиная с сегодняшнего дня
+		for (let i = 0; i < 7; i++) {
+			const idx = (dow + i) % 7;
+			if (w[idx] > 0) return { cycleType: "weekly", dayIndex: idx };
+		}
 	}
+
+	// Handle custom cycles
+	if (c.cycleType === "custom" && Array.isArray(c.custom?.days)) {
+		const p = planner.currentProgram;
+		if (!p || !p.start_date) return null;
+
+		const today = new Date();
+		const startDate = new Date(p.start_date);
+		const daysSinceStart = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+		const customDays = c.custom.days as number[];
+		
+		if (customDays.length === 0) return null;
+
+		// Find the next active day in the cycle starting from today
+		for (let i = 0; i < customDays.length * 2; i++) { // Check up to 2 full cycles
+			const dayOffset = (daysSinceStart + i) % customDays.length;
+			if (customDays[dayOffset] > 0) {
+				return { cycleType: "custom", dayIndex: dayOffset };
+			}
+		}
+	}
+
 	return null;
 }
 
@@ -164,9 +190,9 @@ async function reloadDayItems() {
 		return;
 	}
 
-	const idx = findNextDayIndex();
-	if (idx == null) {
-		// Если нет ближайшего дня в weekly, попробуем загрузить хотя бы первый доступный день
+	const nextDay = findNextDayIndex();
+	if (nextDay == null) {
+		// Если нет ближайшего дня, попробуем загрузить хотя бы первый доступный день
 		const c = cfg.value;
 		if (c?.cycleType === "weekly" && Array.isArray(c.weekly?.days)) {
 			const w = c.weekly.days as number[];
@@ -180,6 +206,18 @@ async function reloadDayItems() {
 				await loadExerciseDetailsFor(dayItems.value);
 				return;
 			}
+		} else if (c?.cycleType === "custom" && Array.isArray(c.custom?.days)) {
+			const customDays = c.custom.days as number[];
+			const firstActiveDay = customDays.findIndex((sessions) => sessions > 0);
+			if (firstActiveDay >= 0) {
+				dayItems.value = await exercises.listExercisesForDayDetailed(
+					p.id,
+					"custom",
+					firstActiveDay
+				);
+				await loadExerciseDetailsFor(dayItems.value);
+				return;
+			}
 		}
 		dayItems.value = [];
 		exerciseInfoMap.value = {};
@@ -188,8 +226,8 @@ async function reloadDayItems() {
 
 	dayItems.value = await exercises.listExercisesForDayDetailed(
 		p.id,
-		"weekly",
-		idx
+		nextDay.cycleType,
+		nextDay.dayIndex
 	);
 	await loadExerciseDetailsFor(dayItems.value);
 }
@@ -346,15 +384,17 @@ async function onPickExercise(id: number) {
 		}
 		pendingAddTarget.value = null;
 		showExercisePicker.value = false;
+		// Обновим также ближайший день для реактивности между вкладками
+		await reloadDayItems();
 		return;
 	}
 	// Fallback: добавление в ближайший день (вкладка "Ближайшая")
-	const idx = findNextDayIndex();
-	if (!p || idx == null) return;
+	const nextDay = findNextDayIndex();
+	if (!p || nextDay == null) return;
 	await exercises.attachExerciseToDay({
 		program_id: p.id,
-		cycle_type: "weekly",
-		day_index: idx,
+		cycle_type: nextDay.cycleType,
+		day_index: nextDay.dayIndex,
 		exercise_id: id,
 		sets_count: 3,
 		reps: 10,
@@ -415,15 +455,15 @@ async function removeItem(item: DayExerciseDetailed) {
 
 function startWorkout() {
 	// Передаём данные о текущем дне через query параметры
-	const idx = findNextDayIndex();
+	const nextDay = findNextDayIndex();
 	const p = planner.currentProgram;
-	if (p && idx !== null) {
+	if (p && nextDay !== null) {
 		router.push({
 			path: "/session",
 			query: {
 				programId: p.id.toString(),
-				cycleType: "weekly",
-				dayIndex: idx.toString(),
+				cycleType: nextDay.cycleType,
+				dayIndex: nextDay.dayIndex.toString(),
 				slot: "0",
 			},
 		});
@@ -749,16 +789,18 @@ async function onSelectMultiple(ids: number[]) {
 					target.day_index
 				);
 		}
+		// Обновим также ближайший день для реактивности между вкладками
+		await reloadDayItems();
 		return;
 	}
-	// Фоллбек: если таргета нет, добавим в ближайший день (weekly)
-	const idx = findNextDayIndex();
-	if (idx == null) return;
+	// Фоллбек: если таргета нет, добавим в ближайший день
+	const nextDay = findNextDayIndex();
+	if (nextDay == null) return;
 	for (const id of ids) {
 		await exercises.attachExerciseToDay({
 			program_id: p.id,
-			cycle_type: "weekly",
-			day_index: idx,
+			cycle_type: nextDay.cycleType,
+			day_index: nextDay.dayIndex,
 			exercise_id: id,
 			sets_count: 3,
 			reps: 10,

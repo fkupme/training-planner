@@ -14,6 +14,8 @@ export type SupplementPlan = {
 	reminder_offset?: string | null; // e.g. '15m', '1h'
 	duration_weeks?: number | null;
 	notes?: string | null;
+	created_at?: string | null;
+	updated_at?: string | null;
 };
 
 export type SupplementInstance = {
@@ -295,6 +297,10 @@ export const useSupplementsStore = defineStore('supplements', () => {
 		return rows;
 	}
 
+	async function deleteInstance(instanceId: number) {
+		await exec(`DELETE FROM supplements_instances WHERE id = ?`, [instanceId]);
+	}
+
 	return {
 		plans,
 		instances,
@@ -312,6 +318,7 @@ export const useSupplementsStore = defineStore('supplements', () => {
 		deleteInstancesForPlanFromDate,
 		listTodayPending,
 		generateInstancesForPlan,
+		deleteInstance,
 	};
 });
 
