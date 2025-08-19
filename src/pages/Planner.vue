@@ -14,6 +14,8 @@ import ExercisePickerPopup from "@/components/planner/ExercisePickerPopup.vue";
 import CreateExercisePopup from "@/components/planner/CreateExercisePopup.vue";
 // @ts-ignore - Vue SFC default export is provided by shim
 import DayExerciseParamsPopup from "@/components/planner/DayExerciseParamsPopup.vue";
+// @ts-ignore - Vue SFC default export is provided by shim
+import PlannerTabs from "@/components/planner/PlannerTabs.vue";
 import { showDialog, showToast } from "vant";
 import { useRouter } from "vue-router";
 // @ts-ignore - Vue SFC default export is provided by shim
@@ -23,11 +25,44 @@ import WorkoutEditPopup from "@/components/planner/WorkoutEditPopup.vue";
 import { useWorkoutsStore } from "@/stores/workouts";
 // @ts-ignore - Vue SFC default export is provided by shim
 import EditExercisePopup from "@/components/planner/EditExercisePopup.vue";
+// Import the new composables
+import { usePlannerData } from "@/composables/usePlannerData";
+import { usePlannerLogic } from "@/composables/usePlannerLogic";
 
 const router = useRouter();
 const planner = usePlannerStore();
 const exercises = useExercisesStore();
 const workouts = useWorkoutsStore();
+
+// Use the new composables
+const {
+	dayItems,
+	exerciseInfoMap,
+	exerciseSecondaryMap,
+	allExercisesWeekly,
+	allExercisesCustom,
+	cfg,
+	nextSummary,
+	createdAtLabel,
+	getExerciseWeight,
+	loadExerciseDetailsFor,
+	loadAllExercisesForWeekly,
+	loadAllExercisesForCustom,
+} = usePlannerData();
+
+const {
+	pendingAddTarget,
+	microSets,
+	findNextDayIndex,
+	reloadDayItems,
+	onPickExercise,
+	onSelectMultiple,
+	onDeleteWorkout,
+	dayOfWeekLabel,
+	needsDivider,
+} = usePlannerLogic();
+
+// Component state
 const showNewPlan = ref(false);
 const editProgramId = ref<number | null>(null);
 const showExercisePicker = ref(false);
@@ -35,27 +70,7 @@ const showCreateExercise = ref(false);
 const showParams = ref(false);
 const activeTab = ref<"next" | "all">("next");
 
-const dayItems = ref<DayExerciseDetailed[]>([]);
-const exerciseInfoMap = ref<Record<number, any>>({});
-const exerciseSecondaryMap = ref<Record<number, number[]>>({});
-
-async function loadExerciseDetailsFor(items: DayExerciseDetailed[]) {
-	const ids = Array.from(new Set(items.map((i) => i.exercise_id)));
-	const infoMap: Record<number, any> = { ...exerciseInfoMap.value };
-	const secMap: Record<number, number[]> = { ...exerciseSecondaryMap.value };
-	await exercises.loadMuscles();
-	for (const id of ids) {
-		if (!infoMap[id]) {
-			infoMap[id] = await exercises.getExerciseById(id);
-		}
-		if (!secMap[id]) {
-			secMap[id] = await exercises.getExerciseSecondaryMuscleIds(id);
-		}
-	}
-	exerciseInfoMap.value = infoMap;
-	exerciseSecondaryMap.value = secMap;
-}
-
+// Component state and additional functionality
 const editingItem = ref<DayExerciseDetailed | null>(null);
 const editingParams = computed(() => {
 	const it = editingItem.value;
@@ -70,265 +85,10 @@ const editingParams = computed(() => {
 	};
 });
 
-function pmName(id: number | null) {
-	if (!id) return "";
-	const m = exercises.muscles.find((m) => m.id === id);
-	return m?.name || "";
-}
-function secondaryNames(exId: number) {
-	const ids = exerciseSecondaryMap.value[exId] || [];
-	return ids
-		.map((id) => exercises.muscles.find((m) => m.id === id)?.name)
-		.filter(Boolean) as string[];
-}
-function equipmentLabel(val?: string | null) {
-	if (!val) return "";
-	return EQUIPMENT_OPTIONS.find((o) => o.value === val)?.label || val;
-}
-
-const nextSummary = computed(() => {
-	const list = dayItems.value || [];
-	let totalSets = 0;
-	let totalReps = 0;
-	for (const it of list) {
-		totalSets += Number(it.sets_count) || 0;
-		const r = (() => {
-			if (it.reps_json == null) return 0;
-			try {
-				const p = JSON.parse(it.reps_json as any);
-				if (Array.isArray(p)) return Number(p[0]) || 0;
-				const n = Number(it.reps_json);
-				return Number.isNaN(n) ? 0 : n;
-			} catch {
-				const n = Number(it.reps_json);
-				return Number.isNaN(n) ? 0 : n;
-			}
-		})();
-		totalReps += (Number(it.sets_count) || 0) * r;
-	}
-	return { totalSets, totalReps };
-});
-
-// Computed для получения веса упражнения
-const getExerciseWeight = (item: DayExerciseDetailed) => {
-	return (item as any).work_weight;
-};
-
-const createdAtLabel = computed(() => {
-	const p = planner.currentProgram;
-	if (!p) return "";
-	try {
-		return `Создано: ${new Date(p.created_at).toLocaleDateString()}`;
-	} catch {
-		return "";
-	}
-});
-
-const cfg = computed(() => {
-	try {
-		return planner.currentProgram?.config
-			? JSON.parse(planner.currentProgram.config)
-			: null;
-	} catch {
-		return null;
-	}
-});
-
-function findNextDayIndex(): { cycleType: "weekly" | "custom"; dayIndex: number } | null {
-	const c = cfg.value;
-	if (!c) return null;
-
-	// Handle weekly cycles
-	if (c.cycleType === "weekly" && Array.isArray(c.weekly?.days)) {
-		const today = new Date();
-		const w = c.weekly.days as number[];
-		const dow = (today.getDay() + 6) % 7; // 0=Пн, 1=Вт, ..., 6=Вс
-
-		// Сначала ищем начиная с сегодняшнего дня
-		for (let i = 0; i < 7; i++) {
-			const idx = (dow + i) % 7;
-			if (w[idx] > 0) return { cycleType: "weekly", dayIndex: idx };
-		}
-	}
-
-	// Handle custom cycles
-	if (c.cycleType === "custom" && Array.isArray(c.custom?.days)) {
-		const p = planner.currentProgram;
-		if (!p || !p.start_date) return null;
-
-		const today = new Date();
-		const startDate = new Date(p.start_date);
-		const daysSinceStart = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-		const customDays = c.custom.days as number[];
-		
-		if (customDays.length === 0) return null;
-
-		// Find the next active day in the cycle starting from today
-		for (let i = 0; i < customDays.length * 2; i++) { // Check up to 2 full cycles
-			const dayOffset = (daysSinceStart + i) % customDays.length;
-			if (customDays[dayOffset] > 0) {
-				return { cycleType: "custom", dayIndex: dayOffset };
-			}
-		}
-	}
-
-	return null;
-}
-
-// Removed nextWorkoutHint as it wasn't being used
-
 function editProgram() {
 	editProgramId.value = planner.currentProgram?.id ?? null;
 	showNewPlan.value = true;
 }
-
-async function reloadDayItems() {
-	const p = planner.currentProgram;
-	if (!p) {
-		dayItems.value = [];
-		exerciseInfoMap.value = {};
-		return;
-	}
-
-	const nextDay = findNextDayIndex();
-	if (nextDay == null) {
-		// Если нет ближайшего дня, попробуем загрузить хотя бы первый доступный день
-		const c = cfg.value;
-		if (c?.cycleType === "weekly" && Array.isArray(c.weekly?.days)) {
-			const w = c.weekly.days as number[];
-			const firstActiveDay = w.findIndex((sessions) => sessions > 0);
-			if (firstActiveDay >= 0) {
-				dayItems.value = await exercises.listExercisesForDayDetailed(
-					p.id,
-					"weekly",
-					firstActiveDay
-				);
-				await loadExerciseDetailsFor(dayItems.value);
-				return;
-			}
-		} else if (c?.cycleType === "custom" && Array.isArray(c.custom?.days)) {
-			const customDays = c.custom.days as number[];
-			const firstActiveDay = customDays.findIndex((sessions) => sessions > 0);
-			if (firstActiveDay >= 0) {
-				dayItems.value = await exercises.listExercisesForDayDetailed(
-					p.id,
-					"custom",
-					firstActiveDay
-				);
-				await loadExerciseDetailsFor(dayItems.value);
-				return;
-			}
-		}
-		dayItems.value = [];
-		exerciseInfoMap.value = {};
-		return;
-	}
-
-	dayItems.value = await exercises.listExercisesForDayDetailed(
-		p.id,
-		nextDay.cycleType,
-		nextDay.dayIndex
-	);
-	await loadExerciseDetailsFor(dayItems.value);
-}
-
-// --- Все тренировки: данные по упражнениям для всех дней ---
-const allExercisesWeekly = ref<Record<number, DayExerciseDetailed[]>>({});
-const allExercisesCustom = ref<Record<number, DayExerciseDetailed[]>>({});
-
-async function loadAllExercisesForWeekly() {
-	const p = planner.currentProgram;
-	const c = cfg.value;
-	if (!p || c?.cycleType !== "weekly" || !Array.isArray(c.weekly?.days)) return;
-	const indices = (c.weekly.days as number[])
-		.map((v: number, i: number) => (v > 0 ? i : -1))
-		.filter((i: number) => i >= 0);
-	const uniqueIdx = Array.from(new Set(indices));
-	const map: Record<number, DayExerciseDetailed[]> = {};
-	for (const idx of uniqueIdx) {
-		map[idx] = await exercises.listExercisesForDayDetailed(p.id, "weekly", idx);
-	}
-	allExercisesWeekly.value = map;
-}
-
-async function loadAllExercisesForCustom() {
-	const p = planner.currentProgram;
-	const c = cfg.value;
-	if (!p || c?.cycleType !== "custom" || !Array.isArray(c.custom?.days)) return;
-	const indices = (c.custom.days as number[])
-		.map((v: number, i: number) => (v > 0 ? i : -1))
-		.filter((i: number) => i >= 0);
-	const uniqueIdx = Array.from(new Set(indices));
-	const map: Record<number, DayExerciseDetailed[]> = {};
-	for (const idx of uniqueIdx) {
-		map[idx] = await exercises.listExercisesForDayDetailed(p.id, "custom", idx);
-	}
-	allExercisesCustom.value = map;
-}
-
-// Таргет для добавления упражнения из вкладки "Весь план"
-const pendingAddTarget = ref<{
-	cycle_type: "weekly" | "custom";
-	day_index: number;
-	slot?: 0 | 1;
-} | null>(null);
-
-function dayOfWeekLabel(idx: number) {
-	return ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"][idx] || `Д${idx + 1}`;
-}
-
-function needsDivider(microSet: any, currentIndex: number): boolean {
-	if (currentIndex === 0) return false; // Первый день не нуждается в разделителе
-
-	const currentDay = microSet.days[currentIndex];
-	const previousDay = microSet.days[currentIndex - 1];
-
-	// Проверяем, есть ли пропуск между днями (означает дни отдыха)
-	const dayGap = currentDay.dayIndex - previousDay.dayIndex;
-	return dayGap > 1;
-}
-
-const microSets = computed(() => {
-	const c = cfg.value;
-	if (!c)
-		return [] as Array<{
-			key: string;
-			title: string;
-			cycle_type: "weekly" | "custom";
-			days: Array<{ dayIndex: number; sessions: number }>;
-		}>;
-	const labels: string[] =
-		c?.microcycles?.enabled && Array.isArray(c.microcycles.labels)
-			? (c.microcycles.labels as string[])
-			: [];
-	if (c.cycleType === "weekly" && Array.isArray(c.weekly?.days)) {
-		const sets: number[][] = c.weekly?.daysB
-			? [c.weekly.days as number[], c.weekly.daysB as number[]]
-			: [c.weekly.days as number[]];
-		return sets.map((arr, idx) => ({
-			key: `weekly-${idx}`,
-			title: labels[idx] || (idx === 0 ? "Микроцикл" : `Микроцикл ${idx + 1}`),
-			cycle_type: "weekly" as const,
-			days: arr
-				.map((v, di) => ({ dayIndex: di, sessions: v }))
-				.filter((d) => d.sessions > 0),
-		}));
-	}
-	if (c.cycleType === "custom" && Array.isArray(c.custom?.days)) {
-		const sets: number[][] = c.custom?.daysB
-			? [c.custom.days as number[], c.custom.daysB as number[]]
-			: [c.custom.days as number[]];
-		return sets.map((arr, idx) => ({
-			key: `custom-${idx}`,
-			title: labels[idx] || (idx === 0 ? "Микроцикл" : `Микроцикл ${idx + 1}`),
-			cycle_type: "custom" as const,
-			days: arr
-				.map((v, di) => ({ dayIndex: di, sessions: v }))
-				.filter((d) => d.sessions > 0),
-		}));
-	}
-	return [];
-});
 
 function splitBySlot(list: DayExerciseDetailed[]) {
 	const a = list.filter((x) => (x.position ?? 0) < 1000);
@@ -348,62 +108,6 @@ function openAddForDay(
 	showExercisePicker.value = true;
 }
 
-async function onPickExercise(id: number) {
-	const p = planner.currentProgram;
-	if (!p) return;
-	const target = pendingAddTarget.value as
-		| (typeof pendingAddTarget.value & { slot?: 0 | 1 })
-		| null;
-	if (target) {
-		await exercises.attachExerciseToDay({
-			program_id: p.id,
-			cycle_type: target.cycle_type,
-			day_index: target.day_index,
-			exercise_id: id,
-			sets_count: 3,
-			reps: 10,
-			intensity: null,
-			optional: false,
-			slot: target.slot ?? 0,
-		});
-		// Перезагрузка соответствующего дня
-		if (target.cycle_type === "weekly") {
-			allExercisesWeekly.value[target.day_index] =
-				await exercises.listExercisesForDayDetailed(
-					p.id,
-					"weekly",
-					target.day_index
-				);
-		} else {
-			allExercisesCustom.value[target.day_index] =
-				await exercises.listExercisesForDayDetailed(
-					p.id,
-					"custom",
-					target.day_index
-				);
-		}
-		pendingAddTarget.value = null;
-		showExercisePicker.value = false;
-		// Обновим также ближайший день для реактивности между вкладками
-		await reloadDayItems();
-		return;
-	}
-	// Fallback: добавление в ближайший день (вкладка "Ближайшая")
-	const nextDay = findNextDayIndex();
-	if (!p || nextDay == null) return;
-	await exercises.attachExerciseToDay({
-		program_id: p.id,
-		cycle_type: nextDay.cycleType,
-		day_index: nextDay.dayIndex,
-		exercise_id: id,
-		sets_count: 3,
-		reps: 10,
-		intensity: null,
-		optional: false,
-	});
-	await reloadDayItems();
-}
-
 async function onCreatedExercise(id?: number) {
 	// Закрываем только создание
 	showCreateExercise.value = false;
@@ -411,6 +115,25 @@ async function onCreatedExercise(id?: number) {
 	if (typeof id === "number") {
 		await onPickExercise(id);
 	}
+}
+
+// Helper functions for UI
+function pmName(id: number | null) {
+	if (!id) return "";
+	const m = exercises.muscles.find((m) => m.id === id);
+	return m?.name || "";
+}
+
+function secondaryNames(exId: number) {
+	const ids = exerciseSecondaryMap.value[exId] || [];
+	return ids
+		.map((id) => exercises.muscles.find((m) => m.id === id)?.name)
+		.filter(Boolean) as string[];
+}
+
+function equipmentLabel(val?: string | null) {
+	if (!val) return "";
+	return EQUIPMENT_OPTIONS.find((o) => o.value === val)?.label || val;
 }
 
 function openCreateExerciseFromPicker() {
@@ -581,74 +304,6 @@ async function onWorkoutSaved() {
 	showToast("Сохранено");
 }
 
-async function onDeleteWorkout(payload: {
-	cycleType: "weekly" | "custom";
-	dayIndex: number;
-	slot: 0 | 1;
-}) {
-	const p = planner.currentProgram;
-	const c = cfg.value;
-	if (!p || !c) return;
-	await showDialog({
-		title: "Удалить тренировку?",
-		message: "Будут удалены упражнения и уменьшено число тренировок в дне",
-		showCancelButton: true,
-	});
-	// Удаляем упражнения соответствующего слота
-	await exercises.deleteExercisesForDaySlot(
-		p.id,
-		payload.cycleType,
-		payload.dayIndex,
-		payload.slot
-	);
-	// Обновляем конфиг: уменьшаем sessions на 1
-	const newCfg = JSON.parse(JSON.stringify(c));
-	if (payload.cycleType === "weekly" && Array.isArray(newCfg.weekly?.days)) {
-		newCfg.weekly.days[payload.dayIndex] = Math.max(
-			0,
-			(newCfg.weekly.days[payload.dayIndex] as number) - 1
-		);
-	} else if (
-		payload.cycleType === "custom" &&
-		Array.isArray(newCfg.custom?.days)
-	) {
-		newCfg.custom.days[payload.dayIndex] = Math.max(
-			0,
-			(newCfg.custom.days[payload.dayIndex] as number) - 1
-		);
-	}
-	await planner.updateProgram(p.id, {
-		name: p.name,
-		start_date: p.start_date,
-		units: p.units ?? undefined,
-		config: newCfg,
-	});
-	// Удаляем метаданные тренировки
-	await workouts.deleteWorkout(
-		p.id,
-		payload.cycleType,
-		payload.dayIndex,
-		payload.slot
-	);
-	showToast("Тренировка удалена");
-	// Перезагрузка списков для дня
-	if (payload.cycleType === "weekly") {
-		allExercisesWeekly.value[payload.dayIndex] =
-			await exercises.listExercisesForDayDetailed(
-				p.id,
-				"weekly",
-				payload.dayIndex
-			);
-	} else {
-		allExercisesCustom.value[payload.dayIndex] =
-			await exercises.listExercisesForDayDetailed(
-				p.id,
-				"custom",
-				payload.dayIndex
-			);
-	}
-}
-
 function exercisesFor(msCycleType: "weekly" | "custom", dayIndex: number) {
 	const list =
 		msCycleType === "weekly"
@@ -753,63 +408,6 @@ async function onExerciseEdited() {
 	if (p && c?.cycleType === "weekly") await loadAllExercisesForWeekly();
 	if (p && c?.cycleType === "custom") await loadAllExercisesForCustom();
 }
-
-async function onSelectMultiple(ids: number[]) {
-	const p = planner.currentProgram;
-	if (!p || ids.length === 0) return;
-	// Берём текущий таргет дня/слота, чтобы все попали туда же
-	const target = pendingAddTarget.value;
-	if (target) {
-		for (const id of ids) {
-			await exercises.attachExerciseToDay({
-				program_id: p.id,
-				cycle_type: target.cycle_type,
-				day_index: target.day_index,
-				exercise_id: id,
-				sets_count: 3,
-				reps: 10,
-				intensity: null,
-				optional: false,
-				slot: (target as any).slot ?? 0,
-			});
-		}
-		// Перезагрузим соответствующий день
-		if (target.cycle_type === "weekly") {
-			allExercisesWeekly.value[target.day_index] =
-				await exercises.listExercisesForDayDetailed(
-					p.id,
-					"weekly",
-					target.day_index
-				);
-		} else {
-			allExercisesCustom.value[target.day_index] =
-				await exercises.listExercisesForDayDetailed(
-					p.id,
-					"custom",
-					target.day_index
-				);
-		}
-		// Обновим также ближайший день для реактивности между вкладками
-		await reloadDayItems();
-		return;
-	}
-	// Фоллбек: если таргета нет, добавим в ближайший день
-	const nextDay = findNextDayIndex();
-	if (nextDay == null) return;
-	for (const id of ids) {
-		await exercises.attachExerciseToDay({
-			program_id: p.id,
-			cycle_type: nextDay.cycleType,
-			day_index: nextDay.dayIndex,
-			exercise_id: id,
-			sets_count: 3,
-			reps: 10,
-			intensity: null,
-			optional: false,
-		});
-	}
-	await reloadDayItems();
-}
 </script>
 
 <template>
@@ -862,13 +460,8 @@ async function onSelectMultiple(ids: number[]) {
 				</van-cell>
 			</van-cell-group>
 
-			<van-tabs
-				type="card"
-				class="planner__tabs"
-				v-model:active="activeTab"
-				line-width="100"
-			>
-				<van-tab name="next" title="Ближайшая">
+			<PlannerTabs v-model:activeTab="activeTab">
+				<template #next>
 					<div class="planner-next">
 						<van-cell-group class="planner-next__group transparent-bg">
 							<van-cell
@@ -996,8 +589,7 @@ async function onSelectMultiple(ids: number[]) {
 							>
 						</div>
 					</div>
-				</van-tab>
-				<van-tab name="all" title="Весь план">
+				<template #all>
 					<div class="planner-all">
 						<template v-if="microSets.length > 0">
 							<div
@@ -1058,8 +650,8 @@ async function onSelectMultiple(ids: number[]) {
 							/>
 						</template>
 					</div>
-				</van-tab>
-			</van-tabs>
+				</template>
+			</PlannerTabs>
 
 			<!-- Кнопка нового плана убрана по ТЗ -->
 		</template>
@@ -1129,39 +721,6 @@ async function onSelectMultiple(ids: number[]) {
 	}
 	&__new-plan-btn {
 		margin-top: var(--space-3);
-	}
-	&__tabs {
-		height: 70dvh;
-		/* pill top corners, no bottom radius; active with bg */
-		:deep(.van-tabs__wrap) {
-			background: transparent;
-			width: 100%;
-		}
-		:deep(.van-tabs__nav--card) {
-			background: transparent;
-			border: none;
-			padding: 0;
-		}
-		:deep(.van-tab) {
-			border: 1px solid var(--van-border-color);
-			border-top-left-radius: var(--radius-pill);
-			border-bottom-left-radius: 0;
-			border-bottom-right-radius: 0;
-			background: var(--color-surface);
-			color: var(--van-text-color);
-			width: 100%;
-			padding: 0;
-			margin: 0;
-		}
-		:deep(.van-tab--active) {
-			background: var(--color-bg);
-			color: var(--van-text-color);
-			border: none;
-		}
-
-		:deep(.van-tabs__line) {
-			display: none;
-		}
 	}
 }
 
