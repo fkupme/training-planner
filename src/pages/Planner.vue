@@ -1,4 +1,3 @@
-// @ts-nocheck
 <script setup lang="ts">
 import {
 	EQUIPMENT_OPTIONS,
@@ -35,8 +34,11 @@ const planner = usePlannerStore();
 const exercises = useExercisesStore();
 const workouts = useWorkoutsStore();
 
-// Use the new composables
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// Use the new composables - expose all needed properties for template
+const plannerData = usePlannerData();
+const plannerLogic = usePlannerLogic();
+
+// Expose composable data for template usage
 const {
 	dayItems,
 	exerciseInfoMap,
@@ -50,9 +52,8 @@ const {
 	loadExerciseDetailsFor,
 	loadAllExercisesForWeekly,
 	loadAllExercisesForCustom,
-} = usePlannerData();
+} = plannerData;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const {
 	pendingAddTarget,
 	microSets,
@@ -63,7 +64,7 @@ const {
 	onDeleteWorkout,
 	dayOfWeekLabel,
 	needsDivider,
-} = usePlannerLogic();
+} = plannerLogic;
 
 // Component state
 const showNewPlan = ref(false);
@@ -71,12 +72,10 @@ const editProgramId = ref<number | null>(null);
 const showExercisePicker = ref(false);
 const showCreateExercise = ref(false);
 const showParams = ref(false);
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const activeTab = ref<"next" | "all">("next");
 
 // Component state and additional functionality
 const editingItem = ref<DayExerciseDetailed | null>(null);
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const editingParams = computed(() => {
 	const it = editingItem.value;
 	if (!it) return null as any;
@@ -90,51 +89,41 @@ const editingParams = computed(() => {
 	};
 });
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function editProgram() {
 	editProgramId.value = planner.currentProgram?.id ?? null;
 	showNewPlan.value = true;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function splitBySlot(list: DayExerciseDetailed[]) {
 	const a = list.filter((x) => (x.position ?? 0) < 1000);
 	const b = list.filter((x) => (x.position ?? 0) >= 1000);
 	return { a, b };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function openAddForDay(
 	cycle_type: "weekly" | "custom",
 	day_index: number,
 	slot: 0 | 1
 ) {
 	pendingAddTarget.value = { cycle_type, day_index };
-	// slot используется в onPickExercise через store.attachExerciseToDay
-	// сохраним временно в ref через замыкание на pendingAddTarget: расширим объект
 	(pendingAddTarget.value as any).slot = slot;
 	showExercisePicker.value = true;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function onCreatedExercise(id?: number) {
-	// Закрываем только создание
 	showCreateExercise.value = false;
-	// Если создавали из пикера и есть таргет — сразу добавить
 	if (typeof id === "number") {
 		await onPickExercise(id);
 	}
 }
 
 // Helper functions for UI
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function pmName(id: number | null) {
 	if (!id) return "";
 	const m = exercises.muscles.find((m) => m.id === id);
 	return m?.name || "";
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function secondaryNames(exId: number) {
 	const ids = exerciseSecondaryMap.value[exId] || [];
 	return ids
@@ -142,25 +131,20 @@ function secondaryNames(exId: number) {
 		.filter(Boolean) as string[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function equipmentLabel(val?: string | null) {
 	if (!val) return "";
 	return EQUIPMENT_OPTIONS.find((o) => o.value === val)?.label || val;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function openCreateExerciseFromPicker() {
-	// Не закрываем пикер, накрываем его модалкой создания
 	showCreateExercise.value = true;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function openParams(item: DayExerciseDetailed) {
 	editingItem.value = item;
 	showParams.value = true;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function removeItem(item: DayExerciseDetailed) {
 	await showDialog({
 		title: "Удалить упражнение?",

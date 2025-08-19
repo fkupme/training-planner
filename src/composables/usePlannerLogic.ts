@@ -37,7 +37,7 @@ export function usePlannerLogic() {
 			const w = c.weekly.days as number[];
 			const dow = (today.getDay() + 6) % 7; // 0=Пн, 1=Вт, ..., 6=Вс
 
-			// Сначала ищем начиная с сегодняшнего дня
+			// Search for next active day starting from today
 			for (let i = 0; i < 7; i++) {
 				const idx = (dow + i) % 7;
 				if (w[idx] > 0) return { cycleType: "weekly", dayIndex: idx };
@@ -55,19 +55,26 @@ export function usePlannerLogic() {
 			
 			if (customDays.length === 0) return null;
 
-			// Calculate days since the cycle start
+			// Calculate days since the cycle start (can be negative if before start)
 			const daysSinceStart = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 			
 			// Find the current position in the cycle
 			const cycleLength = customDays.length;
-			let currentDayInCycle = daysSinceStart % cycleLength;
 			
-			// If we're before the start date, start from day 0
+			// If we're before the start date, return the first active day
 			if (daysSinceStart < 0) {
-				currentDayInCycle = 0;
+				for (let i = 0; i < cycleLength; i++) {
+					if (customDays[i] > 0) {
+						return { cycleType: "custom", dayIndex: i };
+					}
+				}
+				return null;
 			}
 
-			// Find the next active day in the cycle starting from current position
+			// Calculate current day in cycle (0-based)
+			const currentDayInCycle = daysSinceStart % cycleLength;
+			
+			// Find the next active day starting from current position
 			for (let i = 0; i < cycleLength; i++) {
 				const dayOffset = (currentDayInCycle + i) % cycleLength;
 				if (customDays[dayOffset] > 0) {
