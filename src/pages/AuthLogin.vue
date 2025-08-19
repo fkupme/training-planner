@@ -1,56 +1,56 @@
 <script setup lang="ts">
-import logoDark from "@/assets/logo-shield-barbell-dark.svg";
-import logoLight from "@/assets/logo-shield-barbell-light.svg";
-import { useKeyboardHandling } from "@/composables/useKeyboardHandling";
-import { useAuthStore } from "@/stores/auth";
-import { showToast } from "vant";
-import { computed, onMounted, ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import logoDark from '@/assets/logo-shield-barbell-dark.svg';
+import logoLight from '@/assets/logo-shield-barbell-light.svg';
+import { useKeyboardHandling } from '@/composables/useKeyboardHandling';
+import { useAuthStore } from '@/stores/auth';
+import { showToast } from 'vant';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 const router = useRouter();
 const route = useRoute();
 const auth = useAuthStore();
 
-useKeyboardHandling(".auth", 320);
+useKeyboardHandling('.auth', 320);
 
-const email = ref("");
-const password = ref("");
+const email = ref('');
+const password = ref('');
 const loading = ref(false);
 
 const isLightTheme = ref(false);
 onMounted(() => {
-	isLightTheme.value = document.documentElement.classList.contains("light");
+	isLightTheme.value = document.documentElement.classList.contains('light');
 });
 const logoSrc = computed(() => (isLightTheme.value ? logoDark : logoLight));
 
 const emailRules = [
-	{ required: true, message: "Введите email" },
+	{ required: true, message: 'Введите email' },
 	{
 		validator: (val: string) => /.+@.+\..+/.test(val),
-		message: "Некорректный email",
+		message: 'Некорректный email',
 	},
 ];
 const passwordRules = [
-	{ required: true, message: "Введите пароль" },
+	{ required: true, message: 'Введите пароль' },
 	{
 		validator: (val: string) => val.length >= 6,
-		message: "Минимум 6 символов",
+		message: 'Минимум 6 символов',
 	},
 ];
 
 async function onSubmit() {
 	if (!email.value || !password.value) {
-		showToast("Заполните email и пароль");
+		showToast('Заполните email и пароль');
 		return;
 	}
 	loading.value = true;
 	try {
 		await auth.login(email.value, password.value);
-		showToast("Вход выполнен");
-		const redirect = String(route.query.redirect || "/planner");
+		showToast('Вход выполнен');
+		const redirect = String(route.query.redirect || '/planner');
 		router.replace(redirect);
 	} catch (e: any) {
-		showToast(auth.error || "Ошибка входа");
+		showToast(auth.error || 'Ошибка входа');
 	} finally {
 		loading.value = false;
 	}
@@ -111,6 +111,24 @@ async function onSubmit() {
 </template>
 
 <style lang="scss" scoped>
+:deep(.van-field__label) {
+	font-size: var(--fs-sm);
+	color: var(--color-text-muted);
+}
+:deep(.van-field__input),
+:deep(.van-field) input,
+:deep(.van-field__control) {
+	font-size: var(--fs-sm);
+	/* force the color on the actual <input> element rendered by Vant */
+	color: var(--color-text);
+}
+
+/* placeholder styling (if needed) */
+:deep(.van-field) input::placeholder {
+	color: var(--color-text-muted);
+	opacity: 1;
+}
+
 .auth {
 	min-height: 100vh;
 	display: flex;
@@ -142,6 +160,7 @@ async function onSubmit() {
 		border: 1px solid var(--van-border-color);
 		border-radius: var(--radius-m);
 		margin-bottom: var(--space-3);
+		color: #000;
 	}
 	&__actions {
 		margin: var(--space-4);
@@ -150,6 +169,8 @@ async function onSubmit() {
 	&__secondary {
 		margin-top: var(--space-2);
 		background-color: var(--color-bg);
+		color: var(--color-text-muted);
+    border-color: var(--color-text-muted);
 	}
 	&__head {
 		margin-bottom: var(--space-4);

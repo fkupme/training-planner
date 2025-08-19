@@ -150,6 +150,24 @@ async function onSubmit() {
 </template>
 
 <style lang="scss" scoped>
+:deep(.van-field__label) {
+	font-size: var(--fs-sm);
+	color: var(--color-text-muted);
+}
+:deep(.van-field__input),
+:deep(.van-field) input,
+:deep(.van-field__control) {
+	font-size: var(--fs-sm);
+	/* force the color on the actual <input> element rendered by Vant */
+	color: var(--color-text) !important;
+}
+
+/* placeholder styling (if needed) */
+:deep(.van-field) input::placeholder {
+	color: var(--color-text-muted);
+	opacity: 1;
+}
+
 .auth {
 	min-height: 100vh;
 	display: flex;
@@ -186,9 +204,11 @@ async function onSubmit() {
 		margin: var(--space-4);
 		margin-top: var(--space-4);
 	}
-	&__secondary {
+		&__secondary {
 		margin-top: var(--space-2);
 		background-color: var(--color-bg);
+		color: var(--color-text-muted);
+    border-color: var(--color-text-muted);
 	}
 	&__head {
 		margin-bottom: var(--space-4);
