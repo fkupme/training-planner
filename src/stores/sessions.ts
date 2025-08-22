@@ -217,6 +217,50 @@ export const useSessionsStore = defineStore('sessions', {
 			this.sessionExercises = sessionExercises;
 		},
 
+		// Поиск активной незавершённой сессии при старте приложения
+		async loadActiveSession() {
+			const rows = await query<TrainingSession>(
+				`SELECT * FROM training_sessions WHERE status = 'in_progress' ORDER BY started_at DESC LIMIT 1`
+			);
+			if (!rows.length) return;
+			this.currentSession = rows[0];
+			await this.loadSessionExercises();
+		},
+
+		// Авто-завершение если прошло >6 часов и есть выполненные подходы
+		async autoExpireActiveSession(maxHours = 6) {
+			if (!this.currentSession) return;
+			if (this.currentSession.status !== 'in_progress') return;
+			const started = this.currentSession.started_at;
+			if (!started) return;
+			const now = Date.now();
+			const diffHours = (now - started) / 3600000;
+			if (diffHours <= maxHours) return;
+			// Проверяем были ли внесены хоть какие-то подходы
+			const sets = await query<{ cnt: number }>(
+				`SELECT COUNT(*) as cnt FROM session_exercise_sets WHERE session_id = ?`,
+				[this.currentSession.id]
+			);
+			if (sets[0]?.cnt > 0) {
+				// Завершаем как completed (duration по факту)
+				const duration = Math.floor((now - started) / 60000);
+				await exec(
+					`UPDATE training_sessions SET status = 'completed', completed_at = ?, duration_minutes = ? WHERE id = ?`,
+					[now, duration, this.currentSession.id]
+				);
+				this.currentSession.status = 'completed';
+				this.currentSession.completed_at = now;
+				this.currentSession.duration_minutes = duration;
+			} else {
+				// Нет записей — просто отменяем
+				await exec(
+					`UPDATE training_sessions SET status = 'cancelled' WHERE id = ?`,
+					[this.currentSession.id]
+				);
+				this.clearSession();
+			}
+		},
+
 		async addExerciseSet(
 			day_exercise_id: number,
 			set_number: number,
@@ -357,100 +401,131 @@ export const useSessionsStore = defineStore('sessions', {
 				const program = planner.currentProgram;
 				const config = program.config ? JSON.parse(program.config) : null;
 
-				if (
-					!config?.cycleType ||
-					config.cycleType !== 'weekly' ||
-					!Array.isArray(config.weekly?.days)
-				) {
+				if (!config?.cycleType) {
 					this.nextWorkout = null;
 					return;
 				}
-
-				// Находим ближайший день тренировки
 				const today = new Date();
-				const dow = (today.getDay() + 6) % 7; // 0=Пн
-				const weeklyDays = config.weekly.days as number[];
-
-				let bestDayIndex = null;
-				let bestSlot = 0;
-
-				// Ищем ближайший активный день
-				for (let i = 0; i < 7; i++) {
-					const idx = (dow + i) % 7;
-					if (weeklyDays[idx] > 0) {
-						bestDayIndex = idx;
-						// Если есть несколько слотов (A/B тренировки), берём первый
-						bestSlot = 0;
-						break;
+				today.setHours(0, 0, 0, 0);
+				if (
+					config.cycleType === 'weekly' &&
+					Array.isArray(config.weekly?.days)
+				) {
+					const weeklyDays = config.weekly.days as number[];
+					const dow = (today.getDay() + 6) % 7;
+					let bestDayIndex: number | null = null;
+					for (let i = 0; i < 7; i++) {
+						const idx = (dow + i) % 7;
+						if (weeklyDays[idx] > 0) {
+							bestDayIndex = idx;
+							break;
+						}
 					}
-				}
-
-				if (bestDayIndex === null) {
+					if (bestDayIndex === null) {
+						this.nextWorkout = null;
+						return;
+					}
+					await this._buildNextWorkout(program.id, 'weekly', bestDayIndex, 0);
+				} else if (
+					config.cycleType === 'custom' &&
+					Array.isArray(config.custom?.days)
+				) {
+					const customDays = config.custom.days as number[];
+					if (!customDays.length) {
+						this.nextWorkout = null;
+						return;
+					}
+					// Определяем текущий день цикла
+					const startDate = program.start_date
+						? new Date(program.start_date)
+						: today;
+					startDate.setHours(0, 0, 0, 0);
+					const daysSinceStart = Math.floor(
+						(today.getTime() - startDate.getTime()) / 86400000
+					);
+					let cur = daysSinceStart % customDays.length;
+					if (daysSinceStart < 0 || Number.isNaN(cur)) cur = 0;
+					let bestOffset: number | null = null;
+					for (let i = 0; i < customDays.length; i++) {
+						const off = (cur + i) % customDays.length;
+						if (customDays[off] > 0) {
+							bestOffset = off;
+							break;
+						}
+					}
+					if (bestOffset === null) {
+						this.nextWorkout = null;
+						return;
+					}
+					await this._buildNextWorkout(program.id, 'custom', bestOffset, 0);
+				} else {
 					this.nextWorkout = null;
-					return;
 				}
-
-				// Загружаем упражнения для найденного дня
-				const dayName = [
-					'Понедельник',
-					'Вторник',
-					'Среда',
-					'Четверг',
-					'Пятница',
-					'Суббота',
-					'Воскресенье',
-				][bestDayIndex];
-
-				const positionFilter =
-					bestSlot === 1
-						? 'pde.position >= 1000'
-						: '(pde.position < 1000 OR pde.position IS NULL)';
-
-				const exercises = await query<any>(
-					`SELECT pde.id as day_exercise_id, e.name as exercise_name, 
-					        pde.sets_count as planned_sets, pde.reps_json as planned_reps,
-					        pde.work_weight
-					 FROM program_day_exercises pde
-					 JOIN exercises e ON e.id = pde.exercise_id
-					 WHERE pde.program_id = ? AND pde.cycle_type = ? AND pde.day_index = ?
-					 AND ${positionFilter}
-					 ORDER BY pde.position`,
-					[program.id, 'weekly', bestDayIndex]
-				);
-
-				// Преобразуем в нужный формат
-				const exerciseData: SessionExerciseData[] = exercises.map(ex => ({
-					day_exercise_id: ex.day_exercise_id,
-					exercise_name: ex.exercise_name,
-					planned_sets: ex.planned_sets,
-					planned_reps: ex.planned_reps,
-					work_weight: ex.work_weight,
-					sets: [],
-				}));
-
-				const totalSets = exerciseData.reduce(
-					(sum, ex) => sum + ex.planned_sets,
-					0
-				);
-				const estimatedDuration = totalSets * 3; // Примерно 3 минуты на подход
-
-				this.nextWorkout = {
-					program_id: program.id,
-					cycle_type: 'weekly',
-					day_index: bestDayIndex,
-					session_slot: bestSlot,
-					day_name: dayName,
-					exercises: exerciseData,
-					exercises_count: exerciseData.length,
-					total_sets: totalSets,
-					estimated_duration: estimatedDuration,
-				};
 			} catch (error) {
 				console.error('Failed to load next workout:', error);
 				this.nextWorkout = null;
 			} finally {
 				this.isLoadingNextWorkout = false;
 			}
+		},
+
+		async _buildNextWorkout(
+			programId: number,
+			cycleType: 'weekly' | 'custom',
+			dayIndex: number,
+			sessionSlot: number
+		) {
+			const dayName =
+				cycleType === 'weekly'
+					? [
+							'Понедельник',
+							'Вторник',
+							'Среда',
+							'Четверг',
+							'Пятница',
+							'Суббота',
+							'Воскресенье',
+					  ][dayIndex]
+					: `День ${dayIndex + 1}`;
+			const positionFilter =
+				sessionSlot === 1
+					? 'pde.position >= 1000'
+					: '(pde.position < 1000 OR pde.position IS NULL)';
+			const exercises = await query<any>(
+				`SELECT pde.id as day_exercise_id, e.name as exercise_name, 
+			        pde.sets_count as planned_sets, pde.reps_json as planned_reps,
+			        pde.work_weight
+			 FROM program_day_exercises pde
+			 JOIN exercises e ON e.id = pde.exercise_id
+			 WHERE pde.program_id = ? AND pde.cycle_type = ? AND pde.day_index = ?
+			 AND ${positionFilter}
+			 ORDER BY pde.position`,
+				[programId, cycleType, dayIndex]
+			);
+			const exerciseData: SessionExerciseData[] = exercises.map(ex => ({
+				day_exercise_id: ex.day_exercise_id,
+				exercise_name: ex.exercise_name,
+				planned_sets: ex.planned_sets,
+				planned_reps: ex.planned_reps,
+				work_weight: ex.work_weight,
+				sets: [],
+			}));
+			const totalSets = exerciseData.reduce(
+				(sum, ex) => sum + ex.planned_sets,
+				0
+			);
+			const estimatedDuration = totalSets * 3;
+			this.nextWorkout = {
+				program_id: programId,
+				cycle_type: cycleType,
+				day_index: dayIndex,
+				session_slot: sessionSlot,
+				day_name: dayName,
+				exercises: exerciseData,
+				exercises_count: exerciseData.length,
+				total_sets: totalSets,
+				estimated_duration: estimatedDuration,
+			};
 		},
 
 		// Создание сессии из ближайшей тренировки

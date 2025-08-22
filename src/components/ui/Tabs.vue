@@ -1,43 +1,49 @@
 <script setup lang="ts">
-import { defineEmits, defineProps } from 'vue';
+import { computed } from 'vue';
 
-interface Props {
-	activeTab: 'next' | 'all';
+interface Labels {
+	next?: string;
+	all?: string;
 }
 
-interface Emits {
-	(e: 'update:activeTab', value: 'next' | 'all'): void;
-}
+const props = defineProps<{
+	active: 'next' | 'all';
+	labels?: Labels;
+}>();
+const emit = defineEmits<{
+	(e: 'update:active', value: 'next' | 'all'): void;
+}>();
 
-defineProps<Props>();
-const emit = defineEmits<Emits>();
+const labels = computed(() => ({
+	next: props.labels?.next || 'Ближайший',
+	all: props.labels?.all || 'Весь план',
+}));
 
-function updateTab(tab: 'next' | 'all') {
-	emit('update:activeTab', tab);
+function updateTab(v: string) {
+	if (v === 'next' || v === 'all') emit('update:active', v);
 }
 </script>
 
 <template>
 	<van-tabs
 		type="card"
-		class="planner__tabs"
-		:active="activeTab"
+		class="app-tabs"
+		:active="props.active"
 		@update:active="updateTab"
 		line-width="100"
 	>
-		<van-tab name="next" title="Ближайшая">
+		<van-tab name="next" :title="labels.next">
 			<slot name="next" />
 		</van-tab>
-		<van-tab name="all" title="Весь план">
+		<van-tab name="all" :title="labels.all">
 			<slot name="all" />
 		</van-tab>
 	</van-tabs>
 </template>
 
-<style scoped>
-.planner__tabs {
-	height: 70dvh;
-	/* pill top corners, no bottom radius; active with bg */
+<style lang="scss" scoped>
+.app-tabs {
+	height: 80dvh;
 	:deep(.van-tabs__wrap) {
 		background: transparent;
 		width: 100%;
@@ -63,7 +69,6 @@ function updateTab(tab: 'next' | 'all') {
 		color: var(--van-text-color);
 		border: none;
 	}
-
 	:deep(.van-tabs__line) {
 		display: none;
 	}

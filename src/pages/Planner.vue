@@ -4,38 +4,46 @@ import {
 	EQUIPMENT_OPTIONS,
 	useExercisesStore,
 	type DayExerciseDetailed,
-} from "@/stores/exercises";
-import { usePlannerStore } from "@/stores/planner";
-import { computed, onMounted, ref, watch } from "vue";
+} from '@/stores/exercises';
+import { usePlannerStore } from '@/stores/planner';
+import { computed, onMounted, ref, watch } from 'vue';
 // @ts-ignore - Vue SFC default export is provided by shim
-import NewPlanPopup from "@/components/planner/NewPlanPopup.vue";
+import NewPlanPopup from '@/components/planner/NewPlanPopup.vue';
 // @ts-ignore - Vue SFC default export is provided by shim
-import ExercisePickerPopup from "@/components/planner/ExercisePickerPopup.vue";
+import ExercisePickerPopup from '@/components/planner/ExercisePickerPopup.vue';
 // @ts-ignore - Vue SFC default export is provided by shim
-import CreateExercisePopup from "@/components/planner/CreateExercisePopup.vue";
+import CreateExercisePopup from '@/components/planner/CreateExercisePopup.vue';
 // @ts-ignore - Vue SFC default export is provided by shim
-import DayExerciseParamsPopup from "@/components/planner/DayExerciseParamsPopup.vue";
+import DayExerciseParamsPopup from '@/components/planner/DayExerciseParamsPopup.vue';
 // @ts-ignore - Vue SFC default export is provided by shim
-import PlannerTabs from "@/components/planner/PlannerTabs.vue";
-import { showDialog, showToast } from "vant";
-import { useRouter } from "vue-router";
+import AppTabs from '@/components/ui/Tabs.vue';
+import { showDialog, showToast } from 'vant';
+import { useRouter } from 'vue-router';
 // @ts-ignore - Vue SFC default export is provided by shim
-import WorkoutCard from "@/components/planner/WorkoutCard.vue";
+// (moved WorkoutCard usage into PlannerTabAll component)
 // @ts-ignore - Vue SFC default export is provided by shim
-import WorkoutEditPopup from "@/components/planner/WorkoutEditPopup.vue";
-import { useWorkoutsStore } from "@/stores/workouts";
+import WorkoutEditPopup from '@/components/planner/WorkoutEditPopup.vue';
+import { useSessionsStore } from '@/stores/sessions';
+import { useWorkoutsStore } from '@/stores/workouts';
 // @ts-ignore - Vue SFC default export is provided by shim
-import EditExercisePopup from "@/components/planner/EditExercisePopup.vue";
+import EditExercisePopup from '@/components/planner/EditExercisePopup.vue';
 // Import the new composables
-import { usePlannerData } from "@/composables/usePlannerData";
-import { usePlannerLogic } from "@/composables/usePlannerLogic";
+import { usePlannerData } from '@/composables/usePlannerData';
+import { usePlannerLogic } from '@/composables/usePlannerLogic';
+// New extracted tab components
+// @ts-ignore - Vue SFC default export is provided by shim
+import PlannerTabAll from '@/components/planner/PlannerTabAll.vue';
+// @ts-ignore - Vue SFC default export is provided by shim
+import PlannerTabNext from '@/components/planner/PlannerTabNext.vue';
 
 const router = useRouter();
 const planner = usePlannerStore();
 const exercises = useExercisesStore();
 const workouts = useWorkoutsStore();
+const sessions = useSessionsStore();
 
-// Use the new composables
+// Единый экземпляр данных планера
+const plannerData = usePlannerData();
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const {
 	dayItems,
@@ -47,11 +55,11 @@ const {
 	nextSummary,
 	createdAtLabel,
 	getExerciseWeight,
-	loadExerciseDetailsFor,
 	loadAllExercisesForWeekly,
 	loadAllExercisesForCustom,
-} = usePlannerData();
+} = plannerData;
 
+// Подключаем логику, передавая общий data чтобы реактивность "Ближайшая" работала без перезагрузки
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const {
 	pendingAddTarget,
@@ -63,7 +71,90 @@ const {
 	onDeleteWorkout,
 	dayOfWeekLabel,
 	needsDivider,
-} = usePlannerLogic();
+} = usePlannerLogic(plannerData);
+
+// Форматированная дата ближайшей тренировки + пометка (сегодня/завтра/послезавтра)
+const nextDateLabel = computed(() => {
+	const next = findNextDayIndex();
+	if (!next) return '';
+	const now = new Date();
+	const base = new Date();
+	base.setHours(0, 0, 0, 0);
+
+	// Для weekly: dayIndex это день недели (Пн=0)
+	if (next.cycleType === 'weekly') {
+		const currentDow = (now.getDay() + 6) % 7; // Пн=0
+		const diff = (next.dayIndex - currentDow + 7) % 7; // 0..6
+		const target = new Date(base.getTime() + diff * 86400000);
+		return formatWithRelative(target, diff);
+	}
+	// Для custom: dayOffset уже содержит смещение (0=сегодня, 1=завтра ...) в рамках поиска
+	const diff = next.dayOffset;
+	const target = new Date(base.getTime() + diff * 86400000);
+	return formatWithRelative(target, diff);
+});
+
+// ISO даты для логики дизейбла старта тренировки
+const nextDateISO = computed(() => {
+	const next = findNextDayIndex();
+	if (!next) return null as string | null;
+	const today = new Date();
+	const base = new Date();
+	base.setHours(0, 0, 0, 0);
+	let diff = 0;
+	if (next.cycleType === 'weekly') {
+		const dow = (today.getDay() + 6) % 7;
+		diff = (next.dayIndex - dow + 7) % 7;
+	} else {
+		diff = next.dayOffset;
+	}
+	const target = new Date(base.getTime() + diff * 86400000);
+	return target.toISOString().slice(0, 10);
+});
+
+const todayISO = new Date().toISOString().slice(0, 10);
+const programStartISO = computed(() => {
+	const d = planner.currentProgram?.start_date;
+	if (!d) return null as string | null;
+	try {
+		return new Date(d).toISOString().slice(0, 10);
+	} catch {
+		return null;
+	}
+});
+
+// Дизейбл кнопки "Начать тренировку": если ближайшая тренировка в будущем из-за будущей start_date
+const disableStartWorkout = computed(() => {
+	if (!nextDateISO.value) return true; // если нет дня — нечего начинать
+	if (programStartISO.value && programStartISO.value > todayISO) return true; // план ещё не начался
+	// Если ближайшая дата > сегодня
+	return nextDateISO.value > todayISO; // нельзя начинать раньше назначенного дня
+});
+
+function formatWithRelative(dateObj: Date, diff: number) {
+	const months = [
+		'января',
+		'февраля',
+		'марта',
+		'апреля',
+		'мая',
+		'июня',
+		'июля',
+		'августа',
+		'сентября',
+		'октября',
+		'ноября',
+		'декабря',
+	];
+	const dd = dateObj.getDate();
+	const mm = months[dateObj.getMonth()];
+	const yyyy = dateObj.getFullYear();
+	let rel = '';
+	if (diff === 0) rel = 'сегодня';
+	else if (diff === 1) rel = 'завтра';
+	else if (diff === 2) rel = 'послезавтра';
+	return `${dd} ${mm} ${yyyy}${rel ? ', ' + rel : ''}`;
+}
 
 // Component state
 const showNewPlan = ref(false);
@@ -72,7 +163,7 @@ const showExercisePicker = ref(false);
 const showCreateExercise = ref(false);
 const showParams = ref(false);
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const activeTab = ref<"next" | "all">("next");
+const activeTab = ref<'next' | 'all'>('next');
 
 // Component state and additional functionality
 const editingItem = ref<DayExerciseDetailed | null>(null);
@@ -98,14 +189,14 @@ function editProgram() {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function splitBySlot(list: DayExerciseDetailed[]) {
-	const a = list.filter((x) => (x.position ?? 0) < 1000);
-	const b = list.filter((x) => (x.position ?? 0) >= 1000);
+	const a = list.filter(x => (x.position ?? 0) < 1000);
+	const b = list.filter(x => (x.position ?? 0) >= 1000);
 	return { a, b };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function openAddForDay(
-	cycle_type: "weekly" | "custom",
+	cycle_type: 'weekly' | 'custom',
 	day_index: number,
 	slot: 0 | 1
 ) {
@@ -121,7 +212,7 @@ async function onCreatedExercise(id?: number) {
 	// Закрываем только создание
 	showCreateExercise.value = false;
 	// Если создавали из пикера и есть таргет — сразу добавить
-	if (typeof id === "number") {
+	if (typeof id === 'number') {
 		await onPickExercise(id);
 	}
 }
@@ -129,23 +220,23 @@ async function onCreatedExercise(id?: number) {
 // Helper functions for UI
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function pmName(id: number | null) {
-	if (!id) return "";
-	const m = exercises.muscles.find((m) => m.id === id);
-	return m?.name || "";
+	if (!id) return '';
+	const m = exercises.muscles.find(m => m.id === id);
+	return m?.name || '';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function secondaryNames(exId: number) {
 	const ids = exerciseSecondaryMap.value[exId] || [];
 	return ids
-		.map((id) => exercises.muscles.find((m) => m.id === id)?.name)
+		.map(id => exercises.muscles.find(m => m.id === id)?.name)
 		.filter(Boolean) as string[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function equipmentLabel(val?: string | null) {
-	if (!val) return "";
-	return EQUIPMENT_OPTIONS.find((o) => o.value === val)?.label || val;
+	if (!val) return '';
+	return EQUIPMENT_OPTIONS.find(o => o.value === val)?.label || val;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -163,28 +254,28 @@ function openParams(item: DayExerciseDetailed) {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function removeItem(item: DayExerciseDetailed) {
 	await showDialog({
-		title: "Удалить упражнение?",
+		title: 'Удалить упражнение?',
 		message: item.exercise_name,
 		showCancelButton: true,
 	});
 	await exercises.deleteDayExercise(item.id);
-	showToast("Удалено");
+	showToast('Удалено');
 	// Обновим обе проекции
 	await reloadDayItems();
 	const p = planner.currentProgram;
 	if (p) {
-		if (item.cycle_type === "weekly") {
+		if (item.cycle_type === 'weekly') {
 			allExercisesWeekly.value[item.day_index] =
 				await exercises.listExercisesForDayDetailed(
 					p.id,
-					"weekly",
+					'weekly',
 					item.day_index
 				);
-		} else if (item.cycle_type === "custom") {
+		} else if (item.cycle_type === 'custom') {
 			allExercisesCustom.value[item.day_index] =
 				await exercises.listExercisesForDayDetailed(
 					p.id,
-					"custom",
+					'custom',
 					item.day_index
 				);
 		}
@@ -198,16 +289,16 @@ function startWorkout() {
 	const p = planner.currentProgram;
 	if (p && nextDay !== null) {
 		router.push({
-			path: "/session",
+			path: '/session',
 			query: {
 				programId: p.id.toString(),
 				cycleType: nextDay.cycleType,
 				dayIndex: nextDay.dayIndex.toString(),
-				slot: "0",
+				slot: '0',
 			},
 		});
 	} else {
-		router.push("/session");
+		router.push('/session');
 	}
 }
 
@@ -217,18 +308,18 @@ async function onParamsSaved() {
 	const it = editingItem.value;
 	const p = planner.currentProgram;
 	if (it && p) {
-		if (it.cycle_type === "weekly") {
+		if (it.cycle_type === 'weekly') {
 			allExercisesWeekly.value[it.day_index] =
 				await exercises.listExercisesForDayDetailed(
 					p.id,
-					"weekly",
+					'weekly',
 					it.day_index
 				);
 		} else {
 			allExercisesCustom.value[it.day_index] =
 				await exercises.listExercisesForDayDetailed(
 					p.id,
-					"custom",
+					'custom',
 					it.day_index
 				);
 		}
@@ -238,7 +329,7 @@ async function onParamsSaved() {
 const showWorkoutEdit = ref(false);
 const workoutEditTarget = ref<{
 	programId: number;
-	cycleType: "weekly" | "custom";
+	cycleType: 'weekly' | 'custom';
 	dayIndex: number;
 	slot: 0 | 1;
 } | null>(null);
@@ -278,12 +369,12 @@ const workoutMetaCustom = ref<
 	>
 >({});
 
-async function loadWorkoutMetaFor(cycle: "weekly" | "custom") {
+async function loadWorkoutMetaFor(cycle: 'weekly' | 'custom') {
 	const p = planner.currentProgram;
 	const c = cfg.value;
 	if (!p || !c) return;
 	const dayArr =
-		cycle === "weekly"
+		cycle === 'weekly'
 			? (c.weekly?.days as number[] | undefined)
 			: (c.custom?.days as number[] | undefined);
 	if (!Array.isArray(dayArr)) return;
@@ -293,20 +384,20 @@ async function loadWorkoutMetaFor(cycle: "weekly" | "custom") {
 		const b = await workouts.getWorkout(p.id, cycle, i, 1);
 		map[i] = { A: a, B: b };
 	}
-	if (cycle === "weekly") workoutMetaWeekly.value = map;
+	if (cycle === 'weekly') workoutMetaWeekly.value = map;
 	else workoutMetaCustom.value = map;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function metaFor(cycle: "weekly" | "custom", dayIndex: number) {
+function metaFor(cycle: 'weekly' | 'custom', dayIndex: number) {
 	const src =
-		cycle === "weekly" ? workoutMetaWeekly.value : workoutMetaCustom.value;
+		cycle === 'weekly' ? workoutMetaWeekly.value : workoutMetaCustom.value;
 	return src[dayIndex] || { A: null, B: null };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function onOpenWorkoutEdit(payload: {
-	cycleType: "weekly" | "custom";
+	cycleType: 'weekly' | 'custom';
 	dayIndex: number;
 	slot: 0 | 1;
 }) {
@@ -321,13 +412,13 @@ async function onWorkoutSaved() {
 	const t = workoutEditTarget.value;
 	if (!t) return;
 	await loadWorkoutMetaFor(t.cycleType);
-	showToast("Сохранено");
+	showToast('Сохранено');
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function exercisesFor(msCycleType: "weekly" | "custom", dayIndex: number) {
+function exercisesFor(msCycleType: 'weekly' | 'custom', dayIndex: number) {
 	const list =
-		msCycleType === "weekly"
+		msCycleType === 'weekly'
 			? allExercisesWeekly.value[dayIndex] || []
 			: allExercisesCustom.value[dayIndex] || [];
 	const { a, b } = splitBySlot(list);
@@ -337,12 +428,12 @@ function exercisesFor(msCycleType: "weekly" | "custom", dayIndex: number) {
 const muscleNamesWeekly = ref<Record<number, { A: string[]; B: string[] }>>({});
 const muscleNamesCustom = ref<Record<number, { A: string[]; B: string[] }>>({});
 
-async function loadWorkoutMusclesFor(cycle: "weekly" | "custom") {
+async function loadWorkoutMusclesFor(cycle: 'weekly' | 'custom') {
 	const p = planner.currentProgram;
 	const c = cfg.value;
 	if (!p || !c) return;
 	const dayArr =
-		cycle === "weekly"
+		cycle === 'weekly'
 			? (c.weekly?.days as number[] | undefined)
 			: (c.custom?.days as number[] | undefined);
 	if (!Array.isArray(dayArr)) return;
@@ -352,21 +443,21 @@ async function loadWorkoutMusclesFor(cycle: "weekly" | "custom") {
 		const idsB = await workouts.getWorkoutMuscleIds(p.id, cycle, i, 1);
 		map[i] = {
 			A: idsA
-				.map((id) => exercises.muscles.find((m) => m.id === id)?.name)
+				.map(id => exercises.muscles.find(m => m.id === id)?.name)
 				.filter(Boolean) as string[],
 			B: idsB
-				.map((id) => exercises.muscles.find((m) => m.id === id)?.name)
+				.map(id => exercises.muscles.find(m => m.id === id)?.name)
 				.filter(Boolean) as string[],
 		};
 	}
-	if (cycle === "weekly") muscleNamesWeekly.value = map;
+	if (cycle === 'weekly') muscleNamesWeekly.value = map;
 	else muscleNamesCustom.value = map;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function musclesFor(cycle: "weekly" | "custom", dayIndex: number) {
+function musclesFor(cycle: 'weekly' | 'custom', dayIndex: number) {
 	const src =
-		cycle === "weekly" ? muscleNamesWeekly.value : muscleNamesCustom.value;
+		cycle === 'weekly' ? muscleNamesWeekly.value : muscleNamesCustom.value;
 	return src[dayIndex] || { A: [], B: [] };
 }
 
@@ -376,21 +467,23 @@ watch(
 		const c = cfg.value;
 		if (!planner.currentProgram || !c) return;
 		await exercises.loadMuscles();
-		if (c.cycleType === "weekly") {
+		if (c.cycleType === 'weekly') {
 			await loadAllExercisesForWeekly();
-			await loadWorkoutMetaFor("weekly");
-			await loadWorkoutMusclesFor("weekly");
+			await loadWorkoutMetaFor('weekly');
+			await loadWorkoutMusclesFor('weekly');
 			allExercisesCustom.value = {};
 			workoutMetaCustom.value = {} as any;
 			muscleNamesCustom.value = {} as any;
-		} else if (c.cycleType === "custom") {
+		} else if (c.cycleType === 'custom') {
 			await loadAllExercisesForCustom();
-			await loadWorkoutMetaFor("custom");
-			await loadWorkoutMusclesFor("custom");
+			await loadWorkoutMetaFor('custom');
+			await loadWorkoutMusclesFor('custom');
 			allExercisesWeekly.value = {};
 			workoutMetaWeekly.value = {} as any;
 			muscleNamesWeekly.value = {} as any;
 		}
+		// Обновим ближайший день после смены конфига
+		await reloadDayItems();
 	},
 	{ immediate: true }
 );
@@ -401,15 +494,15 @@ onMounted(async () => {
 	await exercises.loadMuscles();
 	// подгрузка для вкладки "Весь план"
 	const c = cfg.value;
-	if (c?.cycleType === "weekly") {
+	if (c?.cycleType === 'weekly') {
 		await loadAllExercisesForWeekly();
-		await loadWorkoutMetaFor("weekly");
-		await loadWorkoutMusclesFor("weekly");
+		await loadWorkoutMetaFor('weekly');
+		await loadWorkoutMusclesFor('weekly');
 	}
-	if (c?.cycleType === "custom") {
+	if (c?.cycleType === 'custom') {
 		await loadAllExercisesForCustom();
-		await loadWorkoutMetaFor("custom");
-		await loadWorkoutMusclesFor("custom");
+		await loadWorkoutMetaFor('custom');
+		await loadWorkoutMusclesFor('custom');
 	}
 });
 
@@ -429,12 +522,40 @@ async function onExerciseEdited() {
 	await reloadDayItems();
 	const c = cfg.value;
 	const p = planner.currentProgram;
-	if (p && c?.cycleType === "weekly") await loadAllExercisesForWeekly();
-	if (p && c?.cycleType === "custom") await loadAllExercisesForCustom();
+	if (p && c?.cycleType === 'weekly') await loadAllExercisesForWeekly();
+	if (p && c?.cycleType === 'custom') await loadAllExercisesForCustom();
 }
 </script>
 
 <template>
+	<van-cell-group>
+		<van-cell
+			style="background: var(--color-elevated); width: 100%"
+			:title="planner.currentProgram?.name || 'План'"
+			:label="createdAtLabel"
+		>
+			<template #right-icon>
+				<van-button
+					size="small"
+					type="primary"
+					plain
+					@click.stop="editProgram"
+					class="action-icon"
+				>
+					<van-icon name="edit" />
+				</van-button>
+				<van-button
+					size="small"
+					type="primary"
+					plain
+					@click.stop="showNewPlan = true"
+					class="action-icon"
+				>
+					<van-icon name="plus" />
+				</van-button>
+			</template>
+		</van-cell>
+	</van-cell-group>
 	<div class="planner__content">
 		<template v-if="!planner.hasAnyProgram">
 			<van-empty
@@ -450,233 +571,52 @@ async function onExerciseEdited() {
 		</template>
 
 		<template v-else>
-			<van-cell-group>
-				<van-cell
-					style="
-						background: var(--color-elevated);
-						width: 100%;
-						margin-bottom: 12px;
-						border-radius: var(--radius-m);
-					"
-					:title="planner.currentProgram?.name || 'План'"
-					:label="createdAtLabel"
-				>
-					<template #right-icon>
-						<van-button
-							size="small"
-							type="primary"
-							plain
-							@click.stop="editProgram"
-							class="action-icon"
-						>
-							<van-icon name="edit" />
-						</van-button>
-						<van-button
-							size="small"
-							type="primary"
-							plain
-							@click.stop="showNewPlan = true"
-							class="action-icon"
-						>
-							<van-icon name="plus" />
-						</van-button>
-					</template>
-				</van-cell>
-			</van-cell-group>
-
-			<PlannerTabs v-model:activeTab="activeTab">
+			<AppTabs
+				v-model:active="activeTab"
+				:labels="{ next: 'Ближайшая', all: 'Весь план' }"
+				class="planner__tabs"
+			>
 				<template #next>
-					<div class="planner-next">
-						<van-cell-group class="planner-next__group transparent-bg">
-							<van-cell
-								v-if="dayItems.length > 0"
-								title="Сводка"
-								:label="`Подходы: ${nextSummary.totalSets}  Объём: ${nextSummary.totalReps} повт.`"
-								class="planner-next__summary transparent-bg"
-							/>
-
-							<template v-if="dayItems.length > 0">
-								<!-- Карточки ближайшего дня через SwipeCell с кастомным контентом -->
-								<van-swipe-cell
-									v-for="it in dayItems"
-									:key="it.id"
-									class="planner-next__item transparent-bg"
-								>
-									<div class="next-card">
-										<div class="next-card__thumb">
-											<van-image
-												:src="exerciseInfoMap[it.exercise_id]?.media_path || ''"
-												width="100%"
-												height="100%"
-												fit="cover"
-											>
-												<template #error>
-													<div class="next-card__avatar-fallback">GIF</div>
-												</template>
-											</van-image>
-										</div>
-										<div class="next-card__body">
-											<div class="next-card__header">
-												<div class="next-card__title">
-													{{ it.exercise_name }}
-												</div>
-											</div>
-											<div class="next-card__meta">
-												<van-tag class="next-card__chip"
-													>Подходы: {{ it.sets_count }}</van-tag
-												>
-												<van-tag class="next-card__chip"
-													>Повторы: {{ Number(it.reps_json) || "" }}</van-tag
-												>
-												<van-tag
-													v-if="getExerciseWeight(it)"
-													class="next-card__chip"
-													>Вес: {{ getExerciseWeight(it) }}
-													{{
-														planner.currentProgram?.units === "lb" ? "lb" : "кг"
-													}}</van-tag
-												>
-												<span
-													v-if="it.optional_flag"
-													class="next-card__chip next-card__chip--muted"
-													>необяз.</span
-												>
-											</div>
-											<div class="next-card__tags">
-												<van-tag class="next-card__tag" plain type="primary">{{
-													pmName(
-														exerciseInfoMap[it.exercise_id]
-															?.primary_muscle_id || null
-													)
-												}}</van-tag>
-												<van-tag
-													v-for="sec in secondaryNames(it.exercise_id)"
-													class="next-card__tag"
-													:key="sec"
-													plain
-													type="success"
-													>{{ sec }}</van-tag
-												>
-												<van-tag
-													v-if="exerciseInfoMap[it.exercise_id]?.equipment"
-													class="next-card__tag"
-													plain
-													type="warning"
-													>{{
-														equipmentLabel(
-															exerciseInfoMap[it.exercise_id]?.equipment
-														)
-													}}</van-tag
-												>
-											</div>
-											<van-text-ellipsis
-												:content="
-													exerciseInfoMap[it.exercise_id]?.description ||
-													'Описание отсутствует'
-												"
-												class="next-card__desc"
-												expand-text="..."
-												collapse-text="свернуть"
-											/>
-										</div>
-									</div>
-									<template #left>
-										<van-button
-											class="next-card__edit"
-											square
-											type="primary"
-											text="Редактировать"
-											@click="openParams(it)"
-										/>
-									</template>
-									<template #right>
-										<van-button
-											class="next-card__delete"
-											square
-											type="danger"
-											text="Удалить"
-											@click="removeItem(it)"
-										/>
-									</template>
-								</van-swipe-cell>
-							</template>
-							<template v-else>
-								<van-empty
-									description="На ближайший день нет упражнений"
-									class="planner-next__empty"
-								/>
-							</template>
-						</van-cell-group>
-						<div class="planner-next__footer pad-bottom-safe">
-							<van-button type="success" block @click="startWorkout"
-								>Начать тренировку</van-button
-							>
-						</div>
-					</div>
+					<PlannerTabNext
+						:day-items="dayItems"
+						:next-summary="nextSummary"
+						:next-date-label="nextDateLabel"
+						:next-date-iso="nextDateISO"
+						:program-start-iso="programStartISO"
+						:disable-start="disableStartWorkout"
+						:has-active-session="sessions.hasActiveSession"
+						:exercise-info-map="exerciseInfoMap"
+						:get-exercise-weight="getExerciseWeight"
+						:current-units="
+							planner.currentProgram?.units === 'lb' ? 'lb' : 'кг'
+						"
+						:pm-name="pmName"
+						:secondary-names="secondaryNames"
+						:equipment-label="equipmentLabel"
+						@open-params="openParams"
+						@remove-item="removeItem"
+						@start-workout="startWorkout"
+					/>
 				</template>
 				<template #all>
-					<div class="planner-all">
-						<template v-if="microSets.length > 0">
-							<div
-								class="planner-all__content"
-								v-for="ms in microSets"
-								:key="ms.key"
-							>
-								<van-cell-group class="planner-all__group">
-									<van-cell
-										style="background: var(--color-bg)"
-										:title="ms.title"
-										:label="
-											ms.cycle_type === 'weekly' ? 'Недельный' : 'Кастомный'
-										"
-									/>
-									<template v-for="(d, index) in ms.days" :key="d.dayIndex">
-										<!-- Добавляем разделитель перед днем, если нет тренировки в предыдущем дне -->
-										<van-divider
-											v-if="needsDivider(ms, index)"
-											content-position="left"
-											class="rest-day-divider"
-										>
-											Отдых
-										</van-divider>
-
-										<WorkoutCard
-											:title="
-												ms.cycle_type === 'weekly'
-													? dayOfWeekLabel(d.dayIndex)
-													: `День ${d.dayIndex + 1}`
-											"
-											:cycle-type="ms.cycle_type"
-											:day-index="d.dayIndex"
-											:sessions="d.sessions"
-											:exercises-a="exercisesFor(ms.cycle_type, d.dayIndex).a"
-											:exercises-b="exercisesFor(ms.cycle_type, d.dayIndex).b"
-											:meta-a="metaFor(ms.cycle_type, d.dayIndex).A"
-											:meta-b="metaFor(ms.cycle_type, d.dayIndex).B"
-											:muscle-names-a="musclesFor(ms.cycle_type, d.dayIndex).A"
-											:muscle-names-b="musclesFor(ms.cycle_type, d.dayIndex).B"
-											@openParams="openParams"
-											@removeExercise="removeItem"
-											@addExercise="
-												({ cycleType, dayIndex, slot }) =>
-													openAddForDay(cycleType, dayIndex, slot)
-											"
-											@edit="onOpenWorkoutEdit"
-											@delete="onDeleteWorkout"
-										/>
-									</template>
-								</van-cell-group>
-							</div>
-						</template>
-						<template v-else>
-							<van-empty
-								description="Структура плана будет показана после настройки"
-								class="planner-all__empty"
-							/>
-						</template>
-					</div>
+					<PlannerTabAll
+						:micro-sets="microSets"
+						:needs-divider="needsDivider"
+						:day-of-week-label="dayOfWeekLabel"
+						:exercises-for="exercisesFor"
+						:meta-for="metaFor"
+						:muscles-for="musclesFor"
+						@open-params="openParams"
+						@remove-exercise="removeItem"
+						@add-exercise="
+							({ cycleType, dayIndex, slot }) =>
+								openAddForDay(cycleType, dayIndex, slot)
+						"
+						@edit-workout="onOpenWorkoutEdit"
+						@delete-workout="onDeleteWorkout"
+					/>
 				</template>
-			</PlannerTabs>
+			</AppTabs>
 
 			<!-- Кнопка нового плана убрана по ТЗ -->
 		</template>
@@ -749,178 +689,38 @@ async function onExerciseEdited() {
 	}
 }
 
-.planner-next {
+.planner__tabs {
 	height: 70dvh;
-	overflow: auto;
-	background: var(--color-bg);
-	border-radius: var(--radius-m);
-	&__group {
+	:deep(.van-tabs__wrap) {
 		background: transparent;
-	}
-
-	&__header .van-cell__title {
-		font-weight: var(--fw-semibold);
-	}
-
-	&__summary {
-		.van-cell__label {
-			color: var(--color-text-muted);
-			opacity: 0.95;
-		}
-	}
-
-	&__title {
-		color: var(--color-text-muted);
-	}
-
-	&__item {
-		.van-cell {
-			background: var(--color-surface);
-		}
-	}
-
-	&__exercise .van-cell__label {
-		color: var(--color-text-muted);
-	}
-
-	&__footer {
-		border-top: 1px solid var(--color-border);
-		padding: var(--space-3);
-		background: linear-gradient(to top, rgba(0, 0, 0, 0.08), transparent);
-	}
-	&__item {
-		/* make right action full height */
-		:deep(.van-swipe-cell__right) {
-			height: 100%;
-			display: flex;
-		}
-	}
-}
-.transparent-bg {
-	background: transparent;
-}
-/* Карточка упражнения для вкладки "Ближайшая" */
-.next-card {
-	display: grid;
-	grid-template-columns: 33% 1fr;
-	gap: 10px;
-	padding-block: 8px;
-	border-bottom: 1px solid var(--van-border-color);
-
-	&__thumb {
 		width: 100%;
-		aspect-ratio: 1;
-		border-radius: var(--radius-m);
-		overflow: hidden;
+	}
+	:deep(.van-tabs__nav--card) {
+		background: transparent;
+		border: none;
+		padding: 0;
+	}
+	:deep(.van-tab) {
+		border: 1px solid var(--van-border-color);
+		border-top-left-radius: var(--radius-pill);
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
 		background: var(--color-surface);
-		border: 1px solid var(--van-border-color);
-	}
-	&__avatar-fallback {
+		color: var(--van-text-color);
 		width: 100%;
-		height: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: var(--color-text-muted);
+		padding: 0;
+		margin: 0;
 	}
-	&__header {
-		display: grid;
-		grid-template-columns: 1fr;
-		align-items: center;
-		gap: var(--space-2);
-	}
-	&__title {
-		font-weight: var(--fw-semibold);
-		color: var(--color-text);
-	}
-	&__meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-		margin: 6px 0 2px 0;
-	}
-	&__chip {
-		border: 1px solid var(--van-border-color);
-		border-radius: var(--radius-xs);
-		padding: 1px 4px;
-		opacity: 0.95;
-		background: transparent;
-		font-size: var(--fs-xxs);
-		color: var(--color-text-muted);
-	}
-	&__chip--muted {
-		opacity: 0.8;
-	}
-	&__tags {
-		display: flex;
-		flex-wrap: wrap;
-		column-gap: 4px;
-		row-gap: 2px;
-		margin: 2px 0 0 0;
-	}
-	&__tag {
-		font-size: var(--fs-xxs);
+	:deep(.van-tab--active) {
 		background: var(--color-bg);
+		color: var(--van-text-color);
+		border: none;
 	}
-	&__body {
-		display: flex;
-		flex-direction: column;
-	}
-	&__desc {
-		color: var(--color-text-muted);
-		margin-top: 4px;
-		font-size: var(--fs-xxs);
-	}
-	&__delete {
-		height: 100%;
-		border-radius: 0;
-	}
-	&__edit {
-		height: 100%;
-		border-radius: 0;
+	:deep(.van-tabs__line) {
+		display: none;
 	}
 }
 
-.planner-all {
-	height: 70dvh;
-	overflow-y: auto;
-	overflow-x: hidden;
-	background: var(--color-bg);
-	border-radius: var(--radius-m);
-
-	&__content {
-		margin-bottom: var(--space-3);
-	}
-
-	&__group {
-		border-radius: var(--radius-m);
-		overflow: hidden;
-		box-shadow: var(--shadow-sm);
-		background: var(--color-bg);
-		margin-bottom: var(--space-2);
-	}
-
-	&__empty {
-		margin: var(--space-6) 0;
-	}
-}
-
-.rest-day-divider {
-	margin: var(--space-4) 0;
-
-	:deep(.van-divider__content) {
-		color: var(--color-text-muted);
-		font-size: var(--fs-sm);
-		font-weight: var(--fw-medium);
-		background: var(--color-bg);
-		padding: 0 var(--space-3);
-	}
-
-	:deep(.van-divider) {
-		border-color: var(--color-border);
-		opacity: 0.7;
-	}
-}
 .action-icon {
 	background-color: transparent;
 	border: none;

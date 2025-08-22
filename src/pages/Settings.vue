@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ThemeActionSheet from '@/components/ui/ThemeActionSheet.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { showDialog, showToast } from 'vant';
 import { computed, onMounted, ref } from 'vue';
@@ -269,7 +270,7 @@ function handleBiometricToggle() {
 	</div>
 
 	<!-- Action Sheets -->
-	<van-action-sheet
+	<ThemeActionSheet
 		v-model:show="showThemeSheet"
 		title="Выберите тему"
 		:actions="
@@ -279,10 +280,9 @@ function handleBiometricToggle() {
 				callback: () => selectTheme(theme.value),
 			}))
 		"
-		cancel-text="Отмена"
 	/>
 
-	<van-action-sheet
+	<ThemeActionSheet
 		v-model:show="showUnitsSheet"
 		title="Единицы измерения"
 		:actions="
@@ -291,10 +291,9 @@ function handleBiometricToggle() {
 				callback: () => selectUnits(unit.value),
 			}))
 		"
-		cancel-text="Отмена"
 	/>
 
-	<van-action-sheet
+	<ThemeActionSheet
 		v-model:show="showRestTimeSheet"
 		title="Время отдыха по умолчанию"
 		:actions="
@@ -303,7 +302,6 @@ function handleBiometricToggle() {
 				callback: () => selectRestTime(time.value),
 			}))
 		"
-		cancel-text="Отмена"
 	/>
 </template>
 

@@ -1,87 +1,119 @@
 <script setup lang="ts">
-// @ts-ignore - Vue SFC default export is provided by shim
-import KeyboardPopup from "@/components/ui/KeyboardPopup.vue";
-import { EQUIPMENT_OPTIONS, useExercisesStore } from "@/stores/exercises";
-import { showDialog, showToast } from "vant";
-import { computed, defineEmits, defineProps, ref, watch } from "vue";
+import KeyboardPopup from '@/components/ui/KeyboardPopup.vue';
+import { EQUIPMENT_OPTIONS, useExercisesStore } from '@/stores/exercises';
+import { showDialog, showToast } from 'vant';
+import { computed, defineEmits, defineProps, ref, watch } from 'vue';
 
+// Props & emits
 const props = defineProps<{ show: boolean }>();
 const emit = defineEmits<{
-	(e: "update:show", v: boolean): void;
-	(e: "select", id: number): void;
-	(e: "select-multiple", ids: number[]): void;
-	(e: "open-create"): void;
-	(e: "open-edit", id: number): void;
+	(e: 'update:show', v: boolean): void;
+	(e: 'select', id: number): void; // (оставлено для совместимости)
+	(e: 'select-multiple', ids: number[]): void;
+	(e: 'open-create'): void;
+	(e: 'open-edit', id: number): void;
 }>();
 
+// v-model прокси
 const modelShow = computed({
 	get: () => props.show,
-	set: (v: boolean) => emit("update:show", v),
+	set: (v: boolean) => emit('update:show', v),
 });
 
-const q = ref("");
+// Состояние поиска / выбора
+const q = ref('');
+const isComposing = ref(false);
 const ex = useExercisesStore();
 const selectedIds = ref<number[]>([]);
 
-async function runSearch() {
-	await ex.searchByName(q.value.trim());
-}
+// Локальный фильтр как в добавках: быстрый и анимируемый
+const filteredList = computed(() => {
+	const query = q.value.trim().toLowerCase();
+	if (!query) return ex.list;
+	return ex.list.filter(item => {
+		const fields: (string | null | undefined)[] = [
+			item.name,
+			item.description,
+			item.equipment,
+			(item as any).primaryMuscleName,
+			(item as any).alt_names,
+		];
+		// вторичные мышцы (сконкатенированные строкой)
+		const secondary = (item as any).secondaryNames || '';
+		return (
+			fields.some(f => f && f.toLowerCase().includes(query)) ||
+			secondary.toLowerCase().includes(query)
+		);
+	});
+});
 
+// Функции форматирования / утилиты
 function pmName(id: number | null) {
-	if (!id) return "";
-	const m = ex.muscles.find((m) => m.id === id);
-	return m?.name || "";
+	if (!id) return '';
+	const m = ex.muscles.find(m => m.id === id);
+	return m?.name || '';
 }
-
 function secondaryNamesArray(item: any) {
 	const s = item.secondaryNames as string | undefined;
 	if (!s) return [] as string[];
-	return s.split(",").filter(Boolean);
+	return s.split(',').filter(Boolean);
 }
-
 function equipmentLabel(val?: string | null) {
-	if (!val) return "";
-	return EQUIPMENT_OPTIONS.find((o) => o.value === val)?.label || val;
+	if (!val) return '';
+	return EQUIPMENT_OPTIONS.find(o => o.value === val)?.label || val;
 }
 
-watch(modelShow, async (v) => {
+// Начальная загрузка (один запрос) при открытии попапа
+async function loadAll() {
+	await ex.searchByName(''); // загрузим до 100 записей
+}
+watch(modelShow, async v => {
 	if (v) {
-		q.value = "";
+		q.value = '';
 		selectedIds.value = [];
 		await ex.loadMuscles();
-		await runSearch();
+		await loadAll();
 	}
 });
-watch(q, async () => {
-	await runSearch();
-});
 
+// Composition events для плавного UX (как в добавках)
+function onCompositionStart() {
+	isComposing.value = true;
+}
+function onCompositionEnd(e: CompositionEvent) {
+	isComposing.value = false;
+	q.value = (e.target as HTMLInputElement).value;
+}
+function onRawInput(e: Event) {
+	if (isComposing.value) q.value = (e.target as HTMLInputElement).value;
+}
+
+// Выбор
 function toggleSelect(id: number) {
 	const i = selectedIds.value.indexOf(id);
 	if (i >= 0) selectedIds.value.splice(i, 1);
 	else selectedIds.value.push(id);
 }
-
 function addSelected() {
-	if (selectedIds.value.length === 0) return;
-	emit("select-multiple", selectedIds.value.slice());
+	if (!selectedIds.value.length) return;
+	emit('select-multiple', selectedIds.value.slice());
 	modelShow.value = false;
 }
-
 function openCreate() {
 	modelShow.value = false;
-	emit("open-create");
+	emit('open-create');
 }
 
+// Удаление
 async function removeExercise(id: number, name: string) {
 	await showDialog({
-		title: "Удалить упражнение?",
+		title: 'Удалить упражнение?',
 		message: name,
 		showCancelButton: true,
 	});
 	await ex.deleteExercise?.(id);
-	showToast("Удалено");
-	await runSearch();
+	showToast('Удалено');
+	await loadAll();
 }
 </script>
 
@@ -89,15 +121,19 @@ async function removeExercise(id: number, name: string) {
 	<KeyboardPopup title="Выбор упражнения" v-model:show="modelShow" height="90%">
 		<div class="picker">
 			<van-search
-				bordered
+				:model-value="q"
+				placeholder="Поиск (название, описание, мышца, оборудование)"
 				class="picker__search"
-				v-model="q"
-				placeholder="Название упражнения"
+				:clearable="true"
+				@update:model-value="val => (q = val)"
+				@compositionstart="onCompositionStart"
+				@compositionend="onCompositionEnd"
+				@input="onRawInput"
 			/>
-			<van-list :finished="true">
-				<template v-if="ex.list.length > 0">
+			<div class="picker__list">
+				<transition-group name="fade-list" tag="div" v-if="filteredList.length">
 					<div
-						v-for="item in ex.list"
+						v-for="item in filteredList"
 						:key="item.id"
 						class="picker-card"
 						@click="toggleSelect(item.id)"
@@ -156,18 +192,15 @@ async function removeExercise(id: number, name: string) {
 							/>
 						</div>
 					</div>
-				</template>
-				<template v-else>
-					<van-empty description="Ничего не найдено" />
-				</template>
-				<!-- Кнопка создания всегда последняя -->
+				</transition-group>
+				<van-empty v-else description="Ничего не найдено" />
 				<van-cell
 					class="picker__create"
 					:title="'Создать упражнение'"
 					is-link
 					@click="openCreate"
 				/>
-			</van-list>
+			</div>
 			<div class="picker__footer">
 				<van-button
 					type="primary"
@@ -182,12 +215,28 @@ async function removeExercise(id: number, name: string) {
 </template>
 
 <style lang="scss" scoped>
+
 .picker {
 	background: var(--color-bg);
-	padding: 52px var(--space-3) 82px var(--space-3);
+	padding: 32px var(--space-3) 90px; // верх под заголовок попапа, низ под футер
+	display: flex;
+	flex-direction: column;
+	height: 100%;
 
 	&__search {
-		background-color: var(--color-bg);
+		background: var(--color-bg);
+		margin-bottom: var(--space-2);
+		position: sticky;
+		top: 32px; // совпадает с внутренним отступом
+		z-index: 2;
+	}
+	&__list {
+		flex: 1;
+		overflow-y: auto; 
+    overflow-x: hidden;
+		-webkit-overflow-scrolling: touch;
+    width: 100%;
+    padding: 0;
 	}
 	&__create :deep(.van-cell__title) {
 		color: var(--van-blue);
@@ -195,12 +244,11 @@ async function removeExercise(id: number, name: string) {
 	}
 	&__footer {
 		position: fixed;
-		bottom: 0;
 		left: 0;
 		right: 0;
-		padding: var(--space-3) var(--space-3) calc(var(--space-3) + 10px)
-			var(--space-3);
-		background-color: var(--color-bg);
+		bottom: 0;
+		background: var(--color-bg);
+		padding: var(--space-3);
 	}
 	&__add-btn {
 		margin-top: var(--space-2);
@@ -210,12 +258,29 @@ async function removeExercise(id: number, name: string) {
 	}
 }
 
+/* transitions */
+.fade-list-enter-active,
+.fade-list-leave-active {
+	transition: all 0.16s ease;
+}
+.fade-list-enter-from,
+.fade-list-leave-to {
+	opacity: 0;
+	transform: translateY(6px);
+}
+.fade-list-move {
+	transition: transform 0.16s ease;
+}
+
 .picker-card {
 	display: grid;
 	grid-template-columns: 33% 1fr;
 	gap: 10px;
 	padding: 8px 6px;
-	border-bottom: 1px solid var(--van-border-color);
+	border: 1px solid var(--van-border-color);
+	border-radius: var(--radius-m);
+	background: var(--color-surface);
+	margin-bottom: 8px;
 
 	&__thumb {
 		width: 100%;
@@ -232,9 +297,6 @@ async function removeExercise(id: number, name: string) {
 		align-items: center;
 		justify-content: center;
 		color: var(--color-text-muted);
-	}
-	&__body {
-		// container for header, tags, description
 	}
 	&__header {
 		display: grid;

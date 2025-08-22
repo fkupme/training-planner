@@ -1,81 +1,135 @@
-import { ref, computed } from 'vue';
 import { useExercisesStore } from '@/stores/exercises';
 import { usePlannerStore } from '@/stores/planner';
 import { useWorkoutsStore } from '@/stores/workouts';
-import { showToast, showDialog } from 'vant';
+import { showDialog, showToast } from 'vant';
+import { computed, ref } from 'vue';
 import { usePlannerData } from './usePlannerData';
 
-export function usePlannerLogic() {
+export function usePlannerLogic(data?: ReturnType<typeof usePlannerData>) {
 	const exercises = useExercisesStore();
 	const planner = usePlannerStore();
 	const workouts = useWorkoutsStore();
-	const { 
-		dayItems, 
-		cfg, 
-		loadExerciseDetailsFor, 
-		allExercisesWeekly, 
+	// Используем переданный инстанс или создаём новый (для обратной совместимости)
+	const {
+		dayItems,
+		cfg,
+		loadExerciseDetailsFor,
+		allExercisesWeekly,
 		allExercisesCustom,
 		loadAllExercisesForWeekly,
-		loadAllExercisesForCustom
-	} = usePlannerData();
+		loadAllExercisesForCustom,
+	} = data ?? usePlannerData();
 
-	// Reactive state
 	const pendingAddTarget = ref<{
-		cycle_type: "weekly" | "custom";
+		cycle_type: 'weekly' | 'custom';
 		day_index: number;
 		slot?: 0 | 1;
 	} | null>(null);
 
-	// Improved function to find next day index with proper custom cycle handling
-	function findNextDayIndex(): { cycleType: "weekly" | "custom"; dayIndex: number } | null {
+	function findNextDayIndex(): {
+		cycleType: 'weekly' | 'custom';
+		dayIndex: number;
+		dayOffset: number; // смещение (0=сегодня)
+	} | null {
 		const c = cfg.value;
 		if (!c) return null;
 
-		// Handle weekly cycles
-		if (c.cycleType === "weekly" && Array.isArray(c.weekly?.days)) {
-			const today = new Date();
+		if (c.cycleType === 'weekly' && Array.isArray(c.weekly?.days)) {
 			const w = c.weekly.days as number[];
-			const dow = (today.getDay() + 6) % 7; // 0=Пн, 1=Вт, ..., 6=Вс
-
-			// Сначала ищем начиная с сегодняшнего дня
-			for (let i = 0; i < 7; i++) {
-				const idx = (dow + i) % 7;
-				if (w[idx] > 0) return { cycleType: "weekly", dayIndex: idx };
-			}
-		}
-
-		// Handle custom cycles with proper start date calculation
-		if (c.cycleType === "custom" && Array.isArray(c.custom?.days)) {
 			const p = planner.currentProgram;
-			if (!p || !p.start_date) return null;
-
 			const today = new Date();
-			const startDate = new Date(p.start_date);
-			const customDays = c.custom.days as number[];
-			
-			if (customDays.length === 0) return null;
-
-			// Calculate days since the cycle start
-			const daysSinceStart = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-			
-			// Find the current position in the cycle
-			const cycleLength = customDays.length;
-			let currentDayInCycle = daysSinceStart % cycleLength;
-			
-			// If we're before the start date, start from day 0
-			if (daysSinceStart < 0) {
-				currentDayInCycle = 0;
-			}
-
-			// Find the next active day in the cycle starting from current position
-			for (let i = 0; i < cycleLength; i++) {
-				const dayOffset = (currentDayInCycle + i) % cycleLength;
-				if (customDays[dayOffset] > 0) {
-					return { cycleType: "custom", dayIndex: dayOffset };
+			const msDay = 86400000;
+			// Нормализуем время
+			today.setHours(0, 0, 0, 0);
+			let startDate: Date | null = null;
+			if (p?.start_date) {
+				try {
+					startDate = new Date(p.start_date);
+					startDate.setHours(0, 0, 0, 0);
+				} catch {
+					startDate = null;
 				}
 			}
+			// Сценарий: план ещё не начался (start_date в будущем)
+			if (startDate && startDate.getTime() > today.getTime()) {
+				const daysUntilStart = Math.round(
+					(startDate.getTime() - today.getTime()) / msDay
+				);
+				const startDow = (startDate.getDay() + 6) % 7; // Пн=0
+				for (let i = 0; i < 7; i++) {
+					const idx = (startDow + i) % 7;
+					if (w[idx] > 0) {
+						return {
+							cycleType: 'weekly',
+							dayIndex: idx,
+							// Смещение от сегодня до первой тренировки: дни до старта + сдвиг внутри недели
+							dayOffset: daysUntilStart + i,
+						};
+					}
+				}
+				// Если ни одного дня не нашли (все 0) — вернём null
+				return null;
+			}
+			// Обычный сценарий: план активен (или нет start_date)
+			const dow = (today.getDay() + 6) % 7; // Пн=0
+			for (let i = 0; i < 7; i++) {
+				const idx = (dow + i) % 7;
+				if (w[idx] > 0)
+					return { cycleType: 'weekly', dayIndex: idx, dayOffset: i };
+			}
 		}
 
+		if (c.cycleType === 'custom' && Array.isArray(c.custom?.days)) {
+			const customDays = c.custom.days as number[];
+			if (customDays.length === 0) return null;
+			const p = planner.currentProgram;
+			const msDay = 86400000;
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+			let startDate: Date | null = null;
+			if (p?.start_date) {
+				try {
+					startDate = new Date(p.start_date);
+					startDate.setHours(0, 0, 0, 0);
+				} catch {
+					startDate = null;
+				}
+			}
+			const cycleLength = customDays.length;
+			if (startDate && startDate.getTime() > today.getTime()) {
+				// План ещё не начался: вычисляем первую будущую тренировку относительно start_date
+				const daysUntilStart = Math.round(
+					(startDate.getTime() - today.getTime()) / msDay
+				);
+				for (let i = 0; i < cycleLength; i++) {
+					if (customDays[i] > 0) {
+						return {
+							cycleType: 'custom',
+							dayIndex: i,
+							dayOffset: daysUntilStart + i, // смещение от сегодня до стартовой даты + позиция дня
+						};
+					}
+				}
+				return null;
+			}
+			// План активен (или нет start_date)
+			const effectiveStart = startDate ?? today; // если нет start_date — считаем с сегодня
+			const daysSinceStart = Math.floor(
+				(today.getTime() - effectiveStart.getTime()) / msDay
+			);
+			let currentDayInCycle = daysSinceStart % cycleLength;
+			if (daysSinceStart < 0 || Number.isNaN(currentDayInCycle))
+				currentDayInCycle = 0;
+			for (let i = 0; i < cycleLength; i++) {
+				const dayOffsetInCycle = (currentDayInCycle + i) % cycleLength;
+				if (customDays[dayOffsetInCycle] > 0)
+					return {
+						cycleType: 'custom',
+						dayIndex: dayOffsetInCycle,
+						dayOffset: i,
+					};
+			}
+		}
 		return null;
 	}
 
@@ -85,31 +139,27 @@ export function usePlannerLogic() {
 			dayItems.value = [];
 			return;
 		}
-
 		const nextDay = findNextDayIndex();
 		if (nextDay == null) {
-			// Если нет ближайшего дня, попробуем загрузить хотя бы первый доступный день
 			const c = cfg.value;
-			if (c?.cycleType === "weekly" && Array.isArray(c.weekly?.days)) {
-				const w = c.weekly.days as number[];
-				const firstActiveDay = w.findIndex((sessions) => sessions > 0);
-				if (firstActiveDay >= 0) {
+			if (c?.cycleType === 'weekly' && Array.isArray(c.weekly?.days)) {
+				const first = (c.weekly.days as number[]).findIndex(v => v > 0);
+				if (first >= 0) {
 					dayItems.value = await exercises.listExercisesForDayDetailed(
 						p.id,
-						"weekly",
-						firstActiveDay
+						'weekly',
+						first
 					);
 					await loadExerciseDetailsFor(dayItems.value);
 					return;
 				}
-			} else if (c?.cycleType === "custom" && Array.isArray(c.custom?.days)) {
-				const customDays = c.custom.days as number[];
-				const firstActiveDay = customDays.findIndex((sessions) => sessions > 0);
-				if (firstActiveDay >= 0) {
+			} else if (c?.cycleType === 'custom' && Array.isArray(c.custom?.days)) {
+				const first = (c.custom.days as number[]).findIndex(v => v > 0);
+				if (first >= 0) {
 					dayItems.value = await exercises.listExercisesForDayDetailed(
 						p.id,
-						"custom",
-						firstActiveDay
+						'custom',
+						first
 					);
 					await loadExerciseDetailsFor(dayItems.value);
 					return;
@@ -118,7 +168,6 @@ export function usePlannerLogic() {
 			dayItems.value = [];
 			return;
 		}
-
 		dayItems.value = await exercises.listExercisesForDayDetailed(
 			p.id,
 			nextDay.cycleType,
@@ -127,11 +176,9 @@ export function usePlannerLogic() {
 		await loadExerciseDetailsFor(dayItems.value);
 	}
 
-	// Exercise management functions
 	async function onPickExercise(id: number) {
 		const p = planner.currentProgram;
 		if (!p) return;
-
 		const target = pendingAddTarget.value;
 		if (target) {
 			await exercises.attachExerciseToDay({
@@ -143,33 +190,29 @@ export function usePlannerLogic() {
 				reps: 10,
 				intensity: null,
 				optional: false,
+				slot: target.slot ?? 0,
 			});
 			pendingAddTarget.value = null;
-			
-			// Обновляем соответствующие данные
-			if (target.cycle_type === "weekly") {
+			if (target.cycle_type === 'weekly') {
 				allExercisesWeekly.value[target.day_index] =
 					await exercises.listExercisesForDayDetailed(
 						p.id,
-						"weekly",
+						'weekly',
 						target.day_index
 					);
 			} else {
 				allExercisesCustom.value[target.day_index] =
 					await exercises.listExercisesForDayDetailed(
 						p.id,
-						"custom",
+						'custom',
 						target.day_index
 					);
 			}
-			// Обновим также ближайший день для реактивности между вкладками
 			await reloadDayItems();
 			return;
 		}
-		
-		// Fallback: добавление в ближайший день (вкладка "Ближайшая")
 		const nextDay = findNextDayIndex();
-		if (!p || nextDay == null) return;
+		if (!nextDay) return;
 		await exercises.attachExerciseToDay({
 			program_id: p.id,
 			cycle_type: nextDay.cycleType,
@@ -179,6 +222,7 @@ export function usePlannerLogic() {
 			reps: 10,
 			intensity: null,
 			optional: false,
+			slot: 0,
 		});
 		await reloadDayItems();
 	}
@@ -186,7 +230,6 @@ export function usePlannerLogic() {
 	async function onSelectMultiple(ids: number[]) {
 		const p = planner.currentProgram;
 		if (!p || !ids.length) return;
-
 		const target = pendingAddTarget.value;
 		if (target) {
 			for (const id of ids) {
@@ -199,34 +242,30 @@ export function usePlannerLogic() {
 					reps: 10,
 					intensity: null,
 					optional: false,
+					slot: target.slot ?? 0,
 				});
 			}
 			pendingAddTarget.value = null;
-			
-			// Обновляем соответствующие данные
-			if (target.cycle_type === "weekly") {
+			if (target.cycle_type === 'weekly') {
 				allExercisesWeekly.value[target.day_index] =
 					await exercises.listExercisesForDayDetailed(
 						p.id,
-						"weekly",
+						'weekly',
 						target.day_index
 					);
 			} else {
 				allExercisesCustom.value[target.day_index] =
 					await exercises.listExercisesForDayDetailed(
 						p.id,
-						"custom",
+						'custom',
 						target.day_index
 					);
 			}
-			// Обновим также ближайший день для реактивности между вкладками
 			await reloadDayItems();
 			return;
 		}
-		
-		// Фоллбек: если таргета нет, добавим в ближайший день
 		const nextDay = findNextDayIndex();
-		if (nextDay == null) return;
+		if (!nextDay) return;
 		for (const id of ids) {
 			await exercises.attachExerciseToDay({
 				program_id: p.id,
@@ -237,37 +276,33 @@ export function usePlannerLogic() {
 				reps: 10,
 				intensity: null,
 				optional: false,
+				slot: 0,
 			});
 		}
 		await reloadDayItems();
 	}
 
 	async function onDeleteWorkout(payload: {
-		cycleType: "weekly" | "custom";
+		cycleType: 'weekly' | 'custom';
 		dayIndex: number;
 		slot: 0 | 1;
 	}) {
 		const p = planner.currentProgram;
 		const c = cfg.value;
 		if (!p || !c) return;
-
 		await showDialog({
-			title: "Удалить тренировку?",
-			message: "Будут удалены упражнения и уменьшено число тренировок в дне",
+			title: 'Удалить тренировку?',
+			message: 'Будут удалены упражнения и уменьшено число тренировок в дне',
 			showCancelButton: true,
 		});
-
-		// Удаляем упражнения соответствующего слота
 		await exercises.deleteExercisesForDaySlot(
 			p.id,
 			payload.cycleType,
 			payload.dayIndex,
 			payload.slot
 		);
-
-		// Обновляем конфигурацию программы: уменьшаем количество сессий
 		const newCfg = { ...c };
-		if (payload.cycleType === "weekly") {
+		if (payload.cycleType === 'weekly') {
 			newCfg.weekly.days[payload.dayIndex] = Math.max(
 				0,
 				(newCfg.weekly.days[payload.dayIndex] as number) - 1
@@ -284,103 +319,87 @@ export function usePlannerLogic() {
 			units: p.units ?? undefined,
 			config: newCfg,
 		});
-		// Удаляем метаданные тренировки
 		await workouts.deleteWorkout(
 			p.id,
 			payload.cycleType,
 			payload.dayIndex,
 			payload.slot
 		);
-		showToast("Тренировка удалена");
-		// Перезагрузка списков для дня
-		if (payload.cycleType === "weekly") {
+		showToast('Тренировка удалена');
+		if (payload.cycleType === 'weekly') {
 			allExercisesWeekly.value[payload.dayIndex] =
 				await exercises.listExercisesForDayDetailed(
 					p.id,
-					"weekly",
+					'weekly',
 					payload.dayIndex
 				);
 		} else {
 			allExercisesCustom.value[payload.dayIndex] =
 				await exercises.listExercisesForDayDetailed(
 					p.id,
-					"custom",
+					'custom',
 					payload.dayIndex
 				);
 		}
 	}
 
-	// Helper functions for microsets computation
 	const microSets = computed(() => {
 		const c = cfg.value;
 		if (!c)
 			return [] as Array<{
 				key: string;
 				title: string;
-				cycle_type: "weekly" | "custom";
+				cycle_type: 'weekly' | 'custom';
 				days: Array<{ dayIndex: number; sessions: number }>;
 			}>;
-
-		if (c.cycleType === "weekly" && Array.isArray(c.weekly?.days)) {
+		if (c.cycleType === 'weekly' && Array.isArray(c.weekly?.days)) {
 			const days = c.weekly.days as number[];
-			const activeDays = days
+			const active = days
 				.map((sessions: number, dayIndex: number) => ({ dayIndex, sessions }))
-				.filter((d) => d.sessions > 0);
-			return activeDays.length > 0
+				.filter(d => d.sessions > 0);
+			return active.length
 				? [
 						{
-							key: "weekly",
-							title: "Недельный цикл",
-							cycle_type: "weekly" as const,
-							days: activeDays,
+							key: 'weekly',
+							title: 'Недельный цикл',
+							cycle_type: 'weekly' as const,
+							days: active,
 						},
 				  ]
 				: [];
 		}
-
-		if (c.cycleType === "custom" && Array.isArray(c.custom?.days)) {
+		if (c.cycleType === 'custom' && Array.isArray(c.custom?.days)) {
 			const days = c.custom.days as number[];
-			const activeDays = days
+			const active = days
 				.map((sessions: number, dayIndex: number) => ({ dayIndex, sessions }))
-				.filter((d) => d.sessions > 0);
-			return activeDays.length > 0
+				.filter(d => d.sessions > 0);
+			return active.length
 				? [
 						{
-							key: "custom",
-							title: "Кастомный цикл",
-							cycle_type: "custom" as const,
-							days: activeDays,
+							key: 'custom',
+							title: 'Кастомный цикл',
+							cycle_type: 'custom' as const,
+							days: active,
 						},
 				  ]
 				: [];
 		}
-
 		return [];
 	});
 
 	function dayOfWeekLabel(idx: number) {
-		return ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"][idx] || `Д${idx + 1}`;
+		return ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][idx] || `Д${idx + 1}`;
 	}
-
-	function needsDivider(microSet: any, currentIndex: number): boolean {
-		if (currentIndex === 0) return false; // Первый день не нуждается в разделителе
-
-		const currentDay = microSet.days[currentIndex];
-		const previousDay = microSet.days[currentIndex - 1];
-
-		// Проверяем, есть ли пропуск между днями (означает дни отдыха)
-		const dayGap = currentDay.dayIndex - previousDay.dayIndex;
-		return dayGap > 1;
+	function needsDivider(microSet: any, currentIndex: number) {
+		if (currentIndex === 0) return false;
+		const cur = microSet.days[currentIndex];
+		const prev = microSet.days[currentIndex - 1];
+		return cur.dayIndex - prev.dayIndex > 1;
 	}
 
 	return {
-		// Reactive state
 		pendingAddTarget,
-		
-		// Computed
 		microSets,
-		
-		// Functions
 		findNextDayIndex,
 		reloadDayItems,
 		onPickExercise,
@@ -388,8 +407,6 @@ export function usePlannerLogic() {
 		onDeleteWorkout,
 		dayOfWeekLabel,
 		needsDivider,
-		
-		// Additional data loading functions
 		loadAllExercisesForWeekly,
 		loadAllExercisesForCustom,
 	};

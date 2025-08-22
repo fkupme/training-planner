@@ -1,20 +1,28 @@
 <script setup lang="ts">
 // @ts-ignore
-import SetEditorPopup from "@/components/session/SetEditorPopup.vue";
-import { useSessionsStore } from "@/stores/sessions";
-import { showDialog, showNotify, showToast } from "vant";
-import { computed, inject, onMounted, onUnmounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import SetEditorPopup from '@/components/session/SetEditorPopup.vue';
+import { useSessionsStore } from '@/stores/sessions';
+import { showDialog, showNotify, showToast } from 'vant';
+import {
+	computed,
+	inject,
+	nextTick,
+	onMounted,
+	onUnmounted,
+	ref,
+	watch,
+} from 'vue';
+import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const sessions = useSessionsStore();
 
 // Система для передачи действий в хедер
-const setHeaderActions = inject("setHeaderActions") as
+const setHeaderActions = inject('setHeaderActions') as
 	| ((actions: any[]) => void)
 	| undefined;
 
-const sessionComments = ref("");
+const sessionComments = ref('');
 const showSetPopup = ref(false);
 const editingSet = ref<any>(null);
 const editingExercise = ref<any>(null);
@@ -23,13 +31,13 @@ const editingExercise = ref<any>(null);
 const setForm = ref({
 	reps: undefined as number | undefined,
 	weight: undefined as number | undefined,
-	rpe: "",
-	notes: "",
+	rpe: '',
+	notes: '',
 });
 
 const timeDisplay = computed(() => {
 	const s = sessions.restTimer.seconds;
-	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 });
 
 const timerProgress = computed(() => {
@@ -51,24 +59,59 @@ onMounted(async () => {
 	// Добавляем действие завершения тренировки в хедер
 	setHeaderActions?.([
 		{
-			key: "complete",
-			icon: "checked",
+			key: 'complete',
+			icon: 'checked',
 			handler: completeSession,
 		},
 	]);
 
 	// Сначала инициализируем store если не инициализирован
-	if (!sessions.nextWorkout) {
-		await sessions.initialize();
-	}
-
-	if (!sessions.hasActiveSession) {
-		await startNewSession();
-	} else {
+	const q = router.currentRoute.value.query;
+	// Если уже есть активная сессия — просто загрузить упражнения
+	if (sessions.hasActiveSession) {
 		await sessions.loadSessionExercises();
+	} else if (q.programId && q.cycleType && q.dayIndex) {
+		// Принудительный запуск по параметрам маршрута
+		const programId = Number(q.programId);
+		const cycleType = q.cycleType === 'custom' ? 'custom' : 'weekly';
+		const dayIndex = Number(q.dayIndex);
+		const slot = q.slot ? Number(q.slot) : 0;
+		await sessions.createSession(programId, cycleType, dayIndex, slot);
+		// Дополнительная явная загрузка (иногда createSession уже сделал это)
+		await sessions.loadSessionExercises();
+		await nextTick();
+		// Если упражнений нет — пробуем ещё раз немного позже (поздняя запись в БД)
+		if (sessions.currentSession && sessions.sessionExercises.length === 0) {
+			setTimeout(() => {
+				if (sessions.currentSession && sessions.sessionExercises.length === 0) {
+					sessions.loadSessionExercises();
+				}
+			}, 120);
+		}
+	} else {
+		// Fallback старая логика
+		if (!sessions.nextWorkout) {
+			await sessions.initialize();
+		}
+		if (!sessions.hasActiveSession) {
+			await startNewSession();
+		} else {
+			await sessions.loadSessionExercises();
+		}
 	}
-	sessionComments.value = sessions.currentSession?.comments || "";
+	sessionComments.value = sessions.currentSession?.comments || '';
 });
+
+// Watch: если появилась сессия, но упражнения не загрузились, делаем автодогрузку
+watch(
+	() => sessions.currentSession?.id,
+	async () => {
+		if (sessions.currentSession && sessions.sessionExercises.length === 0) {
+			await sessions.loadSessionExercises();
+		}
+	},
+	{ immediate: false }
+);
 
 onUnmounted(() => {
 	sessions.stopRestTimer();
@@ -86,42 +129,42 @@ async function startNewSession() {
 	// Используем умный метод из store
 	const sessionId = await sessions.startNextWorkout();
 	if (!sessionId) {
-		showToast("Не удалось определить ближайшую тренировку");
-		router.push("/planner");
+		showToast('Не удалось определить ближайшую тренировку');
+		router.push('/planner');
 		return;
 	}
 
-	showToast("Сессия начата!");
+	showToast('Сессия начата!');
 }
 
 async function completeSession() {
 	await showDialog({
-		title: "Завершить тренировку?",
-		message: "После завершения данные сохранятся в результатах",
+		title: 'Завершить тренировку?',
+		message: 'После завершения данные сохранятся в результатах',
 		showCancelButton: true,
 	});
 
 	await sessions.completeSession();
-	showNotify({ type: "success", message: "Тренировка завершена!" });
-	router.push("/planner");
+	showNotify({ type: 'success', message: 'Тренировка завершена!' });
+	router.push('/planner');
 }
 
 async function cancelSession() {
 	await showDialog({
-		title: "Отменить тренировку?",
-		message: "Все введённые данные будут потеряны",
+		title: 'Отменить тренировку?',
+		message: 'Все введённые данные будут потеряны',
 		showCancelButton: true,
 	});
 
 	await sessions.cancelSession();
-	showToast("Тренировка отменена");
-	router.push("/planner");
+	showToast('Тренировка отменена');
+	router.push('/planner');
 }
 
 async function saveComments() {
 	if (sessions.currentSession) {
 		await sessions.updateSessionComments(sessionComments.value);
-		showToast("Комментарий сохранён");
+		showToast('Комментарий сохранён');
 	}
 }
 
@@ -134,16 +177,16 @@ function openSetEditor(exercise: any, setIndex: number) {
 		setForm.value = {
 			reps: existingSet.reps_completed,
 			weight: existingSet.weight_used,
-			rpe: existingSet.rpe_rir || "",
-			notes: existingSet.notes || "",
+			rpe: existingSet.rpe_rir || '',
+			notes: existingSet.notes || '',
 		};
 	} else {
 		editingSet.value = null;
 		setForm.value = {
 			reps: undefined,
 			weight: exercise.work_weight || undefined,
-			rpe: "",
-			notes: "",
+			rpe: '',
+			notes: '',
 		};
 	}
 
@@ -175,18 +218,18 @@ async function saveSet() {
 	}
 
 	showSetPopup.value = false;
-	showToast("Подход сохранён");
+	showToast('Подход сохранён');
 }
 
 function getPlannedReps(exercise: any): string {
 	try {
 		const reps = exercise.planned_reps;
-		if (!reps) return "-";
+		if (!reps) return '-';
 		const parsed = JSON.parse(reps);
-		if (Array.isArray(parsed)) return parsed[0]?.toString() || "-";
+		if (Array.isArray(parsed)) return parsed[0]?.toString() || '-';
 		return reps.toString();
 	} catch {
-		return exercise.planned_reps?.toString() || "-";
+		return exercise.planned_reps?.toString() || '-';
 	}
 }
 
@@ -209,7 +252,7 @@ function startRestTimer(seconds: number = 90) {
 
 // Computed properties для редактора подходов
 const editingExerciseName = computed(
-	() => editingExercise.value?.exercise_name || ""
+	() => editingExercise.value?.exercise_name || ''
 );
 const editingSetNumber = computed(() => {
 	if (!editingExercise.value || editingSet.value === null) return 1;
@@ -272,7 +315,7 @@ const plannedReps = computed(() => {
 										: startRestTimer()
 								"
 							>
-								{{ sessions.restTimer.isRunning ? "Стоп" : "Старт" }}
+								{{ sessions.restTimer.isRunning ? 'Стоп' : 'Старт' }}
 							</van-button>
 							<van-button size="small" @click="sessions.resetRestTimer()">
 								Сброс
@@ -354,10 +397,10 @@ const plannedReps = computed(() => {
 								<template v-if="exercise.sets[setIndex - 1]">
 									<div class="set-data">
 										<div class="reps">
-											{{ exercise.sets[setIndex - 1].reps_completed || "-" }}
+											{{ exercise.sets[setIndex - 1].reps_completed || '-' }}
 										</div>
 										<div class="weight">
-											{{ exercise.sets[setIndex - 1].weight_used || "-" }} кг
+											{{ exercise.sets[setIndex - 1].weight_used || '-' }} кг
 										</div>
 										<div v-if="exercise.sets[setIndex - 1].rpe_rir" class="rpe">
 											{{ exercise.sets[setIndex - 1].rpe_rir }}
@@ -488,6 +531,8 @@ const plannedReps = computed(() => {
 	background: var(--color-elevated);
 
 	.exercise-title {
+    display: flex;
+    justify-content: space-between;
 		width: 100%;
 
 		h3 {

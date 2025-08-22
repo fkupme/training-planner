@@ -1,17 +1,21 @@
 <script setup lang="ts">
 // @ts-ignore - Vue SFC default export is provided by shim
-import AppLayout from "@/components/layout/AppLayout.vue";
-import OnboardingPopup from "@/components/OnboardingPopup.vue";
-import { useKeyboardInsets } from "@/composables/useKeyboardInsets";
-import { useAuthStore } from "@/stores/auth";
-import { useSettingsStore } from "@/stores/settings";
-import { useUserProfileStore } from "@/stores/userProfile";
-import { nextTick, onMounted, ref, watch } from "vue";
+import AppLayout from '@/components/layout/AppLayout.vue';
+import OnboardingPopup from '@/components/OnboardingPopup.vue';
+import { useKeyboardInsets } from '@/composables/useKeyboardInsets';
+import { useAuthStore } from '@/stores/auth';
+import { useSessionsStore } from '@/stores/sessions';
+import { useSettingsStore } from '@/stores/settings';
+import { useUserProfileStore } from '@/stores/userProfile';
+import { nextTick, onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 const showOnboarding = ref(false);
 const auth = useAuthStore();
 const profileStore = useUserProfileStore();
 const settings = useSettingsStore();
+const sessions = useSessionsStore();
+const router = useRouter();
 
 useKeyboardInsets();
 
@@ -32,6 +36,18 @@ onMounted(async () => {
 	// Применяем тему сразу после загрузки
 	settings.applyTheme();
 	await auth.initFromSession();
+	// Сессии: загрузка активной и авто-завершение при просрочке
+	await sessions.loadActiveSession();
+	await sessions.autoExpireActiveSession();
+	// Если после авто-expire всё ещё есть активная сессия — редирект на неё
+	if (
+		sessions.currentSession &&
+		sessions.currentSession.status === 'in_progress'
+	) {
+		if (router.currentRoute.value.path !== '/session') {
+			router.replace({ path: '/session' });
+		}
+	}
 	await evalOnboarding();
 });
 

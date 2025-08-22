@@ -1,77 +1,77 @@
 <script setup lang="ts">
-import { computed, provide, ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { computed, provide, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
 const router = useRouter();
 
 // Система для передачи действий в хедер от страниц
 const headerActions = ref<any[]>([]);
-provide("setHeaderActions", (actions: any[]) => {
+provide('setHeaderActions', (actions: any[]) => {
 	headerActions.value = actions;
 });
 
 // Определяем метаданные страниц
 const pageConfig = {
-	"/planner": {
-		title: "План тренировок",
+	'/planner': {
+		title: 'План тренировок',
 		showBack: false,
 		showTabbar: true,
-		icon: "notes",
+		icon: 'notes',
 	},
-	"/diary": {
-		title: "Дневник тренировок",
+	'/diary': {
+		title: 'Дневник тренировок',
 		showBack: false,
 		showTabbar: true,
-		icon: "records",
+		icon: 'records',
 	},
-	"/results": {
-		title: "Результаты",
+	'/results': {
+		title: 'Результаты',
 		showBack: false,
 		showTabbar: true,
-		icon: "chart-trending-o",
+		icon: 'chart-trending-o',
 	},
-	"/supplements": {
-		title: "Добавки",
+	'/supplements': {
+		title: 'Добавки',
 		showBack: false,
 		showTabbar: true,
-		icon: "like",
+		icon: 'like',
 	},
-	"/settings": {
-		title: "Настройки",
+	'/settings': {
+		title: 'Настройки',
 		showBack: false,
 		showTabbar: true,
-		icon: "setting",
+		icon: 'setting',
 	},
-	"/session": {
-		title: "Тренировка",
+	'/session': {
+		title: 'Тренировка',
 		showBack: true,
 		showTabbar: false,
-		icon: "play-circle",
+		icon: 'play-circle',
 	},
-	"/timer": {
-		title: "Таймер",
+	'/timer': {
+		title: 'Таймер',
 		showBack: true,
 		showTabbar: false,
-		icon: "clock",
+		icon: 'clock',
 	},
-	"/reminders": {
-		title: "Напоминания",
+	'/reminders': {
+		title: 'Напоминания',
 		showBack: true,
 		showTabbar: false,
-		icon: "bell",
+		icon: 'bell',
 	},
-	"/login": {
-		title: "Вход",
+	'/login': {
+		title: 'Вход',
 		showBack: false,
 		showTabbar: false,
-		icon: "user",
+		icon: 'user',
 	},
-	"/register": {
-		title: "Регистрация",
+	'/register': {
+		title: 'Регистрация',
 		showBack: true,
 		showTabbar: false,
-		icon: "user-plus",
+		icon: 'user-plus',
 	},
 } as const;
 
@@ -79,33 +79,33 @@ const pageConfig = {
 const currentPageConfig = computed(() => {
 	return (
 		pageConfig[route.path as keyof typeof pageConfig] || {
-			title: "Training Planner",
+			title: 'Training Planner',
 			showBack: true,
 			showTabbar: false,
-			icon: "home",
+			icon: 'home',
 		}
 	);
 });
 
 // Показывать ли хедер вообще
 const showHeader = computed(() => {
-	return route.path !== "/login" && route.path !== "/register";
+	return route.path !== '/login' && route.path !== '/register';
 });
 
 // Табы для навигации
 const tabItems = [
-	{ path: "/planner", icon: "notes", label: "План" },
-	{ path: "/diary", icon: "records", label: "Дневник" },
-	{ path: "/results", icon: "chart-trending-o", label: "Результаты" },
-	{ path: "/supplements", icon: "like", label: "Добавки" },
-	{ path: "/settings", icon: "setting", label: "Настройки" },
+	{ path: '/planner', icon: 'notes', label: 'План' },
+	{ path: '/diary', icon: 'records', label: 'Дневник' },
+	{ path: '/results', icon: 'chart-trending-o', label: 'Результаты' },
+	{ path: '/supplements', icon: 'like', label: 'Добавки' },
+	{ path: '/settings', icon: 'setting', label: 'Настройки' },
 ];
 
 function handleBack() {
 	if (router.options.history.state.back) {
 		router.back();
 	} else {
-		router.push("/planner");
+		router.push('/planner');
 	}
 }
 </script>
@@ -140,9 +140,11 @@ function handleBack() {
 
 		<!-- Основной контент со скроллом -->
 		<div class="app-layout__content">
-			<div class="app-layout__page">
-				<router-view />
-			</div>
+			<transition name="slide-fade" mode="out-in">
+				<div class="app-layout__page" :key="route.fullPath">
+					<router-view />
+				</div>
+			</transition>
 		</div>
 
 		<!-- Нижняя навигация -->
@@ -238,6 +240,20 @@ function handleBack() {
 			margin-bottom: 2px;
 		}
 	}
+}
+
+/* Анимация перехода страниц */
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+	transition: all 0.28s var(--ease-std, ease);
+}
+.slide-fade-enter-from {
+	opacity: 0;
+	transform: translateX(12px);
+}
+.slide-fade-leave-to {
+	opacity: 0;
+	transform: translateX(-12px);
 }
 
 // Убираем глобальный скролл и настраиваем мобильное приложение

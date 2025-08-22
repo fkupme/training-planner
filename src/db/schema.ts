@@ -423,8 +423,8 @@ async function seedExercisesIfSparse() {
 			const equipment = pickEquipment(name);
 			const desc = generateExerciseDescription(name, codeToRu[code], equipment);
 			await exec(
-				`INSERT INTO exercises (name, description, primary_muscle_id, equipment, media_path, media_kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-				[name, desc, primaryId, equipment, null, null, now]
+				`INSERT INTO exercises (name, description, primary_muscle_id, equipment, media_path, media_kind, created_at, alt_names) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				[name, desc, primaryId, equipment, null, null, now, null]
 			);
 			const last = await query<{ id: number }>(
 				`SELECT last_insert_rowid() as id`
@@ -483,6 +483,7 @@ export async function ensureSchema() {
 	await ensureColumn('exercises', 'primary_muscle_id', 'INTEGER');
 	await ensureColumn('exercises', 'media_path', 'TEXT');
 	await ensureColumn('exercises', 'media_kind', 'TEXT'); // gif | video | null
+	await ensureColumn('exercises', 'alt_names', 'TEXT'); // JSON или список синонимов
 
 	await exec(`CREATE TABLE IF NOT EXISTS exercise_secondary_muscles (
     exercise_id INTEGER NOT NULL,
@@ -604,6 +605,344 @@ export async function ensureSchema() {
 	// Сид библиотеки упражнений (~120, идемпотентный)
 	await seedExercisesIfSparse();
 
+	// Расширенный сид добавок (идемпотентно, пополняет и обновляет пустые поля)
+	async function seedSupplementsIfMissing() {
+		try {
+			const now = Date.now();
+			const seeds: Array<{
+				name: string;
+				description: string;
+				form: string;
+				unit: string;
+				amount?: number | null;
+				effects?: string[];
+				course_days?: number | null;
+				alt_names?: string[];
+			}> = [
+				{
+					name: 'Креатин моногидрат',
+					description: 'Поддержка силы, мощности и восстановления',
+					form: 'powder',
+					unit: 'g',
+					amount: 5,
+					effects: ['сила', 'восстановление', 'мощность'],
+					course_days: 60,
+					alt_names: ['Creatine Monohydrate', 'Креатин', 'Creatine'],
+				},
+				{
+					name: 'Сывороточный протеин',
+					description: 'Быстрый белок после тренировки',
+					form: 'powder',
+					unit: 'g',
+					amount: 30,
+					effects: ['мышечный рост', 'восстановление'],
+					alt_names: ['Whey Protein', 'Протеин', 'Whey'],
+				},
+				{
+					name: 'Казеиновый протеин',
+					description: 'Медленный белок на ночь',
+					form: 'powder',
+					unit: 'g',
+					amount: 30,
+					effects: ['антикатаболизм', 'восстановление'],
+					alt_names: ['Casein Protein', 'Casein'],
+				},
+				{
+					name: 'Омега-3 (EPA/DHA)',
+					description: 'Противовоспалительный, здоровье сердца и суставов',
+					form: 'capsule',
+					unit: 'pcs',
+					amount: 2,
+					effects: ['сердце', 'суставы', 'антивоспалительный'],
+					alt_names: ['Fish Oil', 'Omega 3', 'Рыбий жир'],
+				},
+				{
+					name: 'Витамин D3',
+					description: 'Иммунитет и здоровье костей',
+					form: 'capsule',
+					unit: 'iu',
+					amount: 2000,
+					effects: ['иммунитет', 'кости', 'гормоны'],
+					alt_names: ['Vitamin D', 'Cholecalciferol'],
+				},
+				{
+					name: 'Магний',
+					description: 'Нервная система, сон, расслабление',
+					form: 'tablet',
+					unit: 'mg',
+					amount: 300,
+					effects: ['сон', 'нервная система', 'восстановление'],
+					alt_names: ['Magnesium'],
+				},
+				{
+					name: 'Цинк',
+					description: 'Иммунитет и гормональный фон',
+					form: 'tablet',
+					unit: 'mg',
+					amount: 20,
+					effects: ['иммунитет', 'тестостерон'],
+					alt_names: ['Zinc'],
+				},
+				{
+					name: 'Комплекс витаминов (Multivitamin)',
+					description: 'Базовая поддержка микронутриентов',
+					form: 'tablet',
+					unit: 'pcs',
+					amount: 1,
+					effects: ['здоровье', 'иммунитет'],
+					alt_names: ['Мультивитамины', 'Multivitamin'],
+				},
+				{
+					name: 'BCAA',
+					description: 'Лейцин, изолейцин и валин',
+					form: 'powder',
+					unit: 'g',
+					amount: 10,
+					effects: ['антикатаболизм', 'восстановление'],
+					alt_names: ['Branched Chain Amino Acids'],
+				},
+				{
+					name: 'EAA',
+					description: 'Незаменимые аминокислоты',
+					form: 'powder',
+					unit: 'g',
+					amount: 12,
+					effects: ['восстановление', 'мышечный рост'],
+					alt_names: ['Essential Amino Acids'],
+				},
+				{
+					name: 'Глютамин',
+					description: 'Восстановление и иммунитет',
+					form: 'powder',
+					unit: 'g',
+					amount: 5,
+					effects: ['восстановление', 'иммунитет'],
+					alt_names: ['L-Glutamine'],
+				},
+				{
+					name: 'Бета-аланин',
+					description: 'Буфер молочной кислоты, выносливость',
+					form: 'powder',
+					unit: 'g',
+					amount: 3,
+					effects: ['выносливость', 'мощность'],
+					alt_names: ['Beta Alanine'],
+				},
+				{
+					name: 'Цитруллин малат',
+					description: 'Нитрики, памп и кровоток',
+					form: 'powder',
+					unit: 'g',
+					amount: 6,
+					effects: ['памп', 'кровоток', 'выносливость'],
+					alt_names: ['Citrulline Malate', 'L-Citrulline'],
+				},
+				{
+					name: 'L-карнитин',
+					description: 'Транспорт жирных кислот и энергия',
+					form: 'liquid',
+					unit: 'ml',
+					amount: 10,
+					effects: ['энергия', 'метаболизм'],
+					alt_names: ['L-Carnitine', 'Карнитин'],
+				},
+				{
+					name: 'Ашваганда',
+					description: 'Адаптоген для снижения стресса',
+					form: 'capsule',
+					unit: 'mg',
+					amount: 600,
+					effects: ['стресс', 'сон', 'гормоны'],
+					alt_names: ['Ashwagandha', 'Withania Somnifera'],
+				},
+				{
+					name: 'Родиола Розовая',
+					description: 'Адаптоген для энергии',
+					form: 'capsule',
+					unit: 'mg',
+					amount: 300,
+					effects: ['энергия', 'стресс'],
+					alt_names: ['Rhodiola Rosea'],
+				},
+				{
+					name: 'Таурин',
+					description: 'Поддержка нервной системы',
+					form: 'powder',
+					unit: 'g',
+					amount: 2,
+					effects: ['нервная система', 'выносливость'],
+					alt_names: ['Taurine'],
+				},
+				{
+					name: 'Электролиты',
+					description: 'Баланс жидкости и минералов',
+					form: 'powder',
+					unit: 'g',
+					amount: 5,
+					effects: ['гидратация', 'выносливость'],
+					alt_names: ['Electrolytes'],
+				},
+				{
+					name: 'Коллаген',
+					description: 'Суставы, кожа и связки',
+					form: 'powder',
+					unit: 'g',
+					amount: 10,
+					effects: ['суставы', 'кожа', 'связки'],
+					alt_names: ['Collagen Peptides'],
+				},
+				{
+					name: 'Пробиотики',
+					description: 'Здоровье кишечника',
+					form: 'capsule',
+					unit: 'pcs',
+					amount: 1,
+					effects: ['кишечник', 'иммунитет'],
+					alt_names: ['Probiotics'],
+				},
+				{
+					name: 'Гринс порошок',
+					description: 'Смесь растительных экстрактов',
+					form: 'powder',
+					unit: 'g',
+					amount: 10,
+					effects: ['микронутриенты', 'здоровье'],
+					alt_names: ['Greens Powder', 'Super Greens'],
+				},
+				{
+					name: 'Мульти-минералы',
+					description: 'Комплекс минералов',
+					form: 'tablet',
+					unit: 'pcs',
+					amount: 1,
+					effects: ['здоровье', 'баланс'],
+					alt_names: ['Multimineral'],
+				},
+				{
+					name: 'Кальций',
+					description: 'Кости и мышечные сокращения',
+					form: 'tablet',
+					unit: 'mg',
+					amount: 600,
+					effects: ['кости'],
+					alt_names: ['Calcium'],
+				},
+				{
+					name: 'Кофеин',
+					description: 'Стимулятор перед тренировкой',
+					form: 'tablet',
+					unit: 'mg',
+					amount: 200,
+					effects: ['фокус', 'энергия'],
+					alt_names: ['Caffeine'],
+				},
+				{
+					name: 'Мельатонин',
+					description: 'Нормализация сна',
+					form: 'tablet',
+					unit: 'mg',
+					amount: 3,
+					effects: ['сон'],
+					alt_names: ['Melatonin'],
+				},
+				{
+					name: 'Куркумин',
+					description: 'Противовоспалительный эффект',
+					form: 'capsule',
+					unit: 'mg',
+					amount: 500,
+					effects: ['антивоспалительный', 'суставы'],
+					alt_names: ['Curcumin', 'Turmeric Extract'],
+				},
+				{
+					name: 'Альфа-GPC',
+					description: 'Холиновый ноотроп',
+					form: 'capsule',
+					unit: 'mg',
+					amount: 300,
+					effects: ['фокус', 'когнитивные функции'],
+					alt_names: ['Alpha GPC'],
+				},
+				{
+					name: 'Леветирозин',
+					description: 'Предтрен для концентрации',
+					form: 'capsule',
+					unit: 'mg',
+					amount: 500,
+					effects: ['фокус', 'стресс'],
+					alt_names: ['L-Tyrosine'],
+				},
+				{
+					name: 'Йод',
+					description: 'Щитовидная железа',
+					form: 'tablet',
+					unit: 'mcg',
+					amount: 150,
+					effects: ['щитовидка'],
+					alt_names: ['Iodine'],
+				},
+				{
+					name: 'Селен',
+					description: 'Антиоксидант, щитовидная железа',
+					form: 'tablet',
+					unit: 'mcg',
+					amount: 200,
+					effects: ['антиоксидант', 'щитовидка'],
+					alt_names: ['Selenium'],
+				},
+			];
+			for (const s of seeds) {
+				const row = await query<{
+					id: number;
+					description: string | null;
+					effects: string | null;
+					alt_names: string | null;
+					default_amount: number | null;
+					default_unit: string | null;
+				}>(`SELECT * FROM supplements WHERE name = ? LIMIT 1`, [s.name]);
+				if (!row.length) {
+					await exec(
+						`INSERT INTO supplements (name, description, form, default_unit, default_amount, effects, course_days, alt_names, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+						[
+							s.name,
+							s.description,
+							s.form,
+							s.unit,
+							s.amount ?? null,
+							JSON.stringify(s.effects || []),
+							s.course_days ?? null,
+							JSON.stringify(s.alt_names || []),
+							now,
+						]
+					);
+				} else {
+					// Обновляем только пустые поля
+					const id = row[0].id;
+					if (!row[0].effects && s.effects) {
+						await exec(`UPDATE supplements SET effects = ? WHERE id = ?`, [
+							JSON.stringify(s.effects),
+							id,
+						]);
+					}
+					if (!row[0].alt_names && s.alt_names) {
+						await exec(`UPDATE supplements SET alt_names = ? WHERE id = ?`, [
+							JSON.stringify(s.alt_names),
+							id,
+						]);
+					}
+					if (row[0].default_amount == null && s.amount != null) {
+						await exec(
+							`UPDATE supplements SET default_amount = ?, default_unit = COALESCE(default_unit, ?) WHERE id = ?`,
+							[s.amount, s.unit, id]
+						);
+					}
+				}
+			}
+		} catch (e) {
+			console.warn('[schema] seedSupplements extended skipped:', e);
+		}
+	}
+
 	// --- Таблицы для учёта добавок/препаратов ---
 	await exec(`
 		CREATE TABLE IF NOT EXISTS supplements_plans (
@@ -643,4 +982,55 @@ export async function ensureSchema() {
 
 	// ensure medications column exists for older DBs
 	await ensureColumn('supplements_instances', 'medications', 'TEXT');
+
+	// --- Новая схема для плана добавок, привязанного к program (v2) ---
+	await exec(`CREATE TABLE IF NOT EXISTS supplements (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		description TEXT,
+		form TEXT, -- capsule | powder | liquid | other
+		default_unit TEXT, -- mg | g | ml | pcs | cap | tab
+		default_amount REAL,
+		effects TEXT,
+		course_days INTEGER,
+		alt_names TEXT, -- альтернативные названия / синонимы через запятую
+		created_at INTEGER NOT NULL
+	)`);
+	// Дополнительные поля (миграции) — если база старая
+	try {
+		await ensureColumn('supplements', 'default_amount', 'REAL');
+	} catch {}
+	try {
+		await ensureColumn('supplements', 'effects', 'TEXT');
+	} catch {}
+	try {
+		await ensureColumn('supplements', 'course_days', 'INTEGER');
+	} catch {}
+	try {
+		await ensureColumn('supplements', 'alt_names', 'TEXT');
+	} catch {}
+
+	await exec(`CREATE TABLE IF NOT EXISTS program_day_supplements (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		program_id INTEGER NOT NULL,
+		cycle_type TEXT NOT NULL, -- weekly | custom
+		day_index INTEGER NOT NULL,
+		supplement_id INTEGER NOT NULL,
+		slot INTEGER NOT NULL, -- 0..6 (приём в день)
+		amount REAL,
+		unit TEXT,
+		note TEXT,
+		optional_flag INTEGER NOT NULL DEFAULT 0,
+		position INTEGER NOT NULL DEFAULT 0,
+		created_at INTEGER NOT NULL,
+		FOREIGN KEY(program_id) REFERENCES programs(id) ON DELETE CASCADE,
+		FOREIGN KEY(supplement_id) REFERENCES supplements(id) ON DELETE RESTRICT
+	)`);
+
+	await exec(
+		`CREATE INDEX IF NOT EXISTS idx_program_day_supplements_prog ON program_day_supplements(program_id, cycle_type, day_index)`
+	);
+
+	// Теперь можно безопасно сидировать добавки
+	await seedSupplementsIfMissing();
 }

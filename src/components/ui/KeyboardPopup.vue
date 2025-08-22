@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { useKeyboardHandling } from "@/composables/useKeyboardHandling";
-import { computed, defineEmits, defineProps } from "vue";
+import { useKeyboardHandling } from '@/composables/useKeyboardHandling';
+import { computed, defineEmits, defineProps } from 'vue';
 
 const props = defineProps<{ show: boolean; height?: string; title?: string }>();
-const emit = defineEmits<{ (e: "update:show", v: boolean): void }>();
+const emit = defineEmits<{ (e: 'update:show', v: boolean): void }>();
 
 const modelShow = computed({
 	get: () => props.show,
-	set: (v: boolean) => emit("update:show", v),
+	set: (v: boolean) => emit('update:show', v),
 });
 
 // Внутренний контейнер имеет класс .keyboard-popup для таргета композабла
-useKeyboardHandling(".keyboard-popup", 320);
+useKeyboardHandling('.keyboard-popup', 320);
+</script>
+
+<script lang="ts">
+import { defineComponent } from 'vue';
+export default defineComponent({ name: 'KeyboardPopup' });
 </script>
 
 <template>

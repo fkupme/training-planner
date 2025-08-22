@@ -1,73 +1,100 @@
 <template>
 	<div class="training-diary">
-		<!-- Поиск -->
-		<van-search
-			v-model="sessions.historySearchQuery"
-			placeholder="Поиск по названию, дню или комментариям..."
-			@update:model-value="sessions.setHistorySearch"
-		/>
-
-		<!-- Статистика -->
-		<van-cell-group inset>
-			<van-cell
-				title="Всего тренировок"
-				:value="sessions.trainingHistory.length.toString()"
-				icon="completed"
-			/>
-			<van-cell
-				title="За последний месяц"
-				:value="recentTrainingsCount.toString()"
-				icon="calendar-o"
-			/>
-		</van-cell-group>
-
-		<!-- Список тренировок -->
-		<van-list
-			v-model:loading="sessions.isLoadingHistory"
-			:finished="true"
-			loading-text="Загрузка..."
-		>
-			<van-cell-group
-				v-if="sessions.filteredTrainingHistory.length > 0"
-				inset
-				v-for="session in sessions.filteredTrainingHistory"
-				:key="session.id"
-				class="training-diary__session"
-			>
-				<van-cell
-					:title="session.program_name"
-					:label="formatSessionInfo(session)"
-					:value="formatDate(session.completed_at)"
-					is-link
-					@click="openSessionDetails(session)"
-				>
-					<template #icon>
-						<van-icon name="completed" color="var(--van-success-color)" />
-					</template>
-					<template #right-icon>
-						<div class="session-stats">
-							<van-tag type="primary">
-								{{ session.exercises_count }} упр.
-							</van-tag>
-							<van-tag type="success"> {{ session.total_sets }} подх. </van-tag>
-						</div>
-					</template>
-				</van-cell>
-
-				<!-- Комментарии если есть -->
-				<van-cell
-					v-if="session.comments"
-					:label="session.comments"
-					title="Комментарии"
-					icon="comment-o"
-					class="session-comments"
+		<div class="training-diary__inner">
+			<!-- Header / Search -->
+			<section class="training-diary__section training-diary__section--search">
+				<h1 class="training-diary__title">Дневник тренировок</h1>
+				<van-search
+					v-model="sessions.historySearchQuery"
+					shape="round"
+					background="transparent"
+					placeholder="Поиск по названию, дню или комментариям..."
+					@update:model-value="sessions.setHistorySearch"
 				/>
-			</van-cell-group>
+			</section>
 
-			<van-empty v-else image="search" description="Нет тренировок" />
-		</van-list>
+			<!-- Stats -->
+			<section class="training-diary__section">
+				<h2 class="section-title">Статистика</h2>
+				<van-cell-group inset class="stats-cards">
+					<van-cell
+						title="Всего тренировок"
+						:value="sessions.trainingHistory.length.toString()"
+						icon="completed"
+					/>
+					<van-cell
+						title="За последний месяц"
+						:value="recentTrainingsCount.toString()"
+						icon="calendar-o"
+					/>
+				</van-cell-group>
+			</section>
 
-		<!-- Детальный просмотр тренировки -->
+			<!-- History -->
+			<section class="training-diary__section">
+				<div class="section-title with-count">
+					<h2>История</h2>
+					<span v-if="sessions.filteredTrainingHistory.length" class="chip">{{
+						sessions.filteredTrainingHistory.length
+					}}</span>
+				</div>
+
+				<van-list
+					v-model:loading="sessions.isLoadingHistory"
+					:finished="true"
+					loading-text="Загрузка..."
+					class="sessions-list"
+				>
+					<transition-group name="fade-list" tag="div">
+						<div
+							v-for="session in sessions.filteredTrainingHistory"
+							:key="session.id"
+							class="session-card"
+							@click="openSessionDetails(session)"
+						>
+							<div class="session-card__header">
+								<div class="session-card__main">
+									<div class="session-card__program">
+										{{ session.program_name }}
+									</div>
+									<div class="session-card__meta">
+										{{ formatSessionInfo(session) }}
+									</div>
+								</div>
+								<div class="session-card__side">
+									<div class="session-card__date">
+										{{ formatDate(session.completed_at) }}
+									</div>
+									<div class="session-card__tags">
+										<van-tag round type="primary"
+											>{{ session.exercises_count }} упр.</van-tag
+										>
+										<van-tag round type="success"
+											>{{ session.total_sets }} подх.</van-tag
+										>
+									</div>
+								</div>
+							</div>
+							<div v-if="session.comments" class="session-card__comments">
+								<van-icon name="comment-o" />
+								<span>{{ session.comments }}</span>
+							</div>
+						</div>
+					</transition-group>
+
+					<van-empty
+						v-if="
+							!sessions.filteredTrainingHistory.length &&
+							!sessions.isLoadingHistory
+						"
+						image="search"
+						description="Нет тренировок"
+					/>
+				</van-list>
+			</section>
+		</div>
+
+		<!-- Popup details -->
 		<van-popup
 			v-model:show="showSessionDetails"
 			position="bottom"
@@ -86,7 +113,6 @@
 				</van-nav-bar>
 
 				<div class="session-details__content">
-					<!-- Основная информация -->
 					<van-cell-group inset>
 						<van-cell
 							title="День тренировки"
@@ -106,7 +132,6 @@
 						/>
 					</van-cell-group>
 
-					<!-- Статистика -->
 					<van-cell-group inset title="Статистика">
 						<van-cell
 							title="Упражнений"
@@ -120,7 +145,6 @@
 						/>
 					</van-cell-group>
 
-					<!-- Комментарии -->
 					<van-cell-group
 						inset
 						title="Комментарии"
@@ -133,7 +157,6 @@
 						</van-cell>
 					</van-cell-group>
 
-					<!-- Детали упражнений (если нужно - загружаем отдельно) -->
 					<van-cell-group inset title="Упражнения">
 						<van-cell
 							title="Подробности упражнений"
@@ -246,38 +269,170 @@ function viewFullSession() {
 
 <style lang="scss" scoped>
 .training-diary {
-	padding: var(--space-3);
+	--card-bg: var(--color-surface, rgba(255, 255, 255, 0.04));
+	padding: var(--space-4) var(--space-3) var(--space-6);
 	background: var(--color-bg);
 	min-height: 100vh;
+	display: flex;
+	justify-content: center;
+
+	&__inner {
+		width: 100%;
+		max-width: 820px;
+	}
+
+	&__title {
+		margin: 0 0 var(--space-2);
+		font-size: 1.55rem;
+		font-weight: 600;
+		text-align: center;
+	}
+
+	&__section {
+		margin-bottom: clamp(1.5rem, 2.5vh, 2.25rem);
+
+		&--search {
+			margin-bottom: var(--space-4);
+		}
+	}
+
+	.section-title {
+		font-size: 0.95rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-secondary);
+		margin: 0 0 var(--space-2);
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+
+		h2 {
+			all: unset;
+		}
+
+		&.with-count h2 {
+			cursor: default;
+		}
+	}
+
+	.chip {
+		background: var(--van-primary-color);
+		color: #fff;
+		font-size: 0.7rem;
+		padding: 0.2rem 0.55rem;
+		border-radius: 999px;
+		line-height: 1;
+		font-weight: 600;
+	}
 
 	:deep(.van-search) {
-		padding: 0 0 var(--space-3) 0;
+		padding: 0;
+		border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+		border-radius: 40px;
+		box-shadow: 0 2px 4px -2px rgba(0, 0, 0, 0.35),
+			0 0 0 1px rgba(255, 255, 255, 0.02) inset;
 	}
 
-	:deep(.van-cell-group) {
-		margin-bottom: var(--space-3);
-	}
-
-	&__session {
-		.session-stats {
-			display: flex;
-			flex-direction: column;
-			gap: var(--space-1);
-			align-items: flex-end;
-		}
-
-		.session-comments {
-			:deep(.van-cell__label) {
-				color: var(--color-text-secondary);
-				font-style: italic;
-				max-height: 40px;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				display: -webkit-box;
-				-webkit-line-clamp: 2;
-				-webkit-box-orient: vertical;
+	.stats-cards {
+		:deep(.van-cell) {
+			background: transparent;
+			&:not(:last-child)::after {
+				left: 16px;
+				right: 16px;
 			}
 		}
+		background: linear-gradient(
+			145deg,
+			var(--card-bg) 0%,
+			rgba(255, 255, 255, 0.02) 100%
+		);
+		border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+		border-radius: 18px;
+		box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.4),
+			0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
+	}
+
+	.sessions-list {
+		margin-top: 0.25rem;
+	}
+
+	.session-card {
+		position: relative;
+		background: var(--card-bg);
+		border: 1px solid var(--color-border, rgba(255, 255, 255, 0.07));
+		padding: 1rem 0.95rem 0.85rem;
+		border-radius: 18px;
+		margin-bottom: 0.9rem;
+		cursor: pointer;
+		display: flex;
+		flex-direction: column;
+		gap: 0.55rem;
+		transition: border-color 0.25s, background 0.25s, transform 0.25s;
+		backdrop-filter: blur(6px);
+
+		&:hover {
+			border-color: var(--van-primary-color);
+		}
+		&:active {
+			transform: scale(0.985);
+		}
+
+		&__header {
+			display: flex;
+			justify-content: space-between;
+			gap: 0.75rem;
+		}
+		&__main {
+			min-width: 0;
+		}
+		&__program {
+			font-weight: 600;
+			font-size: 0.95rem;
+			line-height: 1.25;
+		}
+		&__meta {
+			font-size: 0.7rem;
+			opacity: 0.7;
+			margin-top: 0.15rem;
+		}
+		&__side {
+			text-align: right;
+			display: flex;
+			flex-direction: column;
+			align-items: flex-end;
+			gap: 0.35rem;
+		}
+		&__date {
+			font-size: 0.65rem;
+			letter-spacing: 0.05em;
+			text-transform: uppercase;
+			opacity: 0.65;
+		}
+		&__tags {
+			display: flex;
+			gap: 0.4rem;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+		}
+		&__comments {
+			font-size: 0.7rem;
+			display: flex;
+			align-items: flex-start;
+			gap: 0.35rem;
+			opacity: 0.85;
+			line-height: 1.2;
+		}
+	}
+
+	.fade-list-enter-active,
+	.fade-list-leave-active {
+		transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	.fade-list-enter-from,
+	.fade-list-leave-to {
+		opacity: 0;
+		transform: translateY(6px);
 	}
 }
 

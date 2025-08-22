@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { DayExerciseDetailed } from "@/stores/exercises";
-import type { WorkoutType } from "@/stores/workouts";
-import { defineEmits, defineProps } from "vue";
+import type { DayExerciseDetailed } from '@/stores/exercises';
+import type { WorkoutType } from '@/stores/workouts';
+import { defineEmits, defineProps } from 'vue';
 
 type WorkoutMeta = {
 	description: string | null;
@@ -10,7 +10,7 @@ type WorkoutMeta = {
 
 const props = defineProps<{
 	title: string;
-	cycleType: "weekly" | "custom";
+	cycleType: 'weekly' | 'custom';
 	dayIndex: number;
 	sessions: number; // 1 или 2
 	exercisesA: DayExerciseDetailed[];
@@ -23,40 +23,37 @@ const props = defineProps<{
 
 const emit = defineEmits<{
 	(
-		e: "edit",
-		payload: { cycleType: "weekly" | "custom"; dayIndex: number; slot: 0 | 1 }
+		e: 'edit',
+		payload: { cycleType: 'weekly' | 'custom'; dayIndex: number; slot: 0 | 1 }
 	): void;
 	(
-		e: "delete",
-		payload: { cycleType: "weekly" | "custom"; dayIndex: number; slot: 0 | 1 }
+		e: 'delete',
+		payload: { cycleType: 'weekly' | 'custom'; dayIndex: number; slot: 0 | 1 }
 	): void;
-	(e: "openParams", it: DayExerciseDetailed): void;
-	(e: "removeExercise", it: DayExerciseDetailed): void;
+	(e: 'openParams', it: DayExerciseDetailed): void;
+	(e: 'removeExercise', it: DayExerciseDetailed): void;
 	(
-		e: "addExercise",
-		payload: { cycleType: "weekly" | "custom"; dayIndex: number; slot: 0 | 1 }
+		e: 'addExercise',
+		payload: { cycleType: 'weekly' | 'custom'; dayIndex: number; slot: 0 | 1 }
 	): void;
 }>();
 
 function typeLabel(t?: WorkoutType | null) {
 	return (
 		{
-			strength: "Силовая",
-			cardio: "Кардио",
-			strike: "Ударная",
-			crossfit: "Кроссфит",
-			other: "Другое",
+			strength: 'Силовая',
+			cardio: 'Кардио',
+			strike: 'Ударная',
+			crossfit: 'Кроссфит',
+			other: 'Другое',
 		} as const
-	)[(t ?? "other") as WorkoutType];
+	)[(t ?? 'other') as WorkoutType];
 }
 </script>
 
 <template>
 	<div class="workout-card">
-		<van-cell
-			style="background: var(--color-bg);"
-			:title="title"
-		/>
+		<van-cell style="background: var(--color-bg)" :title="title" />
 
 		<!-- Два слота -->
 		<template v-if="sessions === 2">
@@ -116,12 +113,14 @@ function typeLabel(t?: WorkoutType | null) {
 					@click="emit('openParams', it)"
 				/>
 				<template #right>
-					<van-button
-						square
-						type="danger"
-						text="Удалить"
-						@click="emit('removeExercise', it)"
-					/>
+					<div class="swipe-actions">
+						<van-button
+							class="delete-btn"
+							type="danger"
+							text="Удалить"
+							@click="emit('removeExercise', it)"
+						/>
+					</div>
 				</template>
 			</van-swipe-cell>
 			<van-button
@@ -195,13 +194,14 @@ function typeLabel(t?: WorkoutType | null) {
 					@click="emit('openParams', it)"
 				/>
 				<template #right>
-					<van-button
-						class="delete-btn"
-						square
-						type="danger"
-						text="Удалить"
-						@click="emit('removeExercise', it)"
-					/>
+					<div class="swipe-actions">
+						<van-button
+							class="delete-btn"
+							type="danger"
+							text="Удалить"
+							@click="emit('removeExercise', it)"
+						/>
+					</div>
 				</template>
 			</van-swipe-cell>
 			<van-button
@@ -222,18 +222,18 @@ function typeLabel(t?: WorkoutType | null) {
 
 		<!-- Один слот -->
 		<template v-else>
-			<van-cell style="background: var(--color-bg);">
+			<van-cell style="background: var(--color-bg)">
 				<div class="tags">
-				<van-tag
-					v-for="n in muscleNamesA || []"
-					:key="n"
-					plain
-					type="primary"
-					>{{ n }}</van-tag
-				>
-			</div>
+					<van-tag
+						v-for="n in muscleNamesA || []"
+						:key="n"
+						plain
+						type="primary"
+						>{{ n }}</van-tag
+					>
+				</div>
 				<template #right-icon>
-					<van-space  size="4">
+					<van-space size="4">
 						<van-icon
 							class="action-icon"
 							name="edit"
@@ -259,7 +259,7 @@ function typeLabel(t?: WorkoutType | null) {
 					</van-space>
 				</template>
 			</van-cell>
-			
+
 			<div v-if="metaA?.description || metaA?.type" class="meta">
 				<div class="meta__desc" v-if="metaA?.description">
 					{{ metaA?.description }}
@@ -271,7 +271,7 @@ function typeLabel(t?: WorkoutType | null) {
 
 			<van-swipe-cell v-for="it in exercisesA" :key="it.id">
 				<van-cell
-					style="background: var(--color-bg);"
+					style="background: var(--color-bg)"
 					:title="it.exercise_name"
 					:label="`Подходов: ${it.sets_count}  Повторы: ${
 						Number(it.reps_json) || ''
@@ -280,12 +280,14 @@ function typeLabel(t?: WorkoutType | null) {
 					@click="emit('openParams', it)"
 				/>
 				<template #right>
-					<van-button
-						square
-						type="danger"
-						text="Удалить"
-						@click="emit('removeExercise', it)"
-					/>
+					<div class="swipe-actions">
+						<van-button
+							class="delete-btn"
+							type="danger"
+							text="Удалить"
+							@click="emit('removeExercise', it)"
+						/>
+					</div>
 				</template>
 			</van-swipe-cell>
 			<van-button
@@ -345,12 +347,20 @@ function typeLabel(t?: WorkoutType | null) {
 	font-size: 12px;
 	color: var(--van-blue);
 }
-.add{
+.add {
 	background: var(--grad-2);
 	color: var(--color-accent-contrast);
 }
 .delete-btn {
 	height: 100%;
 	border-radius: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 86px;
+}
+.swipe-actions {
+	display: flex;
+	height: 100%;
 }
 </style>
