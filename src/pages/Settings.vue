@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ThemeActionSheet from '@/components/ui/ThemeActionSheet.vue';
+import { ThemedCellGroup, ThemedCell, ThemedSwitch } from '@/components/ui';
 import { useSettingsStore } from '@/stores/settings';
 import { showDialog, showToast } from 'vant';
 import { computed, onMounted, ref } from 'vue';
@@ -144,28 +145,28 @@ function handleBiometricToggle() {
 <template>
 	<div class="settings">
 		<!-- Внешний вид -->
-		<van-cell-group inset title="Внешний вид">
-			<van-cell
+		<ThemedCellGroup inset title="Внешний вид">
+			<ThemedCell
 				title="Тема"
 				:value="currentThemeLabel"
 				is-link
 				@click="showThemeSelector"
 			/>
-			<van-cell title="Тёмная тема">
+			<ThemedCell title="Тёмная тема">
 				<template #right-icon>
-					<van-switch
+					<ThemedSwitch
 						:model-value="settings.settings.isDarkMode"
 						@update:model-value="settings.toggleDarkMode"
 					/>
 				</template>
-			</van-cell>
-			<van-cell
+			</ThemedCell>
+			<ThemedCell
 				title="Язык"
 				:value="currentLanguageLabel"
 				is-link
 				@click="showLanguageSelector"
 			/>
-		</van-cell-group>
+		</ThemedCellGroup>
 
 		<!-- Безопасность -->
 		<van-cell-group inset title="Безопасность">
