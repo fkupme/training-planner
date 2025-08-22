@@ -219,9 +219,11 @@ function onCalendarConfirm(val: any) {
 				v-model:show="showCalendar"
 				type="single"
 				@confirm="onCalendarConfirm"
-				:days-of-week="[1, 2, 3, 4, 5, 6, 7]"
-				title="Выберите дату "
+				:first-day-of-week="1"
+				title="Выберите дату"
 				confirm-text="Выбрать"
+				cancel-text="Отмена"
+				:weekdays="['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']"
 			/>
 			<van-cell-group inset>
 				<van-field label="Weekly">

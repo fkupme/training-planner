@@ -2,12 +2,17 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
+import { computePlanLocks } from '@/composables/usePlanLocks';
+
 const props = defineProps({
 	dayItems: { type: Array as () => any[], required: true },
 	nextSummary: { type: Object, required: true },
 	nextDateLabel: { type: String, required: true },
 	nextDateISO: { type: [String, null], required: false, default: null },
 	programStartISO: { type: [String, null], required: false, default: null },
+	/**
+	 * Внешний форс-дизейбл (оставляем для обратной совместимости). Если не нужен — можно удалить в будущем.
+	 */
 	disableStart: { type: Boolean, required: false, default: false },
 	hasActiveSession: { type: Boolean, required: false, default: false },
 	exerciseInfoMap: { type: Object, required: true },
@@ -25,22 +30,22 @@ const emit = defineEmits<{
 }>();
 
 const hasItems = computed(() => props.dayItems.length > 0);
-const disableReason = computed(() => {
-	if (!hasItems.value) return '';
-	if (
-		props.programStartISO &&
-		props.programStartISO > new Date().toISOString().slice(0, 10)
-	) {
-		return 'План ещё не начался';
-	}
-	if (
-		props.nextDateISO &&
-		props.nextDateISO > new Date().toISOString().slice(0, 10)
-	) {
-		return 'Это тренировка будущего дня';
-	}
-	return '';
-});
+
+// Унифицированная логика блокировки
+const locks = computed(() =>
+	computePlanLocks({
+		startISO: props.programStartISO || undefined,
+		targetISO: props.nextDateISO || undefined,
+		onlyToday: true, // блокируем любые НЕ сегодняшние тренировки
+	})
+);
+// Итоговый дизейбл: внешний + вычисленный (если нет активной сессии)
+const effectiveDisable = computed(
+	() => !props.hasActiveSession && (props.disableStart || locks.value.disable)
+);
+const disableReason = computed(() =>
+	hasItems.value ? locks.value.reason : ''
+);
 </script>
 
 <template>
@@ -136,22 +141,26 @@ const disableReason = computed(() => {
 						</div>
 					</div>
 					<template #left>
-						<van-button
-							class="next-card__edit"
-							square
-							type="primary"
-							text="Редактировать"
-							@click="emit('open-params', it)"
-						/>
+						<div class="swipe-actions">
+							<van-button
+								class="swipe-btn swipe-btn--edit"
+								type="primary"
+								@click.stop="emit('open-params', it)"
+							>
+								<van-icon name="edit" />
+							</van-button>
+						</div>
 					</template>
 					<template #right>
-						<van-button
-							class="next-card__delete"
-							square
-							type="danger"
-							text="Удалить"
-							@click="emit('remove-item', it)"
-						/>
+						<div class="swipe-actions">
+							<van-button
+								class="swipe-btn swipe-btn--danger"
+								type="danger"
+								@click.stop="emit('remove-item', it)"
+							>
+								<van-icon name="delete" />
+							</van-button>
+						</div>
 					</template>
 				</van-swipe-cell>
 			</template>
@@ -166,17 +175,16 @@ const disableReason = computed(() => {
 			<van-button
 				type="success"
 				block
-				:disabled="!hasActiveSession && disableStart"
+				:disabled="effectiveDisable"
 				@click="
 					() => {
-						if (hasActiveSession) emit('start-workout');
-						else if (!disableStart) emit('start-workout');
+						if (!effectiveDisable) emit('start-workout');
 					}
 				"
 			>
 				{{ hasActiveSession ? 'Тренировка →' : 'Начать тренировку' }}
 			</van-button>
-			<div v-if="disableStart && disableReason" class="planner-next__hint">
+			<div v-if="effectiveDisable && disableReason" class="planner-next__hint">
 				<van-icon name="warning-o" />
 				<span>{{ disableReason }}</span>
 			</div>
@@ -186,7 +194,7 @@ const disableReason = computed(() => {
 
 <style lang="scss" scoped>
 .planner-next {
-	height: 72dvh;
+	height: 70dvh;
 	overflow: auto;
 	background: var(--color-bg);
 	border-radius: var(--radius-m);
@@ -287,5 +295,27 @@ const disableReason = computed(() => {
 		height: 100%;
 		border-radius: 0;
 	}
+}
+.swipe-actions {
+	display: flex;
+	height: 100%;
+}
+.swipe-btn {
+	height: 100%;
+	border: none;
+	display: flex;
+	border-radius: 0;
+	align-items: center;
+	justify-content: center;
+	padding: 0 14px;
+	font-size: 18px;
+}
+.swipe-btn--danger {
+	background: var(--color-danger, var(--van-danger-color));
+	color: #fff;
+}
+.swipe-btn--edit {
+	background: var(--color-accent, var(--van-primary-color));
+	color: #fff;
 }
 </style>

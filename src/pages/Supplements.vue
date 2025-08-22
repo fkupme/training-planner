@@ -227,12 +227,16 @@ async function onSelectSupplements(ids: number[]) {
 	);
 	for (const id of ids) {
 		if (existingIds.has(id)) continue; // пропускаем дубликат
+		// Попробуем найти рекомендованную дозировку (default_amount / default_unit)
+		const supp = supps.list.find(s => s.id === id);
 		await suppPlan.attachSupplementToDay({
 			program_id: p.id,
 			cycle_type: t.cycleType,
 			day_index: t.dayIndex,
 			supplement_id: id,
 			slot: t.slot,
+			amount: supp?.default_amount ?? null,
+			unit: supp?.default_unit ?? null,
 		});
 	}
 	await suppPlan.listForDayDetailed(p.id, t.cycleType, t.dayIndex);

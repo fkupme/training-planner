@@ -17,10 +17,14 @@ export { default as ThemedPopup } from './ThemedPopup.vue';
 export { default as ThemedRow } from './ThemedRow.vue';
 export { default as ThemedSpace } from './ThemedSpace.vue';
 export { default as ThemedStepper } from './ThemedStepper.vue';
+export { default as ThemedSwipeCell } from './ThemedSwipeCell.vue';
 export { default as ThemedSwitch } from './ThemedSwitch.vue';
+export { default as ThemedTabbar } from './ThemedTabbar.vue';
+export { default as ThemedTabbarItem } from './ThemedTabbarItem.vue';
 export { default as ThemedTag } from './ThemedTag.vue';
+export { default as ThemeTimePicker } from './ThemeTimePicker.vue';
 
 // Re-export existing themed components
-export { default as ThemeActionSheet } from './ThemeActionSheet.vue';
-export { default as Tabs } from './Tabs.vue';
 export { default as FormField } from './FormField.vue';
+export { default as Tabs } from './Tabs.vue';
+export { default as ThemeActionSheet } from './ThemeActionSheet.vue';

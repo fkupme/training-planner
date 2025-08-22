@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computePlanLocks } from '@/composables/usePlanLocks';
 import { computed } from 'vue';
 
 interface DayItem {
@@ -44,21 +45,16 @@ function onToggleSlot(slot: number) {
 	emit('toggle-slot', slot);
 }
 
-// Сегодня
-const todayIso = new Date().toISOString().slice(0, 10);
-// Блокируем если план ещё не начался или ближайший день ещё впереди (строго > today)
-const disabledAll = computed(() => {
-	if (props.planStartISO && props.planStartISO > todayIso) return true;
-	if (props.nextDateISO && props.nextDateISO > todayIso) return true;
-	return false;
-});
-const disableReason = computed(() => {
-	if (props.planStartISO && props.planStartISO > todayIso)
-		return 'План ещё не начался';
-	if (props.nextDateISO && props.nextDateISO > todayIso)
-		return 'Это будущий день';
-	return '';
-});
+// Унифицированные блокировки
+const locks = computed(() =>
+	computePlanLocks({
+		startISO: props.planStartISO || undefined,
+		targetISO: props.nextDateISO || undefined,
+		onlyToday: true, // отметки приемов строго за сегодняшний день
+	})
+);
+const disabledAll = computed(() => locks.value.disable);
+const disableReason = computed(() => locks.value.reason);
 </script>
 
 <template>
@@ -152,7 +148,7 @@ const disableReason = computed(() => {
 
 <style scoped lang="scss">
 .supp-next {
-	height: 72dvh;
+	height: 70dvh;
 	overflow: auto;
 	background: var(--color-bg);
 	border-radius: var(--radius-m);

@@ -246,7 +246,7 @@ async function remove(itemId: number, name: string) {
 .supp-picker {
 	/* flex layout: search fixed top, list scroll */
 	background: var(--color-bg);
-	padding: 32px var(--space-3) 90px;
+	padding: 0 var(--space-3) 90px;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -255,7 +255,7 @@ async function remove(itemId: number, name: string) {
 	background: var(--color-bg);
 	margin-bottom: var(--space-2);
 	position: sticky;
-	top: 32px;
+	top: 0;
 	z-index: 2;
 }
 .supp-picker__list {
@@ -263,6 +263,7 @@ async function remove(itemId: number, name: string) {
 	flex: 1;
 	overflow-y: auto;
 	-webkit-overflow-scrolling: touch;
+  padding-bottom: 65px;
 }
 .supp-picker__create :deep(.van-cell__title) {
 	color: var(--van-blue);

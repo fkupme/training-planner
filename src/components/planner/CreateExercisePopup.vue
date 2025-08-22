@@ -1,25 +1,25 @@
 <script setup lang="ts">
 // @ts-ignore
-import KeyboardPopup from "@/components/ui/KeyboardPopup.vue";
-import { EQUIPMENT_OPTIONS, useExercisesStore } from "@/stores/exercises";
-import { showToast } from "vant";
-import { computed, defineEmits, defineProps, onMounted, ref } from "vue";
+import KeyboardPopup from '@/components/ui/KeyboardPopup.vue';
+import { EQUIPMENT_OPTIONS, useExercisesStore } from '@/stores/exercises';
+import { showToast } from 'vant';
+import { computed, defineEmits, defineProps, onMounted, ref, watch } from 'vue';
 
 const props = defineProps<{ show: boolean }>();
 const emit = defineEmits<{
-	(e: "update:show", v: boolean): void;
-	(e: "created", id: number): void;
+	(e: 'update:show', v: boolean): void;
+	(e: 'created', id: number): void;
 }>();
 
 const modelShow = computed({
 	get: () => props.show,
-	set: (v: boolean) => emit("update:show", v),
+	set: (v: boolean) => emit('update:show', v),
 });
 
 const ex = useExercisesStore();
 
-const name = ref("");
-const description = ref("");
+const name = ref('');
+const description = ref('');
 const equipment = ref<string | null>(null);
 
 const primaryMuscleId = ref<number | null>(null);
@@ -27,7 +27,7 @@ const secondaryIds = ref<number[]>([]);
 
 const uploaderFiles = ref<any[]>([]);
 const mediaPath = ref<string | null>(null);
-const mediaKind = ref<"gif" | "video" | null>(null);
+const mediaKind = ref<'gif' | 'video' | null>(null);
 
 // Новые ActionSheet состояния
 const showPrimarySheet = ref(false);
@@ -40,10 +40,26 @@ onMounted(async () => {
 	if (!ex.muscles.length) await ex.loadMuscles();
 });
 
+function resetForm() {
+	name.value = '';
+	description.value = '';
+	equipment.value = null;
+	primaryMuscleId.value = null;
+	secondaryIds.value = [];
+	chosenAnalogIds.value = [];
+	uploaderFiles.value = [];
+	mediaPath.value = null;
+	mediaKind.value = null;
+}
+
+watch(modelShow, v => {
+	if (v) resetForm();
+});
+
 function onAfterRead(file: any) {
 	mediaPath.value = file?.file?.name || file?.url || null;
-	const ext = (mediaPath.value || "").toLowerCase();
-	mediaKind.value = ext.endsWith(".gif") ? "gif" : "video";
+	const ext = (mediaPath.value || '').toLowerCase();
+	mediaKind.value = ext.endsWith('.gif') ? 'gif' : 'video';
 	uploaderFiles.value = [file];
 }
 
@@ -53,31 +69,30 @@ const canSave = computed(
 
 const equipmentLabel = computed(() => {
 	return (
-		EQUIPMENT_OPTIONS.find((o) => o.value === equipment.value)?.label ||
-		"выбрать"
+		EQUIPMENT_OPTIONS.find(o => o.value === equipment.value)?.label || 'выбрать'
 	);
 });
 
 const primaryLabel = computed(() => {
 	return (
-		ex.muscles.find((m) => m.id === primaryMuscleId.value)?.name || "выбрать"
+		ex.muscles.find(m => m.id === primaryMuscleId.value)?.name || 'выбрать'
 	);
 });
 
 const secondaryLabel = computed(() => {
-	if (!secondaryIds.value.length) return "не выбрано";
+	if (!secondaryIds.value.length) return 'не выбрано';
 	const names = secondaryIds.value
-		.map((id) => ex.muscles.find((m) => m.id === id)?.name)
+		.map(id => ex.muscles.find(m => m.id === id)?.name)
 		.filter(Boolean) as string[];
-	return names.join(", ");
+	return names.join(', ');
 });
 
 const analogsLabel = computed(() => {
-	if (!chosenAnalogIds.value.length) return "не выбрано";
+	if (!chosenAnalogIds.value.length) return 'не выбрано';
 	const names = chosenAnalogIds.value
-		.map((id) => ex.list.find((e) => e.id === id)?.name)
+		.map(id => ex.list.find(e => e.id === id)?.name)
 		.filter(Boolean) as string[];
-	return names.join(", ");
+	return names.join(', ');
 });
 
 function chooseEquipment(val: string) {
@@ -104,26 +119,44 @@ function toggleAnalog(id: number) {
 
 async function save() {
 	if (!canSave.value) return;
-	const id = await ex.createExercise({
-		name: name.value.trim(),
-		description: description.value.trim() || null,
-		primary_muscle_id: primaryMuscleId.value,
-		secondary_muscle_ids: secondaryIds.value,
-		equipment: equipment.value,
-		media_path: mediaPath.value || null,
-		media_kind: mediaKind.value || null,
-		analog_ids: chosenAnalogIds.value.length ? chosenAnalogIds.value : null,
-	});
-	showToast("Упражнение создано");
-	// Закрываем свои ActionSheet
-	showPrimarySheet.value = false;
-	showSecondarySheet.value = false;
-	showAnalogSheet.value = false;
-	showEquipmentSheet.value = false;
-	// Сообщаем айди, чтобы родитель мог сразу выбрать и оставить пикер как есть
-	emit("created", id as number);
-	// Закрываем только себя
-	emit("update:show", false);
+	try {
+		const id = await ex.createExercise({
+			name: name.value.trim(),
+			description: description.value.trim() || null,
+			primary_muscle_id: primaryMuscleId.value,
+			secondary_muscle_ids: secondaryIds.value,
+			equipment: equipment.value,
+			media_path: mediaPath.value || null,
+			media_kind: mediaKind.value || null,
+			analog_ids: chosenAnalogIds.value.length ? chosenAnalogIds.value : null,
+		});
+		// На всякий случай обновим общий список (если другая логика его использует)
+		await ex.searchByName('');
+		showToast(
+			id ? 'Упражнение создано' : 'Упражнение добавлено (id не получен)'
+		);
+		// Закрываем свои ActionSheet
+		showPrimarySheet.value = false;
+		showSecondarySheet.value = false;
+		showAnalogSheet.value = false;
+		showEquipmentSheet.value = false;
+		// Сообщаем айди, чтобы родитель мог сразу выбрать и оставить пикер как есть
+		if (typeof id === 'number') emit('created', id);
+		// Закрываем только себя
+		emit('update:show', false);
+		resetForm();
+	} catch (e: any) {
+		console.error('createExercise error', e);
+		const msg = e && e.message ? String(e.message) : 'Ошибка сохранения';
+		if (/FOREIGN KEY/i.test(msg)) {
+			// Скорее всего проблема со вторичными мышцами/аналогами — базовая запись уже есть в списке
+			showToast('Добавлено (частичные связи пропущены)');
+			emit('update:show', false);
+			resetForm();
+		} else {
+			showToast('Ошибка: ' + msg);
+		}
+	}
 }
 </script>
 

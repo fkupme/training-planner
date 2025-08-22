@@ -72,14 +72,26 @@ export default defineComponent({ name: 'SupplementDayCard' });
 							is-link
 							@click="emit('edit', row.id)"
 						/>
+						<template #left>
+							<div class="swipe-actions">
+								<van-button
+									class="swipe-btn swipe-btn--edit"
+									type="primary"
+									@click.stop="emit('edit', row.id)"
+								>
+									<van-icon name="edit" />
+								</van-button>
+							</div>
+						</template>
 						<template #right>
 							<div class="swipe-actions">
 								<van-button
-									class="delete-btn"
+									class="swipe-btn swipe-btn--danger"
 									type="danger"
-									text="Удалить"
-									@click="emit('delete', row.id)"
-								/>
+									@click.stop="emit('delete', row.id)"
+								>
+									<van-icon name="delete" />
+								</van-button>
 							</div>
 						</template>
 					</van-swipe-cell>
@@ -117,14 +129,26 @@ export default defineComponent({ name: 'SupplementDayCard' });
 						is-link
 						@click="emit('edit', row.id)"
 					/>
+					<template #left>
+						<div class="swipe-actions">
+							<van-button
+								class="swipe-btn swipe-btn--edit"
+								type="primary"
+								@click.stop="emit('edit', row.id)"
+							>
+								<van-icon name="edit" />
+							</van-button>
+						</div>
+					</template>
 					<template #right>
 						<div class="swipe-actions">
 							<van-button
-								class="delete-btn"
+								class="swipe-btn swipe-btn--danger"
 								type="danger"
-								text="Удалить"
-								@click="emit('delete', row.id)"
-							/>
+								@click.stop="emit('delete', row.id)"
+							>
+								<van-icon name="delete" />
+							</van-button>
 						</div>
 					</template>
 				</van-swipe-cell>
@@ -208,12 +232,22 @@ export default defineComponent({ name: 'SupplementDayCard' });
 	display: flex;
 	height: 100%;
 }
-.delete-btn {
+.swipe-btn {
 	height: 100%;
-	border-radius: 0;
+	border: none;
 	display: flex;
+	border-radius: 0;
 	align-items: center;
 	justify-content: center;
-	min-width: 86px;
+	padding: 0 14px;
+	font-size: 18px;
+}
+.swipe-btn--danger {
+	background: var(--color-danger, var(--van-danger-color));
+	color: #fff;
+}
+.swipe-btn--edit {
+	background: var(--color-accent, var(--van-primary-color));
+	color: #fff;
 }
 </style>

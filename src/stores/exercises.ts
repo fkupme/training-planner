@@ -121,8 +121,8 @@ export const useExercisesStore = defineStore('exercises', {
 			if (!trimmed) {
 				const rows = await query<any>(
 					`SELECT e.id, e.name, e.description, e.primary_muscle_id, e.equipment, e.media_path, e.media_kind, e.created_at, e.alt_names,
-            (SELECT group_concat(m.name, ',') FROM exercise_secondary_muscles esm JOIN muscles m ON m.id = esm.muscle_id WHERE esm.exercise_id = e.id) as secondaryNames
-           FROM exercises e ORDER BY e.name LIMIT 100`
+					(SELECT group_concat(m.name, ',') FROM exercise_secondary_muscles esm JOIN muscles m ON m.id = esm.muscle_id WHERE esm.exercise_id = e.id) as secondaryNames
+					FROM exercises e ORDER BY e.created_at DESC, e.name ASC LIMIT 100`
 				);
 				this.list = rows as ExerciseRow[] as any;
 				return rows;
@@ -176,37 +176,164 @@ export const useExercisesStore = defineStore('exercises', {
 		},
 		async createExercise(input: CreateExerciseInput) {
 			const createdAt = Date.now();
-			await exec(
-				`INSERT INTO exercises (name, description, primary_muscle_id, equipment, media_path, media_kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-				[
-					input.name,
-					input.description ?? null,
-					input.primary_muscle_id ?? null,
-					input.equipment ?? null,
-					input.media_path ?? null,
-					input.media_kind ?? null,
-					createdAt,
-				]
-			);
-			const last = await query<{ id: number }>(
-				`SELECT last_insert_rowid() as id`
-			);
-			const exerciseId = last[0]?.id;
-			if (input.secondary_muscle_ids?.length) {
-				for (const mid of input.secondary_muscle_ids) {
-					await exec(
-						`INSERT OR IGNORE INTO exercise_secondary_muscles (exercise_id, muscle_id) VALUES (?, ?)`,
-						[exerciseId, mid]
-					);
+			// Если мышцы не загружены (редкий случай гонки) — подгрузим для валидации
+			if (!this.muscles.length) {
+				try {
+					await this.loadMuscles();
+				} catch {
+					/* ignore */
 				}
 			}
+			const existingMuscleIds = new Set(this.muscles.map(m => m.id));
+			let primaryId = input.primary_muscle_id ?? null;
+			if (primaryId != null && !existingMuscleIds.has(primaryId)) {
+				console.warn(
+					'[createExercise] primary muscle not found, set null',
+					primaryId
+				);
+				primaryId = null;
+			}
+			const secondaryFiltered = (input.secondary_muscle_ids || []).filter(id =>
+				existingMuscleIds.has(id)
+			);
+			if (
+				input.secondary_muscle_ids &&
+				secondaryFiltered.length !== input.secondary_muscle_ids.length
+			) {
+				console.warn('[createExercise] filtered invalid secondary muscle ids');
+			}
+			// Предварительно отфильтруем analog_ids по реально существующим упражнениям (иначе FK 787)
+			let analogFiltered: number[] = [];
 			if (input.analog_ids?.length) {
-				for (const aid of input.analog_ids) {
-					await exec(
-						`INSERT OR IGNORE INTO exercise_analogs (exercise_id, analog_id) VALUES (?, ?)`,
-						[exerciseId, aid]
+				try {
+					const placeholders = input.analog_ids.map(() => '?').join(',');
+					const existing = await query<{ id: number }>(
+						`SELECT id FROM exercises WHERE id IN (${placeholders})`,
+						input.analog_ids
 					);
+					const existingIds = new Set(existing.map(r => r.id));
+					analogFiltered = input.analog_ids.filter(id => existingIds.has(id));
+					if (analogFiltered.length !== input.analog_ids.length) {
+						console.warn('[createExercise] filtered invalid analog ids');
+					}
+				} catch (e) {
+					console.warn('[createExercise] analog prefilter failed (ignored)', e);
+					analogFiltered = input.analog_ids;
 				}
+			}
+			let exerciseId: number | null = null;
+			let primaryRetryDone = false;
+			// Транзакция для целостности
+			try {
+				await exec('BEGIN');
+			} catch {}
+			try {
+				try {
+					await exec(
+						`INSERT INTO exercises (name, description, primary_muscle_id, equipment, media_path, media_kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+						[
+							input.name,
+							input.description ?? null,
+							primaryId,
+							input.equipment ?? null,
+							input.media_path ?? null,
+							input.media_kind ?? null,
+							createdAt,
+						]
+					);
+				} catch (e: any) {
+					// Если свалилось по FK primary (старые БД могли иметь constraint) — пробуем без primary
+					if (!primaryRetryDone && /FOREIGN KEY/i.test(String(e?.message))) {
+						primaryRetryDone = true;
+						console.warn(
+							'[createExercise] retry insert without primary_muscle_id'
+						);
+						primaryId = null;
+						await exec(
+							`INSERT INTO exercises (name, description, primary_muscle_id, equipment, media_path, media_kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+							[
+								input.name,
+								input.description ?? null,
+								null,
+								input.equipment ?? null,
+								input.media_path ?? null,
+								input.media_kind ?? null,
+								createdAt,
+							]
+						);
+					} else {
+						console.error('[createExercise] base insert failed', e);
+						throw e;
+					}
+				}
+				try {
+					const last = await query<{ id: number }>(
+						`SELECT last_insert_rowid() as id`
+					);
+					exerciseId = last[0]?.id ?? null;
+				} catch (e) {
+					console.warn('[createExercise] last_insert_rowid failed', e);
+				}
+				if (exerciseId == null) {
+					try {
+						const fb = await query<{ id: number }>(
+							`SELECT id FROM exercises WHERE name = ? AND created_at = ? ORDER BY id DESC LIMIT 1`,
+							[input.name, createdAt]
+						);
+						exerciseId = fb[0]?.id ?? null;
+					} catch (e) {
+						console.warn('[createExercise] fallback select failed', e);
+					}
+				}
+				if (exerciseId == null) {
+					throw new Error('ID_NOT_RESOLVED');
+				}
+				// Вторичные мышцы
+				for (const mid of secondaryFiltered) {
+					try {
+						await exec(
+							`INSERT OR IGNORE INTO exercise_secondary_muscles (exercise_id, muscle_id) VALUES (?, ?)`,
+							[exerciseId, mid]
+						);
+					} catch (e) {
+						console.warn(
+							'[createExercise] secondary insert failed (ignored)',
+							e
+						);
+					}
+				}
+				// Аналоги
+				for (const aid of analogFiltered) {
+					if (aid === exerciseId) continue;
+					try {
+						await exec(
+							`INSERT OR IGNORE INTO exercise_analogs (exercise_id, analog_id) VALUES (?, ?)`,
+							[exerciseId, aid]
+						);
+					} catch (e) {
+						console.warn('[createExercise] analog insert failed (ignored)', e);
+					}
+				}
+				try {
+					await exec('COMMIT');
+				} catch {}
+			} catch (err: any) {
+				try {
+					await exec('ROLLBACK');
+				} catch {}
+				if (/FOREIGN KEY/i.test(String(err?.message))) {
+					// Проталкиваем понятную ошибку вверх
+					throw new Error('FOREIGN KEY constraint failed');
+				}
+				throw new Error('createExercise failed');
+			}
+			// Обновим локальный список
+			if (exerciseId != null) {
+				try {
+					const fresh = await this.getExerciseById(exerciseId);
+					if (fresh)
+						this.list = [fresh, ...this.list.filter(e => e.id !== exerciseId)];
+				} catch {}
 			}
 			return exerciseId;
 		},
@@ -345,12 +472,19 @@ export const useExercisesStore = defineStore('exercises', {
 			await exec(`DELETE FROM program_day_exercises WHERE id = ?`, [id]);
 		},
 		async deleteExercise(id: number) {
-			await exec(`DELETE FROM exercises WHERE id = ?`, [id]);
-			await exec(
-				`DELETE FROM exercise_secondary_muscles WHERE exercise_id = ?`,
-				[id]
-			);
-			await exec(`DELETE FROM exercise_analogs WHERE exercise_id = ?`, [id]);
+			try {
+				await exec(`DELETE FROM exercises WHERE id = ?`, [id]);
+				await exec(
+					`DELETE FROM exercise_secondary_muscles WHERE exercise_id = ?`,
+					[id]
+				);
+				await exec(`DELETE FROM exercise_analogs WHERE exercise_id = ?`, [id]);
+				// Синхронно обновим локальный список
+				this.list = this.list.filter(e => e.id !== id);
+			} catch (e) {
+				console.error('[deleteExercise] error', e);
+				throw e;
+			}
 		},
 		async deleteExercisesForDaySlot(
 			program_id: number,

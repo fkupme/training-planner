@@ -297,9 +297,9 @@ const plannedReps = computed(() => {
 								:rate="100"
 								:speed="100"
 								:text="timeDisplay"
-								:stroke-width="6"
+								:stroke-width="106"
 								size="60px"
-								color="var(--van-primary-color)"
+								color="var(--color-accent)"
 							/>
 							<div v-else class="timer-text">{{ timeDisplay }}</div>
 						</div>
@@ -375,7 +375,7 @@ const plannedReps = computed(() => {
 					>
 						<van-cell class="exercise-header">
 							<div class="exercise-title">
-								<h3>{{ exercise.exercise_name }}</h3>
+								<h4>{{ exercise.exercise_name }}</h4>
 								<van-tag type="primary">
 									{{ exercise.planned_sets }} × {{ getPlannedReps(exercise) }}
 								</van-tag>
@@ -534,10 +534,11 @@ const plannedReps = computed(() => {
     display: flex;
     justify-content: space-between;
 		width: 100%;
+    height: 30px;
 
-		h3 {
-			margin: 0 0 var(--space-2) 0;
-			font-size: var(--fs-lg);
+		h4 {
+			margin: 0;
+			font-size: var(--fs-s);
 			font-weight: var(--fw-semibold);
 			color: var(--color-text);
 		}

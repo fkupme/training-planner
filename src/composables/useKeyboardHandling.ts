@@ -17,11 +17,6 @@ export function useKeyboardHandling(
 			return String(v);
 		}
 	}
-	function kbLog(...args: unknown[]) {
-		try {
-			console.log('[KB]', ...args.map(toStr));
-		} catch {}
-	}
 
 	function getKeyboardHeight(): number {
 		if (window.visualViewport) {
@@ -39,7 +34,6 @@ export function useKeyboardHandling(
 			pageSelector
 		) as HTMLElement | null;
 		if (pageElement) pageElement.style.paddingBottom = px > 0 ? `${px}px` : '';
-		kbLog('setPagePadding', { px });
 	}
 
 	function findScrollParent(el: HTMLElement | null): HTMLElement | 'window' {
@@ -68,7 +62,6 @@ export function useKeyboardHandling(
 		const desiredBottom = viewportH - kb - 16;
 		if (rect.bottom <= desiredBottom) return;
 		const delta = rect.bottom - desiredBottom;
-		kbLog('scrollByDelta', { delta, kb });
 		try {
 			if (scrollParent === 'window') {
 				window.scrollBy({ top: delta, behavior: 'smooth' });
@@ -94,7 +87,6 @@ export function useKeyboardHandling(
 		const target = event.target as HTMLElement;
 		if (!target || !['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
 		const kb = getKeyboardHeight();
-		kbLog('focus', { kb });
 		setPagePadding(kb);
 		isKeyboardOpen = true;
 		setTimeout(() => scrollTargetIntoView(target), 120);
@@ -109,7 +101,6 @@ export function useKeyboardHandling(
 				['INPUT', 'TEXTAREA'].includes(activeElement.tagName) &&
 				activeElement.offsetParent !== null
 			);
-			kbLog('blur', { stillFocused });
 			if (!stillFocused) {
 				isKeyboardOpen = false;
 				setPagePadding(0);
@@ -124,7 +115,6 @@ export function useKeyboardHandling(
 		lastViewportHeight = currentHeight;
 
 		const diff = Math.max(0, window.innerHeight - currentHeight);
-		kbLog('vv.resize', { diff, currentHeight, winH: window.innerHeight });
 		setPagePadding(diff);
 		const nowOpen = diff > 50;
 		if (nowOpen) {
@@ -165,7 +155,6 @@ export function useKeyboardHandling(
 			const isInputFocused = !!(
 				activeElement && ['INPUT', 'TEXTAREA'].includes(activeElement.tagName)
 			);
-			kbLog('visibility', { isInputFocused });
 			if (!isInputFocused && isKeyboardOpen) {
 				isKeyboardOpen = false;
 				setPagePadding(0);
@@ -180,7 +169,6 @@ export function useKeyboardHandling(
 				const isInputFocused = !!(
 					activeElement && ['INPUT', 'TEXTAREA'].includes(activeElement.tagName)
 				);
-				kbLog('win.resize', { isInputFocused });
 				if (!isInputFocused) {
 					isKeyboardOpen = false;
 					setPagePadding(0);
@@ -193,7 +181,6 @@ export function useKeyboardHandling(
 		try {
 			const { listen } = await import('@tauri-apps/api/event');
 			unlistenAndroidBack = await listen('tauri://android/back', () => {
-				kbLog('android.back');
 				const active = document.activeElement as HTMLElement | null;
 				if (
 					active &&
@@ -218,7 +205,6 @@ export function useKeyboardHandling(
 				active && ['INPUT', 'TEXTAREA'].includes(active.tagName)
 			);
 			if (isKeyboardOpen && (!focused || diff <= 20)) {
-				kbLog('watchdog.reset', { focused, diff });
 				isKeyboardOpen = false;
 				setPagePadding(0);
 			}
@@ -249,7 +235,6 @@ export function useKeyboardHandling(
 
 		setupAndroidBackListener();
 		startWatchdog();
-		kbLog('listeners:ready');
 	};
 
 	const cleanupListeners = () => {
@@ -275,7 +260,6 @@ export function useKeyboardHandling(
 		stopWatchdog();
 
 		setPagePadding(0);
-		kbLog('listeners:cleanup');
 	};
 
 	onMounted(setupListeners);

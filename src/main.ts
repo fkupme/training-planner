@@ -1,5 +1,6 @@
 import { createPinia } from 'pinia';
-import Vant from 'vant';
+import Vant, { Locale } from 'vant';
+import ruRU from 'vant/es/locale/lang/ru-RU';
 import 'vant/lib/index.css';
 import { createApp } from 'vue';
 import App from './App.vue';
@@ -55,6 +56,10 @@ function lockScreenOrientation() {
 
 (async () => {
 	await ensureSchema();
+
+	// Установка русской локализации для Vant
+	Locale.use('ru-RU', ruRU);
+
 	applyInitialTheme();
 	const app = createApp(App);
 	const pinia = createPinia();

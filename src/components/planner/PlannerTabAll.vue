@@ -1,5 +1,6 @@
 // @ts-nocheck
 <script setup lang="ts">
+// @ts-ignore - Vue SFC default export
 import WorkoutCard from '@/components/planner/WorkoutCard.vue';
 
 interface MicroSetDay {
@@ -30,6 +31,15 @@ const emit = defineEmits<{
 	): void;
 	(e: 'edit-workout', payload: any): void;
 	(e: 'delete-workout', payload: any): void;
+	(
+		e: 'reorder',
+		payload: {
+			cycleType: 'weekly' | 'custom';
+			dayIndex: number;
+			slot: 0 | 1;
+			orderedIds: number[];
+		}
+	): void;
 }>();
 </script>
 
@@ -70,6 +80,7 @@ const emit = defineEmits<{
 							@addExercise="emit('add-exercise', $event)"
 							@edit="emit('edit-workout', $event)"
 							@delete="emit('delete-workout', $event)"
+							@reorder="emit('reorder', $event)"
 						/>
 					</template>
 				</van-cell-group>
@@ -86,7 +97,7 @@ const emit = defineEmits<{
 
 <style lang="scss" scoped>
 .planner-all {
-	height: 72dvh;
+	height: 70dvh;
 	overflow-y: auto;
 	overflow-x: hidden;
 	background: var(--color-bg);

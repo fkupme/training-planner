@@ -20,7 +20,10 @@ const labels = computed(() => ({
 }));
 
 function updateTab(v: string) {
-	if (v === 'next' || v === 'all') emit('update:active', v);
+	// Предотвращаем бесконечный цикл: эмитим только при реальном изменении
+	if ((v === 'next' || v === 'all') && v !== props.active) {
+		emit('update:active', v);
+	}
 }
 </script>
 

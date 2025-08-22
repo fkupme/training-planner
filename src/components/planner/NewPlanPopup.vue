@@ -1,38 +1,40 @@
 <script setup lang="ts">
 // @ts-ignore - Vue SFC default export is provided by shim
-import KeyboardPopup from "@/components/ui/KeyboardPopup.vue";
-import { usePlannerStore } from "@/stores/planner";
-import { showToast } from "vant";
-import { computed, defineEmits, defineProps, ref, watch } from "vue";
+import KeyboardPopup from '@/components/ui/KeyboardPopup.vue';
+import ThemeActionSheet from '@/components/ui/ThemeActionSheet.vue';
+import ThemeTimePicker from '@/components/ui/ThemeTimePicker.vue';
+import { usePlannerStore } from '@/stores/planner';
+import { showToast } from 'vant';
+import { computed, defineEmits, defineProps, ref, watch } from 'vue';
 
 const props = defineProps<{ show: boolean; programId?: number | null }>();
 const emit = defineEmits<{
-	(e: "update:show", v: boolean): void;
-	(e: "saved"): void;
+	(e: 'update:show', v: boolean): void;
+	(e: 'saved'): void;
 }>();
 
 const modelShow = computed({
 	get: () => props.show,
-	set: (v: boolean) => emit("update:show", v),
+	set: (v: boolean) => emit('update:show', v),
 });
 
-const name = ref("");
+const name = ref('');
 
 // Диапазон дат через Calendar (будем использовать только start)
 const showCalendar = ref(false);
 const dateRange = ref<[Date, Date] | null>(null);
 const dateLabel = computed(() => {
-	if (!dateRange.value) return "выбрать";
+	if (!dateRange.value) return 'выбрать';
 	const [s] = dateRange.value;
 	const fmt = (d: Date) =>
-		`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+		`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
 			d.getDate()
-		).padStart(2, "0")}`;
+		).padStart(2, '0')}`;
 	return fmt(s);
 });
 
 // Единицы
-const units = ref<"kg" | "lb">("kg");
+const units = ref<'kg' | 'lb'>('kg');
 
 // Настройки цикла
 const isWeekly = ref(true);
@@ -40,12 +42,12 @@ const isWeekly = ref(true);
 // weekly
 const weeklyDays = ref<number[]>([0, 0, 0, 0, 0, 0, 0]); // Пн..Вс — 0/1/2
 const showTimePicker = ref(false);
-const timeParts = ref<string[]>(["18", "30"]); // [HH, mm]
+const timeParts = ref<string[]>(['18', '30']); // [HH, mm]
 const defaultReminderTime = computed(
 	() =>
-		`${timeParts.value[0]?.padStart(2, "0")}:${timeParts.value[1]?.padStart(
+		`${timeParts.value[0]?.padStart(2, '0')}:${timeParts.value[1]?.padStart(
 			2,
-			"0"
+			'0'
 		)}`
 );
 
@@ -55,52 +57,54 @@ const customDays = ref<number[]>(
 	Array.from({ length: customLength.value }, () => 0)
 );
 const showTimePickerCustom = ref(false);
-const timePartsCustom = ref<string[]>(["18", "30"]);
+const timePartsCustom = ref<string[]>(['18', '30']);
 const defaultReminderTimeCustom = computed(
 	() =>
 		`${timePartsCustom.value[0]?.padStart(
 			2,
-			"0"
-		)}:${timePartsCustom.value[1]?.padStart(2, "0")}`
+			'0'
+		)}:${timePartsCustom.value[1]?.padStart(2, '0')}`
 );
 
-// Цель через picker
+// Цель (через ActionSheet)
 const showGoalPicker = ref(false);
 const goal = ref<
-	"cut" | "maintain" | "bulk" | "strength" | "endurance" | "rest"
->("maintain");
-const goalPickerValues = ref<Array<string | number>>([]);
+	'cut' | 'maintain' | 'bulk' | 'strength' | 'endurance' | 'rest'
+>('maintain');
 const goalLabel = computed(
 	() =>
 		((
 			{
-				cut: "сушка",
-				maintain: "поддержание",
-				bulk: "набор массы",
-				strength: "сила",
-				endurance: "выносливость",
-				rest: "отдых",
+				cut: 'сушка',
+				maintain: 'поддержание',
+				bulk: 'набор массы',
+				strength: 'сила',
+				endurance: 'выносливость',
+				rest: 'отдых',
 			} as const
 		)[goal.value])
 );
 const goalColumns = [
-	{ text: "сушка", value: "cut" },
-	{ text: "поддержание", value: "maintain" },
-	{ text: "набор массы", value: "bulk" },
-	{ text: "сила", value: "strength" },
-	{ text: "выносливость", value: "endurance" },
-	{ text: "отдых", value: "rest" },
+	{ text: 'сушка', value: 'cut' },
+	{ text: 'поддержание', value: 'maintain' },
+	{ text: 'набор массы', value: 'bulk' },
+	{ text: 'сила', value: 'strength' },
+	{ text: 'выносливость', value: 'endurance' },
+	{ text: 'отдых', value: 'rest' },
 ];
-const goalIndex = computed(() =>
-	Math.max(
-		0,
-		goalColumns.findIndex((c) => c.value === goal.value)
-	)
+const goalActions = computed(() =>
+	goalColumns.map(c => ({
+		name: c.text + (c.value === goal.value ? ' ✓' : ''),
+		// @ts-ignore расширяем объект действия
+		value: c.value,
+	}))
 );
-
 function onOpenGoalPicker() {
-	goalPickerValues.value = [goal.value];
 	showGoalPicker.value = true;
+}
+function onSelectGoal(action: any) {
+	if (action?.value) goal.value = action.value;
+	showGoalPicker.value = false;
 }
 
 // Длительность недель
@@ -109,7 +113,7 @@ const durationWeeks = ref(8);
 // Микроциклы: поддержка 2 циклов конфигураций (A/B)
 const microEnabled = ref(false);
 const microCount = ref(2);
-const microLabels = ref<string[]>(["A", "B"]);
+const microLabels = ref<string[]>(['A', 'B']);
 // Для простоты создаём по копии сетки для B, если включено
 const weeklyDaysB = ref<number[]>([0, 0, 0, 0, 0, 0, 0]);
 const customDaysB = ref<number[]>(
@@ -135,6 +139,22 @@ const totalCustomSessions = computed(() =>
 );
 const canSave = computed(() => name.value.trim().length > 0);
 
+// Прогрессия рабочих весов (процент увеличения за цикл / микроцикл)
+// По умолчанию 0.8 (%) — не рекомендуем повышать без необходимости.
+const progressionPercentInput = ref<string>('0.8');
+const progressionPercent = computed({
+	get() {
+		const normalized = progressionPercentInput.value.replace(',', '.');
+		const num = Number(normalized);
+		if (isNaN(num)) return 0.8;
+		return Math.max(0, Math.min(10, num)); // ограничим до 10% на всякий
+	},
+	set(v: number) {
+		progressionPercentInput.value = String(v);
+	},
+});
+const showProgressionHelp = ref(false);
+
 const planner = usePlannerStore();
 
 function parseDatePartsToEpochFromRange(r: [Date, Date] | null) {
@@ -147,19 +167,19 @@ function parseDatePartsToEpochFromRange(r: [Date, Date] | null) {
 // см. универсальные cycleDayWeeklyAt / cycleDayCustomAt
 
 function dayLabel(idx: number) {
-	return ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"][idx];
+	return ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][idx];
 }
 
 function syncMicroLabels() {
 	const n = Math.max(1, microCount.value);
 	if (microLabels.value.length < n) {
-		while (microLabels.value.length < n) microLabels.value.push("");
+		while (microLabels.value.length < n) microLabels.value.push('');
 	} else if (microLabels.value.length > n) {
 		microLabels.value.splice(n);
 	}
 }
 
-watch(customLength, (n) => {
+watch(customLength, n => {
 	const len = Math.max(1, Math.min(365, Number(n) || 1));
 	customLength.value = len;
 	const arr = Array.from({ length: len }, (_, i) => customDays.value[i] ?? 0);
@@ -172,12 +192,24 @@ function loadFromProgram() {
 	const p = planner.currentProgram;
 	if (!p) return;
 	name.value = p.name;
-	units.value = p.units === "lb" ? "lb" : "kg";
+	units.value = p.units === 'lb' ? 'lb' : 'kg';
+	// Подставляем существующую дату старта в dateRange, чтобы не затирать её null
+	if (p.start_date) {
+		const d = new Date(p.start_date);
+		dateRange.value = [d, d];
+	} else {
+		dateRange.value = null; // новый выбор
+	}
 	try {
 		const cfg = p.config ? JSON.parse(p.config) : {};
-		goal.value = cfg.goal ?? "maintain";
+		goal.value = cfg.goal ?? 'maintain';
+		if (cfg.progression?.percentPerCycle != null) {
+			progressionPercentInput.value = String(
+				cfg.progression.percentPerCycle
+			).replace('.', ',');
+		}
 		durationWeeks.value = cfg.durationWeeks ?? 8;
-		if (cfg.cycleType === "weekly") {
+		if (cfg.cycleType === 'weekly') {
 			isWeekly.value = true;
 			weeklyDays.value = Array.isArray(cfg.weekly?.days)
 				? cfg.weekly.days
@@ -186,8 +218,8 @@ function loadFromProgram() {
 				? cfg.weekly.daysB
 				: [0, 0, 0, 0, 0, 0, 0];
 			if (cfg.weekly?.defaultReminderTime) {
-				const [hh, mm] = String(cfg.weekly.defaultReminderTime).split(":");
-				timeParts.value = [hh ?? "18", mm ?? "30"];
+				const [hh, mm] = String(cfg.weekly.defaultReminderTime).split(':');
+				timeParts.value = [hh ?? '18', mm ?? '30'];
 			}
 		} else {
 			isWeekly.value = false;
@@ -200,8 +232,8 @@ function loadFromProgram() {
 				? cfg.custom.daysB.slice(0, len)
 				: Array.from({ length: len }, () => 0);
 			if (cfg.custom?.defaultReminderTime) {
-				const [hh, mm] = String(cfg.custom.defaultReminderTime).split(":");
-				timePartsCustom.value = [hh ?? "18", mm ?? "30"];
+				const [hh, mm] = String(cfg.custom.defaultReminderTime).split(':');
+				timePartsCustom.value = [hh ?? '18', mm ?? '30'];
 			}
 		}
 		if (cfg.microcycles?.enabled) {
@@ -219,7 +251,7 @@ function loadFromProgram() {
 	}
 }
 
-watch(modelShow, (v) => {
+watch(modelShow, v => {
 	if (v) loadFromProgram();
 });
 // при открытии прокрутим к текущей цели через default-index
@@ -237,34 +269,29 @@ function onCalendarConfirm(val: Date | Date[]) {
 	}
 }
 
-function onGoalConfirm({ selectedValues }: { selectedValues: any[] }) {
-	goalPickerValues.value = selectedValues;
-	const v = selectedValues?.[0];
-	if (v) goal.value = v as typeof goal.value;
-	showGoalPicker.value = false;
-}
-function onGoalChange({ selectedValues }: { selectedValues: any[] }) {
-	goalPickerValues.value = selectedValues;
-}
+// (picker callbacks удалены – используем ActionSheet)
 
 async function onSave() {
 	if (!canSave.value) return;
 	if (isWeekly.value) {
 		if (totalWeeklySessions.value === 0) {
-			showToast("Выберите трен‑дни (≥ 1)");
+			showToast('Выберите трен‑дни (≥ 1)');
 			return;
 		}
 	} else {
 		if (totalCustomSessions.value === 0) {
-			showToast("Настройте сетку дней");
+			showToast('Настройте сетку дней');
 			return;
 		}
 	}
 
 	const config: Record<string, unknown> = {
 		goal: goal.value,
+		progression: {
+			percentPerCycle: progressionPercent.value,
+		},
 		durationWeeks: durationWeeks.value,
-		cycleType: isWeekly.value ? "weekly" : "custom",
+		cycleType: isWeekly.value ? 'weekly' : 'custom',
 		weekly: isWeekly.value
 			? {
 					days: weeklyDays.value,
@@ -295,7 +322,11 @@ async function onSave() {
 			: { enabled: false },
 	};
 
-	const startDate = parseDatePartsToEpochFromRange(dateRange.value);
+	let startDate = parseDatePartsToEpochFromRange(dateRange.value);
+	// Если редактируем и пользователь не трогал дату (dateRange пусто) — сохраняем старую
+	if (props.programId && startDate == null) {
+		startDate = planner.currentProgram?.start_date ?? null;
+	}
 
 	if (props.programId) {
 		await planner.updateProgram(props.programId, {
@@ -313,11 +344,11 @@ async function onSave() {
 		});
 	}
 	modelShow.value = false;
-	emit("saved");
+	emit('saved');
 }
 
 function gridTitle(setIdx: number) {
-	return setIdx === 0 ? "Сетка" : `Сетка (${microLabels.value[setIdx] || "B"})`;
+	return setIdx === 0 ? 'Сетка' : `Сетка (${microLabels.value[setIdx] || 'B'})`;
 }
 
 function cycleDayWeeklyAt(dayIdx: number, setIdx: number) {
@@ -350,8 +381,11 @@ function cycleDayCustomAt(dayIdx: number, setIdx: number) {
 				<van-calendar
 					v-model:show="showCalendar"
 					type="single"
+					confirm-text="Выбрать"
+					cancel-text="Отмена"
+					:weekdays="['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']"
 					@confirm="onCalendarConfirm"
-					days-of-week="1,2,3,4,5,6,7"
+					:first-day-of-week="1"
 				/>
 
 				<van-field label="Единицы">
@@ -406,15 +440,14 @@ function cycleDayCustomAt(dayIdx: number, setIdx: number) {
 						is-link
 						@click="showTimePicker = true"
 					/>
-					<van-popup v-model:show="showTimePicker" position="bottom" round>
-						<van-time-picker
-							v-model="timeParts"
-							title="Время напоминаний"
-							:columns-type="['hour', 'minute']"
-							@confirm="showTimePicker = false"
-							@cancel="showTimePicker = false"
-						/>
-					</van-popup>
+					<ThemeTimePicker
+						:show="showTimePicker"
+						@update:show="v => (showTimePicker = v)"
+						v-model:model-value="timeParts"
+						title="Время напоминаний"
+						@confirm="() => (showTimePicker = false)"
+						@cancel="() => (showTimePicker = false)"
+					/>
 				</van-cell-group>
 			</template>
 
@@ -453,53 +486,78 @@ function cycleDayCustomAt(dayIdx: number, setIdx: number) {
 						is-link
 						@click="showTimePickerCustom = true"
 					/>
-					<van-popup
-						v-model:show="showTimePickerCustom"
-						position="bottom"
-						round
-					>
-						<van-time-picker
-							v-model="timePartsCustom"
-							title="Время напоминаний"
-							:columns-type="['hour', 'minute']"
-							@confirm="showTimePickerCustom = false"
-							@cancel="showTimePickerCustom = false"
-						/>
-					</van-popup>
+					<ThemeTimePicker
+						:show="showTimePickerCustom"
+						@update:show="v => (showTimePickerCustom = v)"
+						v-model:model-value="timePartsCustom"
+						title="Время напоминаний"
+						@confirm="() => (showTimePickerCustom = false)"
+						@cancel="() => (showTimePickerCustom = false)"
+					/>
 				</van-cell-group>
 			</template>
 
 			<van-divider>Цель и длительность</van-divider>
 			<van-cell-group inset>
-				<van-field
+				<van-cell
 					is-link
 					readonly
-					label="Цель"
+					title="Цель"
 					:value="goalLabel"
 					placeholder="выбрать"
 					@click="onOpenGoalPicker"
 				/>
-				<van-popup
-					v-model:show="showGoalPicker"
-					destroy-on-close
-					round
-					position="bottom"
-				>
-					<van-picker
-						:model-value="goalPickerValues"
-						:columns="goalColumns"
-						:default-index="goalIndex"
-						title="Цель"
-						@cancel="showGoalPicker = false"
-						@confirm="onGoalConfirm"
-						@change="onGoalChange"
-					/>
-				</van-popup>
+				<ThemeActionSheet
+					:show="showGoalPicker"
+					@update:show="v => (showGoalPicker = v)"
+					:title="'Цель'"
+					:actions="goalActions"
+					close-on-click-action
+					@select="a => onSelectGoal(a)"
+				/>
 				<van-field label="Длительность (недели)">
 					<template #input>
 						<van-stepper v-model="durationWeeks" min="1" max="52" />
 					</template>
 				</van-field>
+				<van-field
+					label="Прирост, % / цикл"
+					v-model="progressionPercentInput"
+					type="number"
+					inputmode="decimal"
+					placeholder="0.8"
+					@blur="progressionPercentInput = progressionPercent.toString()"
+				>
+					<template #right-icon>
+						<van-icon
+							name="question-o"
+							@click.stop="showProgressionHelp = true"
+						/>
+					</template>
+				</van-field>
+				<van-popup v-model:show="showProgressionHelp" round position="bottom">
+					<div class="plan-new__help">
+						<h4>Прогрессия рабочих весов</h4>
+						<p>
+							Процент прироста за один цикл (неделю или микроцикл). 0.8 означает
+							+0.8% сложным процентом.
+						</p>
+						<p>
+							Формула: <code>новый = базовый × (1 + p)^n</code>, где p — доля
+							(0.8% = 0.8), n — завершённых циклов.
+						</p>
+						<p>
+							Вес округляется вниз до ближайшего возможного (обычно шаг 2.5кг /
+							5lb). Не рекомендуем ставить &gt; 1% без причины.
+						</p>
+						<van-button
+							type="primary"
+							block
+							@click="showProgressionHelp = false"
+							>Понятно</van-button
+						>
+					</div>
+				</van-popup>
 			</van-cell-group>
 
 			<van-divider>Микроциклы</van-divider>

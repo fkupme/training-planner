@@ -1,6 +1,14 @@
 <script setup lang="ts">
+import {
+	ThemedIcon,
+	ThemedNavBar,
+	ThemedTabbar,
+	ThemedTabbarItem,
+} from '@/components/ui';
 import { computed, provide, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+// Используем импортированные компоненты, чтобы линтер не ругался, пока правила шаблонов не настроены
+void [ThemedNavBar, ThemedIcon, ThemedTabbar, ThemedTabbarItem];
 
 const route = useRoute();
 const router = useRouter();
@@ -113,30 +121,24 @@ function handleBack() {
 <template>
 	<div class="app-layout">
 		<!-- Верхний тулбар -->
-		<van-nav-bar
+		<ThemedNavBar
 			v-if="showHeader"
 			:title="currentPageConfig.title"
 			:left-arrow="currentPageConfig.showBack"
 			class="app-layout__header"
-			@click-left="handleBack"
+			@clickLeft="handleBack"
 		>
 			<template #left>
-				<van-icon
+				<ThemedIcon
 					v-if="currentPageConfig.showBack"
 					name="arrow-left"
 					class="nav-back-icon"
 				/>
 			</template>
 			<template #right>
-				<template v-for="action in headerActions" :key="action.key">
-					<van-icon
-						:name="action.icon"
-						class="nav-action-icon"
-						@click="action.handler"
-					/>
-				</template>
+					<van-image src="public\olive.png" width='111px' />
 			</template>
-		</van-nav-bar>
+		</ThemedNavBar>
 
 		<!-- Основной контент со скроллом -->
 		<div class="app-layout__content">
@@ -148,12 +150,12 @@ function handleBack() {
 		</div>
 
 		<!-- Нижняя навигация -->
-		<van-tabbar
+		<ThemedTabbar
 			v-if="currentPageConfig.showTabbar"
 			route
 			class="app-layout__tabbar"
 		>
-			<van-tabbar-item
+			<ThemedTabbarItem
 				v-for="tab in tabItems"
 				:key="tab.path"
 				:to="tab.path"
@@ -161,8 +163,8 @@ function handleBack() {
 				replace
 			>
 				{{ tab.label }}
-			</van-tabbar-item>
-		</van-tabbar>
+			</ThemedTabbarItem>
+		</ThemedTabbar>
 	</div>
 </template>
 
@@ -175,7 +177,7 @@ function handleBack() {
 	overflow: hidden;
 
 	&__header {
-		padding-top: 20px;
+		padding-top: 30px;
 		flex-shrink: 0;
 		background: var(--color-elevated);
 		border-bottom: 1px solid var(--color-border);
@@ -217,7 +219,7 @@ function handleBack() {
 		background: var(--color-elevated);
 		border-top: 1px solid var(--color-border);
 		z-index: 100;
-
+    
 		// Учитываем нижнюю область безопасности
 		padding-bottom: calc(env(safe-area-inset-bottom) * 0.5);
 
@@ -286,6 +288,7 @@ function handleBack() {
 :global(*) {
 	-webkit-touch-callout: none;
 	-webkit-user-select: none;
+	user-select: none;
 }
 
 // Разрешаем выделение только для полей ввода и текстовых областей

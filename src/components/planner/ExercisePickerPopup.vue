@@ -5,7 +5,7 @@ import { showDialog, showToast } from 'vant';
 import { computed, defineEmits, defineProps, ref, watch } from 'vue';
 
 // Props & emits
-const props = defineProps<{ show: boolean }>();
+const props = defineProps<{ show: boolean; existingIds?: number[] }>();
 const emit = defineEmits<{
 	(e: 'update:show', v: boolean): void;
 	(e: 'select', id: number): void; // (оставлено для совместимости)
@@ -27,6 +27,8 @@ const ex = useExercisesStore();
 const selectedIds = ref<number[]>([]);
 
 // Локальный фильтр как в добавках: быстрый и анимируемый
+const existingSet = computed(() => new Set(props.existingIds || []));
+
 const filteredList = computed(() => {
 	const query = q.value.trim().toLowerCase();
 	if (!query) return ex.list;
@@ -90,13 +92,18 @@ function onRawInput(e: Event) {
 
 // Выбор
 function toggleSelect(id: number) {
+	if (existingSet.value.has(id)) return; // уже есть
 	const i = selectedIds.value.indexOf(id);
 	if (i >= 0) selectedIds.value.splice(i, 1);
 	else selectedIds.value.push(id);
 }
 function addSelected() {
-	if (!selectedIds.value.length) return;
-	emit('select-multiple', selectedIds.value.slice());
+	const toAdd = selectedIds.value.filter(id => !existingSet.value.has(id));
+	if (!toAdd.length) {
+		modelShow.value = false;
+		return;
+	}
+	emit('select-multiple', toAdd);
 	modelShow.value = false;
 }
 function openCreate() {
@@ -111,9 +118,15 @@ async function removeExercise(id: number, name: string) {
 		message: name,
 		showCancelButton: true,
 	});
-	await ex.deleteExercise?.(id);
-	showToast('Удалено');
-	await loadAll();
+	try {
+		await ex.deleteExercise(id);
+		showToast('Удалено');
+		// Обновим список без лишнего запроса, он уже локально отфильтрован в сторе
+		if (q.value.trim() === '') await loadAll();
+	} catch (e: any) {
+		console.error('deleteExercise error', e);
+		showToast(e?.message || 'Ошибка удаления');
+	}
 }
 </script>
 
@@ -136,6 +149,7 @@ async function removeExercise(id: number, name: string) {
 						v-for="item in filteredList"
 						:key="item.id"
 						class="picker-card"
+						:class="{ 'picker-card--existing': existingSet.has(item.id) }"
 						@click="toggleSelect(item.id)"
 					>
 						<div class="picker-card__thumb">
@@ -153,7 +167,10 @@ async function removeExercise(id: number, name: string) {
 						<div class="picker-card__body">
 							<div class="picker-card__header">
 								<van-checkbox
-									:model-value="selectedIds.includes(item.id)"
+									:model-value="
+										existingSet.has(item.id) || selectedIds.includes(item.id)
+									"
+									:disabled="existingSet.has(item.id)"
 									@click.stop="toggleSelect(item.id)"
 								/>
 								<div class="picker-card__title">{{ item.name }}</div>
@@ -191,6 +208,9 @@ async function removeExercise(id: number, name: string) {
 								collapse-text="свернуть"
 							/>
 						</div>
+						<div v-if="existingSet.has(item.id)" class="picker-card__badge">
+							Уже в тренировке
+						</div>
 					</div>
 				</transition-group>
 				<van-empty v-else description="Ничего не найдено" />
@@ -215,28 +235,28 @@ async function removeExercise(id: number, name: string) {
 </template>
 
 <style lang="scss" scoped>
-
 .picker {
 	background: var(--color-bg);
-	padding: 32px var(--space-3) 90px; // верх под заголовок попапа, низ под футер
+	padding: 0 var(--space-3) 20px; // верх под заголовок попапа, низ под футер
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+  overflow: hidden;
 
 	&__search {
 		background: var(--color-bg);
-		margin-bottom: var(--space-2);
 		position: sticky;
-		top: 32px; // совпадает с внутренним отступом
+		top: 0;
 		z-index: 2;
 	}
 	&__list {
 		flex: 1;
-		overflow-y: auto; 
-    overflow-x: hidden;
+		overflow-y: auto;
+		overflow-x: hidden;
 		-webkit-overflow-scrolling: touch;
-    width: 100%;
-    padding: 0;
+		width: 100%;
+		padding: 0;
+    margin-bottom: 70px;
 	}
 	&__create :deep(.van-cell__title) {
 		color: var(--van-blue);
@@ -326,5 +346,15 @@ async function removeExercise(id: number, name: string) {
 	&__tags :deep(.van-tag) {
 		font-size: 11px;
 	}
+	&__badge {
+		margin-top: 4px;
+		font-size: 11px;
+		color: var(--color-text-muted);
+		font-style: italic;
+	}
+}
+.picker-card--existing {
+	opacity: 0.7;
+	background: var(--color-surface);
 }
 </style>

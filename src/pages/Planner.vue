@@ -73,6 +73,59 @@ const {
 	needsDivider,
 } = usePlannerLogic(plannerData);
 
+async function onReorder(payload: {
+	cycleType: 'weekly' | 'custom';
+	dayIndex: number;
+	slot: 0 | 1;
+	orderedIds: number[];
+}) {
+	const p = planner.currentProgram;
+	if (!p) return;
+	// Получаем полный список для дня
+	const list = await exercises.listExercisesForDayDetailed(
+		p.id,
+		payload.cycleType,
+		payload.dayIndex
+	);
+	const isB = payload.slot === 1;
+	// Фильтруем только текущий слот
+	const slotItems = list.filter(it =>
+		isB ? (it.position ?? 0) >= 1000 : (it.position ?? 0) < 1000
+	);
+	// Map id -> item
+	const map = new Map(slotItems.map(it => [it.id, it] as const));
+	// Новый порядок позиций: slot A: 0..n*10; slot B: 1000 + 0..n*10
+	const base = isB ? 1000 : 0;
+	for (let i = 0; i < payload.orderedIds.length; i++) {
+		const id = payload.orderedIds[i];
+		if (!map.has(id)) continue; // skip foreign
+		const newPos = base + i * 10; // шаг 10 на будущее вставки
+		try {
+			await exercises.updateDayExercisePosition(id, newPos);
+		} catch (e) {
+			console.warn('update position failed', e);
+		}
+	}
+	// Обновляем кэши
+	if (payload.cycleType === 'weekly') {
+		allExercisesWeekly.value[payload.dayIndex] =
+			await exercises.listExercisesForDayDetailed(
+				p.id,
+				'weekly',
+				payload.dayIndex
+			);
+	} else {
+		allExercisesCustom.value[payload.dayIndex] =
+			await exercises.listExercisesForDayDetailed(
+				p.id,
+				'custom',
+				payload.dayIndex
+			);
+	}
+	// Если ближайший день совпадает — перегрузим dayItems
+	await reloadDayItems();
+}
+
 // Форматированная дата ближайшей тренировки + пометка (сегодня/завтра/послезавтра)
 const nextDateLabel = computed(() => {
 	const next = findNextDayIndex();
@@ -160,6 +213,7 @@ function formatWithRelative(dateObj: Date, diff: number) {
 const showNewPlan = ref(false);
 const editProgramId = ref<number | null>(null);
 const showExercisePicker = ref(false);
+const pickerExistingIds = ref<number[]>([]);
 const showCreateExercise = ref(false);
 const showParams = ref(false);
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -204,6 +258,25 @@ function openAddForDay(
 	// slot используется в onPickExercise через store.attachExerciseToDay
 	// сохраним временно в ref через замыкание на pendingAddTarget: расширим объект
 	(pendingAddTarget.value as any).slot = slot;
+	// Собираем уже добавленные exercise_id для дня и слота
+	const p = planner.currentProgram;
+	if (p) {
+		if (cycle_type === 'weekly') {
+			const list = allExercisesWeekly.value[day_index] || [];
+			pickerExistingIds.value = list
+				.filter(it =>
+					slot === 0 ? (it.position ?? 0) < 1000 : (it.position ?? 0) >= 1000
+				)
+				.map(it => it.exercise_id);
+		} else {
+			const list = allExercisesCustom.value[day_index] || [];
+			pickerExistingIds.value = list
+				.filter(it =>
+					slot === 0 ? (it.position ?? 0) < 1000 : (it.position ?? 0) >= 1000
+				)
+				.map(it => it.exercise_id);
+		}
+	} else pickerExistingIds.value = [];
 	showExercisePicker.value = true;
 }
 
@@ -614,6 +687,7 @@ async function onExerciseEdited() {
 						"
 						@edit-workout="onOpenWorkoutEdit"
 						@delete-workout="onDeleteWorkout"
+						@reorder="onReorder"
 					/>
 				</template>
 			</AppTabs>
@@ -633,6 +707,7 @@ async function onExerciseEdited() {
 	/>
 	<ExercisePickerPopup
 		v-model:show="showExercisePicker"
+		:existing-ids="pickerExistingIds"
 		@select="onPickExercise"
 		@select-multiple="onSelectMultiple"
 		@open-create="openCreateExerciseFromPicker"

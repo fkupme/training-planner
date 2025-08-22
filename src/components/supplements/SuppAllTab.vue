@@ -71,7 +71,7 @@ const emit = defineEmits<{
 
 <style scoped lang="scss">
 .supp-all {
-	height: 72dvh;
+	height: 70dvh;
 	overflow-y: auto;
 	background: var(--color-bg);
 	border-radius: var(--radius-m);
