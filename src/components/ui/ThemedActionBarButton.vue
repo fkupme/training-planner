@@ -1,12 +1,12 @@
 <script lang="ts">
 import { defineComponent, type PropType } from 'vue';
-import type { ActionBarButtonType } from 'vant';
+import type { ButtonType } from 'vant';
 
 export default defineComponent({
 	name: 'ThemedActionBarButton',
 	inheritAttrs: false,
 	props: {
-		type: { type: String as PropType<ActionBarButtonType>, default: 'default' },
+		type: { type: String as PropType<ButtonType>, default: 'default' },
 		text: { type: String, default: '' },
 		icon: { type: String, default: '' },
 		color: { type: String, default: '' },

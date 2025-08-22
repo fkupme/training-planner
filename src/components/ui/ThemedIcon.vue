@@ -1,5 +1,5 @@
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, type PropType } from 'vue';
 
 export default defineComponent({
 	name: 'ThemedIcon',
@@ -11,7 +11,7 @@ export default defineComponent({
 		color: { type: String, default: '' },
 		size: { type: [String, Number], default: '' },
 		classPrefix: { type: String, default: 'van-icon' },
-		tag: { type: String, default: 'i' },
+		tag: { type: String as PropType<keyof HTMLElementTagNameMap>, default: 'i' },
 	},
 	emits: ['click'],
 	setup(_, { emit, attrs }) {

@@ -5,7 +5,7 @@ export default defineComponent({
 	name: 'ThemedActionBar',
 	inheritAttrs: false,
 	props: {
-		placeholder: { type: String, default: '' },
+		placeholder: { type: Boolean, default: false },
 		safeAreaInsetBottom: { type: Boolean, default: true },
 	},
 	setup(_, { attrs }) {
