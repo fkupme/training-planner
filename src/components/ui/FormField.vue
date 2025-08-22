@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import { ThemedCellGroup, ThemedField } from './index';
 </script>
 
 <template>
-	<van-cell-group inset>
-		<van-field>
+	<ThemedCellGroup inset>
+		<ThemedField>
 			<template #label>
 				<slot name="label" />
 			</template>
 			<slot />
-		</van-field>
-	</van-cell-group>
+		</ThemedField>
+	</ThemedCellGroup>
 </template>
