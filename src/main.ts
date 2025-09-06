@@ -6,6 +6,7 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import './assets/styles/themes.scss';
 import { ensureSchema } from './db/schema';
+import { isTauri } from './tauriEnv';
 import { createAppRouter, setupGuards } from './router';
 
 function applyInitialTheme() {
@@ -55,7 +56,9 @@ function lockScreenOrientation() {
 }
 
 (async () => {
-	await ensureSchema();
+	if (isTauri) {
+		await ensureSchema().catch(() => {});
+	}
 
 	// Установка русской локализации для Vant
 	Locale.use('ru-RU', ruRU);
@@ -68,6 +71,14 @@ function lockScreenOrientation() {
 	app.use(pinia);
 	app.use(router);
 	app.use(Vant);
+
+	// Инициализируем авторизацию после создания pinia
+	if (isTauri) {
+		const { useAuthStore } = await import('./stores/auth');
+		const authStore = useAuthStore();
+		await authStore.initFromSession();
+		console.log('[MAIN] Auth session initialized');
+	}
 
 	await setupGuards(router);
 	installImeFocusScroll();

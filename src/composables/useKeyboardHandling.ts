@@ -9,14 +9,6 @@ export function useKeyboardHandling(
 	let unlistenAndroidBack: (() => void) | null = null;
 	let watchdogTimer: number | null = null;
 
-	function toStr(v: unknown) {
-		if (typeof v === 'string') return v;
-		try {
-			return JSON.stringify(v);
-		} catch {
-			return String(v);
-		}
-	}
 
 	function getKeyboardHeight(): number {
 		if (window.visualViewport) {

@@ -1,6 +1,7 @@
 import { useExercisesStore } from '@/stores/exercises';
 import { usePlannerStore } from '@/stores/planner';
 import { useWorkoutsStore } from '@/stores/workouts';
+import { useSessionsStore } from '@/stores/sessions';
 import { showDialog, showToast } from 'vant';
 import { computed, ref } from 'vue';
 import { usePlannerData } from './usePlannerData';
@@ -31,6 +32,33 @@ export function usePlannerLogic(data?: ReturnType<typeof usePlannerData>) {
 		dayIndex: number;
 		dayOffset: number; // смещение (0=сегодня)
 	} | null {
+		const sessions = useSessionsStore();
+		
+		// Если есть nextWorkout данные, используем их
+		if (sessions.nextWorkout) {
+			console.log('usePlannerLogic: Using sessions.nextWorkout data:', sessions.nextWorkout);
+			
+			// Правильно вычисляем dayOffset для nextWorkout
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+			const dow = (today.getDay() + 6) % 7; // Пн=0, сегодня пятница = 4
+			const targetDow = sessions.nextWorkout.day_index; // суббота = 5
+			
+			// Вычисляем offset: сколько дней от сегодня до целевого дня
+			let dayOffset = (targetDow - dow + 7) % 7;
+			if (dayOffset === 0 && targetDow !== dow) {
+				dayOffset = 7; // если тот же день недели но в следующую неделю
+			}
+			
+			console.log('usePlannerLogic: Calculated dayOffset:', dayOffset, 'from dow', dow, 'to', targetDow);
+			
+			return {
+				cycleType: sessions.nextWorkout.cycle_type as 'weekly' | 'custom',
+				dayIndex: sessions.nextWorkout.day_index,
+				dayOffset: dayOffset
+			};
+		}
+		
 		const c = cfg.value;
 		if (!c) return null;
 

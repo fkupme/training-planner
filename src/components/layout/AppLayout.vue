@@ -7,6 +7,7 @@ import {
 } from '@/components/ui';
 import { computed, provide, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { Icon } from '@iconify/vue';
 // Используем импортированные компоненты, чтобы линтер не ругался, пока правила шаблонов не настроены
 void [ThemedNavBar, ThemedIcon, ThemedTabbar, ThemedTabbarItem];
 
@@ -25,61 +26,61 @@ const pageConfig = {
 		title: 'План тренировок',
 		showBack: false,
 		showTabbar: true,
-		icon: 'notes',
+		icon: 'material-symbols:fitness-center-outline',
 	},
 	'/diary': {
 		title: 'Дневник тренировок',
 		showBack: false,
 		showTabbar: true,
-		icon: 'records',
+		icon: 'material-symbols:book-outline',
 	},
 	'/results': {
 		title: 'Результаты',
 		showBack: false,
 		showTabbar: true,
-		icon: 'chart-trending-o',
+		icon: 'material-symbols:bar-chart',
 	},
 	'/supplements': {
 		title: 'Добавки',
 		showBack: false,
 		showTabbar: true,
-		icon: 'like',
+		icon: 'material-symbols:medication-outline',
 	},
 	'/settings': {
 		title: 'Настройки',
 		showBack: false,
 		showTabbar: true,
-		icon: 'setting',
+		icon: 'material-symbols:settings-outline',
 	},
 	'/session': {
 		title: 'Тренировка',
 		showBack: true,
 		showTabbar: false,
-		icon: 'play-circle',
+		icon: 'material-symbols:play-circle-outline',
 	},
 	'/timer': {
-		title: 'Таймер',
+		title: '⏱Таймер',
 		showBack: true,
 		showTabbar: false,
-		icon: 'clock',
+		icon: 'material-symbols:timer-outline',
 	},
 	'/reminders': {
 		title: 'Напоминания',
 		showBack: true,
 		showTabbar: false,
-		icon: 'bell',
+		icon: 'material-symbols:notifications-outline',
 	},
 	'/login': {
 		title: 'Вход',
 		showBack: false,
 		showTabbar: false,
-		icon: 'user',
+		icon: 'material-symbols:person-outline',
 	},
 	'/register': {
 		title: 'Регистрация',
 		showBack: true,
 		showTabbar: false,
-		icon: 'user-plus',
+		icon: 'material-symbols:person-add-outline',
 	},
 } as const;
 
@@ -102,11 +103,11 @@ const showHeader = computed(() => {
 
 // Табы для навигации
 const tabItems = [
-	{ path: '/planner', icon: 'notes', label: 'План' },
-	{ path: '/diary', icon: 'records', label: 'Дневник' },
-	{ path: '/results', icon: 'chart-trending-o', label: 'Результаты' },
-	{ path: '/supplements', icon: 'like', label: 'Добавки' },
-	{ path: '/settings', icon: 'setting', label: 'Настройки' },
+	{ path: '/planner', icon: 'fitness-center-o', label: 'План' },
+	{ path: '/diary', icon: 'book-o', label: 'Дневник' },
+	{ path: '/results', icon: 'bar-chart-o', label: 'Результаты' },
+	{ path: '/supplements', icon: 'medication-o', label: 'Добавки' },
+	{ path: '/settings', icon: 'setting-o', label: 'Настройки' },
 ];
 
 function handleBack() {
@@ -129,14 +130,16 @@ function handleBack() {
 			@clickLeft="handleBack"
 		>
 			<template #left>
-				<ThemedIcon
+				<Icon
 					v-if="currentPageConfig.showBack"
-					name="arrow-left"
+					icon="material-symbols:arrow-back"
+					width="24"
+					height="24"
 					class="nav-back-icon"
 				/>
 			</template>
 			<template #right>
-					<van-image src="public\olive.png" width='111px' />
+				
 			</template>
 		</ThemedNavBar>
 
@@ -158,8 +161,8 @@ function handleBack() {
 			<ThemedTabbarItem
 				v-for="tab in tabItems"
 				:key="tab.path"
-				:to="tab.path"
 				:icon="tab.icon"
+				:to="tab.path"
 				replace
 			>
 				{{ tab.label }}
@@ -179,22 +182,47 @@ function handleBack() {
 	&__header {
 		padding-top: 30px;
 		flex-shrink: 0;
-		background: var(--color-elevated);
+		background: var(--grad-1);
 		border-bottom: 1px solid var(--color-border);
 		z-index: 100;
+		box-shadow: var(--shadow-sm);
+		position: relative;
+		
 
 		:deep(.van-nav-bar__title) {
-			font-weight: var(--fw-semibold);
-			color: var(--color-accent);
+			font-weight: var(--fw-bold);
+			color: var(--color-accent-contrast);
+			font-size: var(--fs-lg);
+			&::after{
+			position: absolute;
+			content: '';
+			background-image: url('/olive.png');
+			background-size: contain;
+			width: 70%;
+			height: 100%;
+			background-position: center center;
+			background-repeat: no-repeat;
+			opacity: 0.7;
+			top: -19px;
+			right: -38px;
+			pointer-events: none;
+			z-index: 1000;
+			transform: rotate(15deg);
+		}
 		}
 
 		.nav-back-icon,
 		.nav-action-icon {
 			font-size: 20px;
-			color: var(--color-accent);
+			color: var(--color-accent-contrast);
 			cursor: pointer;
 			padding: var(--space-1);
 			margin: 0 var(--space-1);
+			
+			&:active {
+				transform: scale(0.95);
+				opacity: 0.8;
+			}
 		}
 	}
 
@@ -206,7 +234,7 @@ function handleBack() {
 
 	&__page {
 		height: 100%;
-		overflow-y: auto;
+		overflow-y: hidden;
 		overflow-x: hidden;
 		background: var(--color-surface);
 
@@ -216,30 +244,53 @@ function handleBack() {
 
 	&__tabbar {
 		flex-shrink: 0;
-		background: var(--color-elevated);
+		background: var(--color-surface);
 		border-top: 1px solid var(--color-border);
 		z-index: 100;
+		box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
     
 		// Учитываем нижнюю область безопасности
 		padding-bottom: calc(env(safe-area-inset-bottom) * 0.5);
 
 		:deep(.van-tabbar-item) {
 			color: var(--color-text-muted);
+			transition: all 0.2s var(--ease-std);
+			
+			&:active {
+				transform: scale(0.95);
+			}
 		}
 
 		:deep(.van-tabbar-item--active) {
 			color: var(--color-accent);
-			background: var(--color-elevated);
+			background: var(--color-accent-light);
+			border-radius: var(--radius-m);
+			margin: 4px;
+			
+			.van-tabbar-item__icon {
+				color: var(--color-accent);
+			}
+			
+			.van-tabbar-item__text {
+				color: var(--color-accent);
+				font-weight: var(--fw-bold);
+			}
 		}
 
 		:deep(.van-tabbar-item__text) {
-			font-size: 11px;
+			font-size: 10px;
 			font-weight: var(--fw-medium);
+			margin-top: 2px;
 		}
 
 		:deep(.van-tabbar-item__icon) {
-			font-size: 20px;
-			margin-bottom: 2px;
+			font-size: 22px;
+			margin-bottom: 4px;
+			transition: all 0.2s var(--ease-std);
+		}
+		
+		:deep(.van-tabbar-item--active .van-tabbar-item__icon) {
+			transform: scale(1.1);
 		}
 	}
 }

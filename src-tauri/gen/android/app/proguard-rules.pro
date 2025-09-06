@@ -1,4 +1,26 @@
 # Add project specific ProGuard rules here.
+# --- Added for Tauri / WebView IPC stability (package name uses underscores) ---
+# Keep all Tauri generated classes and their members (avoid obfuscation issues)
+-keep class com.tauri_app.training_planner.** { *; }
+
+# Preserve JavaScript interface annotated methods
+-keepclassmembers class com.tauri_app.training_planner.** {
+	@android.webkit.JavascriptInterface <methods>;
+}
+
+# Keep native method signatures so JNI can resolve them
+-keepclasseswithmembers class com.tauri_app.training_planner.** {
+	native <methods>;
+}
+
+# Avoid stripping Activity / WebView related classes
+-keep class * extends android.app.Activity
+-keep class * extends android.webkit.WebViewClient
+-keep class * extends android.webkit.WebChromeClient
+
+# Reduce warnings from generated code (optional)
+-dontwarn com.tauri_app.training_planner.**
+
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.
 #

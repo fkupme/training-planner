@@ -41,11 +41,20 @@
 	/* ime + safe area */
 	--ime-bottom: 0px;
 	--safe-bottom: env(safe-area-inset-bottom, 0px);
+	--safe-top: env(safe-area-inset-top, 0px);
+	--safe-left: env(safe-area-inset-left, 0px);
+	--safe-right: env(safe-area-inset-right, 0px);
 
 	/* elevation */
-	--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
-	--shadow-md: 0 6px 14px rgba(0, 0, 0, 0.22);
-	--shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.28);
+	--shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+	--shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+	--shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+	--shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+	--shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+	
+	/* surfaces */
+	--surface-overlay: rgba(0, 0, 0, 0.4);
+	--surface-glass: rgba(255, 255, 255, 0.05);
 }
 
 /* Force body resizing on mobile for ime handling */
@@ -69,6 +78,14 @@ body {
 	--color-text-muted: #aaabb8;
 	--color-accent: #2e9cca;
 	--color-accent-contrast: #08141a;
+	--color-accent-soft: rgba(46, 156, 202, 0.15);
+	--color-accent-hover: #3db0db;
+	--color-success: #10b981;
+	--color-warning: #f59e0b;
+	--color-error: #ef4444;
+	--color-focus: #2e9cca;
+	--color-input-bg: #2b2f56;
+	--color-card-bg: #464866;
 
 	/* super-accent gradients */
 	--grad-1: linear-gradient(135deg, #2e9cca 0%, #29648a 100%);
@@ -76,17 +93,25 @@ body {
 	--grad-3: linear-gradient(135deg, #29648a 0%, #2e9cca 50%, #aaabb8 100%);
 }
 .theme-minimal-blue.light {
-	--color-bg: #f5f7fa;
+	--color-bg: #f8fafc;
 	--color-surface: #ffffff;
-	--color-elevated: #ffffff;
-	--color-border: rgba(15, 23, 42, 0.1);
+	--color-elevated: #f1f5f9;
+	--color-border: rgba(71, 85, 105, 0.15);
 	--color-text: #0f172a;
 	--color-text-muted: #64748b;
-	--color-accent: #2e9cca;
+	--color-accent: #1e40af;
 	--color-accent-contrast: #ffffff;
-	--grad-1: linear-gradient(135deg, #2e9cca 0%, #29648a 100%);
-	--grad-2: linear-gradient(135deg, #2e9cca 0%, #6ec1e4 100%);
-	--grad-3: linear-gradient(135deg, #29648a 0%, #2e9cca 60%, #94a3b8 100%);
+	--color-accent-soft: #dbeafe;
+	--color-accent-hover: #1d4ed8;
+	--color-success: #059669;
+	--color-warning: #d97706;
+	--color-error: #dc2626;
+	--color-focus: #3b82f6;
+	--color-input-bg: #f8fafc;
+	--color-card-bg: #ffffff;
+	--grad-1: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+	--grad-2: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+	--grad-3: linear-gradient(135deg, #1e3a8a 0%, #1e40af 60%, #93c5fd 100%);
 }
 
 /* Theme 2: Gray + Lime (dark/light) */
@@ -104,17 +129,25 @@ body {
 	--grad-3: linear-gradient(135deg, #86c232 0%, #86c232 50%, #2e2f33 100%);
 }
 .theme-gray-lime.light {
-	--color-bg: #f6f7f8;
+	--color-bg: #f8fafc;
 	--color-surface: #ffffff;
-	--color-elevated: #ffffff;
-	--color-border: rgba(2, 2, 2, 0.08);
+	--color-elevated: #f1f5f9;
+	--color-border: rgba(71, 85, 105, 0.12);
 	--color-text: #1f2937;
 	--color-text-muted: #6b7280;
-	--color-accent: #86c232;
-	--color-accent-contrast: #061005;
-	--grad-1: linear-gradient(135deg, #86c232 0%, #61892f 100%);
-	--grad-2: linear-gradient(135deg, #a3ff12 0%, #86c232 100%);
-	--grad-3: linear-gradient(135deg, #86c232 0%, #c7f464 100%);
+	--color-accent: #16a34a;
+	--color-accent-contrast: #ffffff;
+	--color-accent-soft: #dcfce7;
+	--color-accent-hover: #15803d;
+	--color-success: #059669;
+	--color-warning: #d97706;
+	--color-error: #dc2626;
+	--color-focus: #22c55e;
+	--color-input-bg: #f8fafc;
+	--color-card-bg: #ffffff;
+	--grad-1: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+	--grad-2: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+	--grad-3: linear-gradient(135deg, #15803d 0%, #16a34a 60%, #bbf7d0 100%);
 }
 
 /* Theme 3: Deep Teal (из твоей палитры 1) */
@@ -132,17 +165,25 @@ body {
 	--grad-3: linear-gradient(135deg, #265077 0%, #2d5f5d 50%, #49b68b 100%);
 }
 .theme-deep-teal.light {
-	--color-bg: #f3f7fa;
+	--color-bg: #f8fafc;
 	--color-surface: #ffffff;
-	--color-elevated: #ffffff;
-	--color-border: rgba(2, 2, 2, 0.08);
+	--color-elevated: #f1f5f9;
+	--color-border: rgba(71, 85, 105, 0.12);
 	--color-text: #0f172a;
 	--color-text-muted: #64748b;
-	--color-accent: #2d5f5d;
+	--color-accent: #0f766e;
 	--color-accent-contrast: #ffffff;
-	--grad-1: linear-gradient(135deg, #2d5f5d 0%, #1e4258 100%);
-	--grad-2: linear-gradient(135deg, #2d5f5d 0%, #49b68b 100%);
-	--grad-3: linear-gradient(135deg, #265077 0%, #2d5f5d 60%, #a5d6c1 100%);
+	--color-accent-soft: #ccfbf1;
+	--color-accent-hover: #0d9488;
+	--color-success: #059669;
+	--color-warning: #d97706;
+	--color-error: #dc2626;
+	--color-focus: #14b8a6;
+	--color-input-bg: #f8fafc;
+	--color-card-bg: #ffffff;
+	--grad-1: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+	--grad-2: linear-gradient(135deg, #14b8a6 0%, #5eead4 100%);
+	--grad-3: linear-gradient(135deg, #0d9488 0%, #0f766e 60%, #a7f3d0 100%);
 }
 
 /* Vant bindings */
@@ -159,9 +200,776 @@ body {
 	--van-background: var(--color-bg);
 	--van-background-2: var(--color-surface);
 	--van-border-color: var(--color-border);
+	--van-success-color: var(--color-success, var(--color-accent));
+	--van-warning-color: var(--color-warning, #ff9500);
+	--van-danger-color: var(--color-error, #ff3b30);
+	--van-gray-1: var(--color-bg);
+	--van-gray-2: var(--color-elevated);
+	--van-gray-3: var(--color-surface);
+	--van-gray-4: var(--color-border);
+	--van-gray-5: var(--color-text-muted);
+	--van-gray-6: var(--color-text);
+	--van-gray-7: var(--color-text);
+	--van-gray-8: var(--color-text);
+	--van-text-color-2: var(--color-text-muted);
+	--van-text-color-3: var(--color-text-muted);
+	--van-calendar-selected-day-color: var(--color-accent);
+	--van-calendar-selected-day-background: var(--color-accent-soft);
+
+	/* Дополнительные переменные для лучшей интеграции */
+	--van-cell-background: var(--color-surface);
+	--van-cell-text-color: var(--color-text);
+	--van-cell-label-color: var(--color-text-muted);
+	--van-field-label-color: var(--color-text);
+	--van-radio-checked-icon-color: var(--color-accent);
+	--van-switch-on-background: var(--color-accent);
 }
 
 /* Utility to pad bottom by ime + safe area */
 .pad-bottom-safe {
 	padding-bottom: calc(var(--safe-bottom) + var(--ime-bottom));
+}
+
+/* Кастомные скроллбары для современного вида */
+.scroll-container,
+.van-popup,
+.van-action-sheet,
+.supplement-picker__content,
+.supp-all-content,
+.planner-content {
+	/* Webkit (Safari, Chrome) */
+	&::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
+	}
+	
+	&::-webkit-scrollbar-track {
+		background: transparent;
+		border-radius: var(--radius-pill);
+	}
+	
+	&::-webkit-scrollbar-thumb {
+		background: color-mix(in srgb, var(--color-text-muted) 30%, transparent);
+		border-radius: var(--radius-pill);
+		transition: all var(--dur-2) var(--ease-std);
+		
+		&:hover {
+			background: color-mix(in srgb, var(--color-text-muted) 50%, transparent);
+		}
+		
+		&:active {
+			background: color-mix(in srgb, var(--color-accent) 60%, transparent);
+		}
+	}
+	
+	&::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+	
+	/* Firefox */
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--color-text-muted) 30%, transparent) transparent;
+}
+
+/* Плавный скролл */
+html {
+	scroll-behavior: smooth;
+}
+
+/* Улучшенный скролл для мобильных устройств */
+.scroll-container {
+	overflow-y: auto;
+	overflow-x: hidden;
+	-webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
+	overscroll-behavior-y: contain; /* Предотвращает bounce эффект */
+}
+
+/* Скролл индикаторы для длинных списков */
+.scroll-fade-top,
+.scroll-fade-bottom {
+	position: relative;
+	
+	&::before,
+	&::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		height: 20px;
+		pointer-events: none;
+		z-index: 10;
+		transition: opacity var(--dur-2) var(--ease-std);
+	}
+	
+	&::before {
+		top: 0;
+		background: linear-gradient(to bottom, var(--color-bg) 0%, transparent 100%);
+	}
+	
+	&::after {
+		bottom: 0;
+		background: linear-gradient(to top, var(--color-bg) 0%, transparent 100%);
+	}
+}
+
+.van-field__control{
+	text-align: right;
+	&--custom{
+		justify-content: end;
+	}
+}
+
+/* Глобальные улучшения Vant компонентов */
+.van-popup {
+	background: var(--color-surface) !important;
+	color: var(--color-text) !important;
+	
+	&--round {
+		border-radius: var(--radius-xl) var(--radius-xl) 0 0 !important;
+	}
+}
+
+.van-action-sheet {
+	background: var(--color-surface) !important;
+	
+	&__header {
+		background: var(--color-surface) !important;
+		border-bottom: 1px solid var(--color-border) !important;
+	}
+	
+	&__item {
+		background: var(--color-surface) !important;
+		color: var(--color-text) !important;
+		
+		&:active {
+			background: var(--color-elevated) !important;
+		}
+		
+		&::after {
+			border-color: var(--color-border) !important;
+		}
+	}
+}
+
+.van-calendar {
+	background: var(--color-surface) !important;
+	
+	&__header {
+		background: var(--color-surface) !important;
+		border-bottom: 1px solid var(--color-border) !important;
+		padding: var(--space-4) var(--space-4) var(--space-3) !important;
+	}
+	
+	&__header-title {
+		color: var(--color-text) !important;
+		font-weight: var(--fw-bold) !important;
+		font-size: var(--fs-lg) !important;
+	}
+	
+	&__header-subtitle {
+		color: var(--color-text-muted) !important;
+		font-size: var(--fs-sm) !important;
+		margin-top: var(--space-1) !important;
+	}
+	
+	&__month-title {
+		color: var(--color-text) !important;
+		font-weight: var(--fw-semibold) !important;
+		font-size: var(--fs-md) !important;
+		padding: var(--space-3) 0 !important;
+	}
+	
+	&__weekdays {
+		color: var(--color-text-muted) !important;
+		font-weight: var(--fw-semibold) !important;
+		font-size: var(--fs-xs) !important;
+		text-transform: uppercase !important;
+		letter-spacing: 0.5px !important;
+	}
+	
+	&__day {
+		color: var(--color-text) !important;
+		font-weight: var(--fw-regular) !important;
+		transition: all var(--dur-2) var(--ease-std) !important;
+		
+		
+		
+		&--disabled {
+			color: var(--color-text-muted) !important;
+			opacity: 0.4 !important;
+		}
+		
+		&:not(&--disabled):not(&--selected):hover {
+			background: var(--color-accent-soft) !important;
+			color: var(--color-accent) !important;
+		}
+	}
+	
+	&__footer {
+		background: var(--color-surface) !important;
+		border-top: 1px solid var(--color-border) !important;
+		padding: var(--space-4) !important;
+	}
+	
+	&__confirm {
+		background: var(--grad-1) !important;
+		color: var(--color-accent-contrast) !important;
+		border: none !important;
+		border-radius: var(--radius-l) !important;
+		font-weight: var(--fw-semibold) !important;
+		height: 48px !important;
+		
+		&:active {
+			background: var(--grad-2) !important;
+		}
+	}
+}
+
+.van-picker {
+	background: var(--color-surface) !important;
+	
+	&__toolbar {
+		background: var(--color-surface) !important;
+		border-bottom: 1px solid var(--color-border) !important;
+	}
+	
+	&__cancel,
+	&__confirm {
+		color: var(--color-accent) !important;
+	}
+	
+	&__title {
+		color: var(--color-text) !important;
+	}
+	
+	&-column__item {
+		color: var(--color-text) !important;
+		
+		&--selected {
+			color: var(--color-accent) !important;
+			font-weight: var(--fw-semibold) !important;
+		}
+	}
+}
+
+.van-stepper {
+	&__minus,
+	&__plus {
+		background: var(--color-elevated) !important;
+		border-color: var(--color-border) !important;
+		color: var(--color-text) !important;
+		
+		&:active {
+			background: var(--color-accent) !important;
+			color: var(--color-accent-contrast) !important;
+		}
+	}
+	
+	&__input {
+		background: var(--color-surface) !important;
+		border-color: var(--color-border) !important;
+		color: var(--color-text) !important;
+	}
+}
+
+.van-radio-group {
+	background: transparent !important;
+}
+
+.van-radio {
+	background: transparent !important;
+	border: none !important;
+	&__icon {
+
+	
+		
+		&::after {
+			background: var(--color-accent-contrast) !important;
+		}
+	}
+	
+	&__label {
+		color: var(--color-text) !important;
+	}
+}
+
+.van-switch {
+	background: var(--color-border) !important;
+	
+	&--on {
+		background: var(--color-accent) !important;
+	}
+	
+	&__node {
+		background: var(--color-surface) !important;
+		box-shadow: var(--shadow-sm) !important;
+	}
+}
+
+.van-field {
+	background: transparent !important;
+	
+	&__label {
+		color: var(--color-text) !important;
+	}
+	
+	&__control {
+		color: var(--color-text) !important;
+		background: transparent !important;
+		
+		&::placeholder {
+			color: var(--color-text-muted) !important;
+		}
+	}
+	
+	&__right-icon {
+		color: var(--color-text-muted) !important;
+	}
+}
+
+.van-cell {
+	background: var(--color-surface) !important;
+	color: var(--color-text) !important;
+	
+	&__title {
+		color: var(--color-text) !important;
+		font-weight: var(--fw-semibold) !important;
+	}
+	
+	&__value {
+		color: var(--color-text-muted) !important;
+	}
+	
+	&__label {
+		color: var(--color-text-muted) !important;
+	}
+	
+	&__right-icon {
+		color: var(--color-text-muted) !important;
+	}
+	
+	&--clickable:active {
+		background: var(--color-elevated) !important;
+	}
+}
+
+.van-nav-bar {
+	background: var(--color-surface) !important;
+	
+	&__title {
+		color: var(--color-text) !important;
+		font-weight: var(--fw-semibold) !important;
+	}
+	
+	&__left,
+	&__right {
+		color: var(--color-accent) !important;
+	}
+}
+
+// Стилизация диалогов под общую концепцию
+.van-dialog {
+	background: var(--color-surface) !important;
+	border-radius: var(--radius-xl) !important;
+	box-shadow: var(--shadow-lg) !important;
+	border: 1px solid var(--color-border) !important;
+	overflow: hidden;
+	
+	&__header {
+		background: var(--color-surface) !important;
+		color: var(--color-text) !important;
+		font-weight: var(--fw-bold) !important;
+		font-size: var(--fs-lg) !important;
+		padding: var(--space-6) var(--space-6) var(--space-4) !important;
+		border-bottom: none !important;
+	}
+	
+	&__content {
+		background: var(--color-surface) !important;
+		padding: 0 var(--space-6) var(--space-6) !important;
+	}
+	
+	&__message {
+		color: var(--color-text-muted) !important;
+		font-size: var(--fs-md) !important;
+		line-height: var(--lh-body) !important;
+		text-align: center !important;
+		
+		&--has-title {
+			margin-top: 0 !important;
+		}
+	}
+	
+	&__footer {
+		background: var(--color-elevated) !important;
+		padding: var(--space-4) var(--space-6) !important;
+		border-top: 1px solid var(--color-border) !important;
+		display: flex !important;
+		gap: var(--space-3) !important;
+		
+		// Убираем стандартные разделители Vant
+		&::before,
+		.van-hairline--top::after {
+			display: none !important;
+		}
+	}
+	
+	// Стилизация кнопок в диалоге
+	&__cancel,
+	&__confirm {
+		flex: 1 !important;
+		border-radius: var(--radius-m) !important;
+		font-weight: var(--fw-semibold) !important;
+		font-size: var(--fs-md) !important;
+		height: 44px !important;
+		border: 2px solid transparent !important;
+		transition: all var(--dur-2) var(--ease-std) !important;
+		
+		// Убираем разделители между кнопками
+		&::before,
+		&.van-hairline--left::after {
+			display: none !important;
+		}
+		
+		&:active {
+			transform: scale(0.96) !important;
+		}
+	}
+	
+	// Кнопка отмены
+	&__cancel {
+		background: var(--color-surface) !important;
+		color: var(--color-text) !important;
+		border-color: var(--color-border) !important;
+		
+		&:active {
+			background: var(--color-elevated) !important;
+		}
+	}
+	
+	// Кнопка подтверждения
+	&__confirm {
+		background: var(--color-accent) !important;
+		color: var(--color-accent-contrast) !important;
+		border-color: var(--color-accent) !important;
+		
+		&:active {
+			background: var(--color-accent-hover) !important;
+		}
+	}
+}
+
+// Стилизация Share Sheet под общую концепцию
+.van-share-sheet {
+	background: var(--color-surface) !important;
+	border-radius: var(--radius-xl) var(--radius-xl) 0 0 !important;
+	
+	// Заголовок "Поделиться"
+	&__header {
+		background: var(--color-surface) !important;
+		color: var(--color-text) !important;
+		font-weight: var(--fw-bold) !important;
+		font-size: var(--fs-lg) !important;
+		padding: var(--space-6) var(--space-6) var(--space-4) !important;
+		border-bottom: 1px solid var(--color-border) !important;
+		text-align: center !important;
+	}
+	
+	// Описание под заголовком
+	&__description {
+		color: var(--color-text-muted) !important;
+		font-size: var(--fs-md) !important;
+		line-height: var(--lh-body) !important;
+		padding: 0 var(--space-6) var(--space-4) !important;
+		text-align: center !important;
+	}
+	
+	// Основная область с иконками
+	&__options {
+		background: var(--color-surface) !important;
+		padding: var(--space-4) var(--space-6) !important;
+		
+		// Ряды иконок
+		.van-share-sheet__option-groups {
+			display: flex !important;
+			flex-direction: column !important;
+			gap: var(--space-6) !important;
+		}
+		
+		// Группа иконок (ряд)
+		.van-share-sheet__option-group {
+			display: flex !important;
+			justify-content: space-around !important;
+			align-items: center !important;
+		}
+	}
+	
+	// Отдельная опция (иконка + название)
+	&__option {
+		display: flex !important;
+		flex-direction: column !important;
+		align-items: center !important;
+		gap: var(--space-2) !important;
+		padding: var(--space-3) !important;
+		border-radius: var(--radius-m) !important;
+		min-width: 80px !important;
+		transition: all var(--dur-2) var(--ease-std) !important;
+		
+		&:active {
+			background: var(--color-elevated) !important;
+			transform: scale(0.95) !important;
+		}
+	}
+	
+	// Иконка опции
+	&__option-icon {
+		width: 56px !important;
+		height: 56px !important;
+		border-radius: var(--radius-l) !important;
+		display: flex !important;
+		align-items: center !important;
+		justify-content: center !important;
+		font-size: 24px !important;
+		background: var(--color-elevated) !important;
+		border: 1px solid var(--color-border) !important;
+		margin-bottom: var(--space-2) !important;
+		
+		// Специальные цвета для разных иконок
+		&--telegram {
+			background: #0088cc !important;
+			color: white !important;
+			border-color: #0088cc !important;
+		}
+		
+		&--whatsapp {
+			background: #25D366 !important;
+			color: white !important;
+			border-color: #25D366 !important;
+		}
+		
+		&--copy {
+			background: var(--color-accent) !important;
+			color: var(--color-accent-contrast) !important;
+			border-color: var(--color-accent) !important;
+		}
+	}
+	
+	// Название опции
+	&__option-name {
+		color: var(--color-text) !important;
+		font-size: var(--fs-sm) !important;
+		font-weight: var(--fw-medium) !important;
+		text-align: center !important;
+		line-height: var(--lh-tight) !important;
+	}
+	
+	// Описание опции (если есть)
+	&__option-description {
+		color: var(--color-text-muted) !important;
+		font-size: var(--fs-xs) !important;
+		text-align: center !important;
+		margin-top: var(--space-1) !important;
+	}
+	
+	// Кнопка отмены
+	&__cancel {
+		background: var(--color-surface) !important;
+		color: var(--color-text) !important;
+		border: 1px solid var(--color-border) !important;
+		border-radius: var(--radius-m) !important;
+		font-weight: var(--fw-semibold) !important;
+		font-size: var(--fs-md) !important;
+		height: 48px !important;
+		margin: var(--space-4) var(--space-6) var(--space-6) !important;
+		
+		&:active {
+			background: var(--color-elevated) !important;
+			transform: scale(0.98) !important;
+		}
+	}
+}
+
+// Глобальные стили для RPE/RIR ActionSheet (телепортированный компонент)
+.rpe-rir-action-sheet {
+	height: 55dvh !important;
+	
+	/* Цвета и фон */
+	--van-action-sheet-item-background: var(--color-surface) !important;
+	--van-action-sheet-item-text-color: var(--color-text) !important;
+	--van-action-sheet-cancel-padding-color: var(--color-elevated) !important;
+	--van-action-sheet-cancel-text-color: var(--color-text) !important;
+	--van-action-sheet-subname-color: var(--color-text-muted) !important;
+	--van-action-sheet-description-color: var(--color-text-muted) !important;
+	--van-action-sheet-item-disabled-text-color: var(--color-text-muted) !important;
+	--van-action-sheet-item-active-background: var(--color-elevated) !important;
+	/* Размеры и контрастность */
+	--van-action-sheet-header-height: 48px !important;
+	--van-action-sheet-item-line-height: 22px !important;
+	--van-action-sheet-item-font-size: 16px !important;
+
+	.van-action-sheet__header {
+		background: var(--color-elevated) !important;
+		color: var(--color-text) !important;
+		font-weight: 600 !important;
+		letter-spacing: 0.3px !important;
+		border-bottom: 1px solid var(--color-border) !important;
+		padding: var(--space-4) !important;
+	}
+
+	.van-action-sheet__cancel {
+		font-weight: 500 !important;
+		background: var(--color-elevated) !important;
+		color: var(--color-text) !important;
+		border-top: 1px solid var(--color-border) !important;
+	}
+	.van-picker__toolbar {
+		
+	}
+	.van-action-sheet__item {
+		font-weight: 500 !important;
+		color: var(--color-text) !important;
+		background: var(--color-surface) !important;
+	}
+
+	.van-action-sheet__item:active {
+		background: var(--color-elevated) !important;
+	}
+
+	.van-action-sheet__content {
+		padding-bottom: 0 !important;
+		background: var(--color-surface) !important;
+	}
+	
+	.van-picker {
+		background: transparent !important;
+		padding: var(--space-4) 0 !important;
+	}
+	
+	.van-picker__columns {
+		padding: 0 var(--space-4) !important;
+	}
+	
+	.van-picker__column {
+		font-size: var(--fs-md) !important;
+	}
+	
+	.van-picker-column__item {
+		color: var(--color-text) !important;
+		font-weight: var(--fw-regular) !important;
+		height: 44px !important;
+		line-height: 44px !important;
+	}
+	
+	.van-picker-column__item--selected {
+		color: var(--color-accent) !important;
+		font-weight: var(--fw-semibold) !important;
+	}
+
+	.van-cell {
+		background: var(--color-surface) !important;
+		color: var(--color-text) !important;
+	}
+
+	.van-cell:active {
+		background: var(--color-elevated) !important;
+	}
+
+	.van-cell__title {
+		color: var(--color-text) !important;
+		font-weight: 500 !important;
+	}
+	
+	/* Стили для разделителя между колонками picker */
+	.van-picker__mask {
+		background: linear-gradient(180deg, 
+			rgba(var(--color-surface), 0.9) 0%, 
+			rgba(var(--color-surface), 0.6) 40%, 
+			transparent 50%, 
+			rgba(var(--color-surface), 0.6) 60%, 
+			rgba(var(--color-surface), 0.9) 100%) !important;
+	}
+	
+	.van-picker__frame {
+		border-top: 1px solid var(--color-border) !important;
+		border-bottom: 1px solid var(--color-border) !important;
+	}
+}
+
+// Кастомные стили для preview редактора текста
+.share-text-preview {
+	background: var(--color-elevated) !important;
+	border: 1px solid var(--color-border) !important;
+	border-radius: var(--radius-m) !important;
+	padding: var(--space-4) !important;
+	margin: var(--space-4) var(--space-6) 0 !important;
+	
+	&__label {
+		color: var(--color-text-muted) !important;
+		font-size: var(--fs-sm) !important;
+		font-weight: var(--fw-semibold) !important;
+		margin-bottom: var(--space-2) !important;
+		display: block !important;
+	}
+	
+	&__textarea {
+		width: 100% !important;
+		min-height: 120px !important;
+		background: var(--color-surface) !important;
+		border: 1px solid var(--color-border) !important;
+		border-radius: var(--radius-m) !important;
+		padding: var(--space-3) !important;
+		color: var(--color-text) !important;
+		font-size: var(--fs-md) !important;
+		line-height: var(--lh-body) !important;
+		resize: vertical !important;
+		font-family: var(--font-sans) !important;
+		
+		&::placeholder {
+			color: var(--color-text-muted) !important;
+		}
+		
+		&:focus {
+			outline: 2px solid var(--color-accent) !important;
+			outline-offset: -2px !important;
+		}
+	}
+	
+	&__actions {
+		display: flex !important;
+		gap: var(--space-3) !important;
+		margin-top: var(--space-4) !important;
+	}
+	
+	&__btn {
+		flex: 1 !important;
+		height: 44px !important;
+		border-radius: var(--radius-m) !important;
+		font-weight: var(--fw-semibold) !important;
+		font-size: var(--fs-md) !important;
+		border: 2px solid transparent !important;
+		transition: all var(--dur-2) var(--ease-std) !important;
+		cursor: pointer !important;
+		
+		&--copy {
+			background: var(--color-accent) !important;
+			color: var(--color-accent-contrast) !important;
+			border-color: var(--color-accent) !important;
+			
+			&:active {
+				background: var(--color-accent-hover) !important;
+				transform: scale(0.96) !important;
+			}
+		}
+		
+		&--cancel {
+			background: var(--color-surface) !important;
+			color: var(--color-text) !important;
+			border-color: var(--color-border) !important;
+			
+			&:active {
+				background: var(--color-elevated) !important;
+				transform: scale(0.96) !important;
+			}
+		}
+	}
 }

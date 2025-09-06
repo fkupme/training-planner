@@ -44,9 +44,31 @@ export default defineComponent({ name: 'KeyboardPopup' });
 	flex-direction: column;
 	overflow: hidden;
 	padding-bottom: var(--ime-bottom, 0);
+	background: var(--color-bg);
 }
+
 .keyboard-popup__content {
 	flex: 1;
 	overflow: auto;
+	background: var(--color-bg);
+}
+
+/* Улучшаем навигационную панель */
+:deep(.van-nav-bar) {
+	background: var(--color-surface);
+	border-bottom: 1px solid var(--color-border);
+	backdrop-filter: blur(8px);
+	
+	.van-nav-bar__title {
+		color: var(--color-text);
+		font-weight: var(--fw-semibold);
+	}
+}
+
+/* Улучшаем popup контейнер */
+:deep(.van-popup) {
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	box-shadow: var(--shadow-xl);
 }
 </style>

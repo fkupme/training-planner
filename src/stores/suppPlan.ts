@@ -87,10 +87,12 @@ export const useSuppPlanStore = defineStore('suppPlan', {
 				`SELECT pds.*, s.name as supplement_name, s.default_unit FROM program_day_supplements pds JOIN supplements s ON s.id = pds.supplement_id WHERE pds.program_id = ? AND pds.cycle_type = ? AND pds.day_index = ? ORDER BY pds.position ASC, pds.id ASC`,
 				[program_id, cycle_type, day_index]
 			);
+			
+			console.log(`Loading supplements for program ${program_id}, cycle ${cycle_type}, day ${day_index}:`, rows.length);
+			
 			this.cache[this._key(program_id, cycle_type, day_index)] = rows;
 			return rows;
 		},
-
 		async updateDaySupplement(input: UpdateDaySupplementInput) {
 			const fields: string[] = [];
 			const params: any[] = [];

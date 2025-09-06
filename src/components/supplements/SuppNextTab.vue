@@ -87,6 +87,7 @@ const disableReason = computed(() => locks.value.reason);
 			>
 				<div class="supp-slot-card__header">
 					<div class="supp-slot-card__title">Приём {{ slot + 1 }}</div>
+					<div style="display: flex; align-items: center; gap: 8px">
 					<div class="supp-slot-card__meta">
 						{{ grouped[slot].length }} добав.
 					</div>
@@ -95,7 +96,7 @@ const disableReason = computed(() => locks.value.reason);
 						@click="onToggleSlot(slot)"
 						icon-size="20px"
 						class="supp-slot-card__check-all"
-					/>
+					/></div>
 				</div>
 				<div class="supp-slot-card__list">
 					<div
@@ -146,158 +147,352 @@ const disableReason = computed(() => locks.value.reason);
 	</div>
 </template>
 
+/* Adaptive Supplements Next Tab */
 <style scoped lang="scss">
 .supp-next {
-	height: 70dvh;
+	height: 68dvh;
 	overflow: auto;
-	background: var(--color-bg);
-	border-radius: var(--radius-m);
+	background: linear-gradient(
+		135deg,
+		color-mix(in srgb, var(--color-bg) 96%, transparent) 0%,
+		color-mix(in srgb, var(--color-bg) 90%, transparent) 100%
+	);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-l);
+	box-shadow: var(--shadow-sm);
+	backdrop-filter: saturate(120%) blur(4px);
+	
 	&__group {
 		background: transparent;
 	}
-	&__summary .van-cell__label {
-		color: var(--color-text-muted);
+	
+	&__summary {
+		.van-cell__label {
+			color: var(--color-text-muted);
+			opacity: 0.95;
+		}
 	}
-	&__slot {
-		margin-bottom: var(--space-3);
-	}
+	
 	&__summary-wrap {
 		display: flex;
 	}
+	
 	&__disabled-hint {
-		margin: 0 var(--space-3) var(--space-1) var(--space-3);
+		margin: 0 var(--space-3) var(--space-2) var(--space-3);
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: var(--space-2);
 		font-size: var(--fs-xs);
 		color: var(--color-text-muted);
-		padding: 6px 10px;
+		padding: var(--space-2) var(--space-3);
 		border: 1px dashed var(--color-border);
-		border-radius: var(--radius-s);
-		background: var(--color-surface);
+		border-radius: var(--radius-m);
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--color-surface) 95%, transparent),
+			color-mix(in srgb, var(--color-elevated) 90%, transparent)
+		);
+		backdrop-filter: blur(2px);
+		
+		.van-icon {
+			color: var(--color-warning, #ff9500);
+		}
+	}
+	
+	&__empty {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 200px;
+		margin: var(--space-6) 0;
 	}
 }
+
+/* Supplement Slot Cards */
 .supp-slot-card {
-	background: var(--color-elevated);
+	background: linear-gradient(
+		135deg,
+		color-mix(in srgb, var(--color-elevated) 98%, transparent),
+		color-mix(in srgb, var(--color-surface) 95%, transparent)
+	);
 	margin: var(--space-3);
-	border-radius: var(--radius-m);
-	padding: var(--space-3);
-	box-shadow: var(--shadow-sm);
+	border-radius: var(--radius-l);
+	padding: var(--space-4);
+	box-shadow: var(--shadow-md);
 	border: 1px solid var(--color-border);
+	transition: all var(--dur-3) var(--ease-std);
+	backdrop-filter: blur(6px) saturate(110%);
+	
+	&:hover {
+		transform: translateY(-1px);
+		box-shadow: var(--shadow-lg);
+	}
+	
 	&__header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: var(--space-3);
-		padding-bottom: var(--space-2);
-		border-bottom: 1px solid var(--color-border);
+		margin-bottom: var(--space-4);
+		padding-bottom: var(--space-3);
+		border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+		position: relative;
+		
+		&::after {
+			content: '';
+			position: absolute;
+			bottom: -1px;
+			left: 0;
+			width: 40px;
+			height: 2px;
+			background: var(--grad-1);
+			border-radius: var(--radius-pill);
+		}
 	}
+	
 	&__title {
-		font-weight: var(--fw-semibold);
+		font-weight: var(--fw-bold);
 		color: var(--color-text);
-		font-size: var(--fs-md);
+		font-size: var(--fs-lg);
+		letter-spacing: 0.3px;
 	}
+	
 	&__meta {
 		font-size: var(--fs-xs);
 		color: var(--color-text-muted);
-		opacity: 0.8;
+		opacity: 0.85;
+		font-weight: var(--fw-semibold);
+		padding: 4px 8px;
+		background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+		border-radius: var(--radius-pill);
+		border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
 	}
+	
 	&__check-all {
 		margin-left: var(--space-2);
+		transition: transform var(--dur-2) var(--ease-std);
+		
+		&:active {
+			transform: scale(0.95);
+		}
 	}
+	
 	&__list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-2);
+		gap: var(--space-3);
 	}
+	
 	&--disabled {
 		opacity: 0.55;
 		pointer-events: none;
-		filter: grayscale(0.15);
+		filter: grayscale(0.2) blur(0.5px);
+		transform: scale(0.99);
 	}
 }
+
+/* Supplement Item Cards */
 .supp-item-card {
 	display: flex;
 	align-items: flex-start;
 	gap: var(--space-3);
-	background: var(--color-surface);
+	background: linear-gradient(
+		135deg,
+		color-mix(in srgb, var(--color-surface) 98%, transparent),
+		color-mix(in srgb, var(--color-bg) 92%, transparent)
+	);
 	border: 1px solid var(--color-border);
-	border-radius: var(--radius-m);
-	padding: var(--space-3);
+	border-radius: var(--radius-l);
+	padding: var(--space-4);
 	transition: all var(--dur-2) var(--ease-std);
-	&:active {
-		background: var(--color-bg);
-		border-color: var(--color-accent);
+	cursor: pointer;
+	position: relative;
+	overflow: hidden;
+	
+	&::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 3px;
+		height: 100%;
+		background: var(--grad-1);
+		opacity: 0;
+		transition: opacity var(--dur-2) var(--ease-std);
 	}
-	&--done {
-		opacity: 0.6;
-		background: var(--color-bg);
-		.supp-item-card__name {
-			text-decoration: line-through;
+	
+	&:hover {
+		border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--color-surface) 100%, transparent),
+			color-mix(in srgb, var(--color-elevated) 95%, transparent)
+		);
+		transform: translateX(2px);
+		
+		&::before {
+			opacity: 1;
 		}
 	}
+	
+	&:active {
+		transform: translateX(2px) scale(0.99);
+		border-color: var(--color-accent);
+	}
+	
+	&--done {
+		opacity: 0.65;
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--color-bg) 95%, transparent),
+			color-mix(in srgb, var(--color-surface) 88%, transparent)
+		);
+		
+		&::before {
+			background: color-mix(in srgb, var(--color-success, var(--color-accent)) 80%, transparent);
+			opacity: 1;
+		}
+		
+		.supp-item-card__name {
+			text-decoration: line-through;
+			opacity: 0.7;
+		}
+		
+		.supp-item-card__dose {
+			opacity: 0.6;
+		}
+	}
+	
 	&__check {
 		margin-top: 2px;
 		flex-shrink: 0;
+		transition: transform var(--dur-2) var(--ease-std);
+		
+		&:active {
+			transform: scale(0.9);
+		}
 	}
+	
 	&__content {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1);
+		gap: var(--space-2);
+		min-width: 0;
 	}
+	
 	&__main {
 		display: flex;
 		justify-content: space-between;
 		align-items: flex-start;
-		gap: var(--space-2);
+		gap: var(--space-3);
 	}
+	
 	&__name {
 		font-weight: var(--fw-semibold);
 		color: var(--color-text);
-		font-size: var(--fs-sm);
+		font-size: var(--fs-md);
 		line-height: var(--lh-body);
 		flex: 1;
+		letter-spacing: 0.2px;
 	}
+	
 	&__dose {
 		font-weight: var(--fw-bold);
 		color: var(--color-accent);
 		font-size: var(--fs-sm);
-		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-		padding: 4px 8px;
-		border-radius: var(--radius-s);
+		background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+		padding: 6px 12px;
+		border-radius: var(--radius-l);
 		white-space: nowrap;
 		flex-shrink: 0;
 		border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+		box-shadow: var(--shadow-xs);
+		backdrop-filter: blur(2px);
+		
+		&--empty {
+			color: var(--color-text-muted);
+			background: color-mix(in srgb, var(--color-bg) 95%, transparent);
+			border: 1px dashed var(--color-border);
+			font-weight: var(--fw-regular);
+		}
 	}
-	&__dose--empty {
-		color: var(--color-text-muted);
-		background: var(--color-bg);
-		border: 1px dashed var(--color-border);
-		font-weight: var(--fw-regular);
-	}
+	
 	&__meta {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
 	}
+	
 	&__badge {
 		display: inline-block;
-		background: var(--color-border);
-		color: var(--color-text-muted);
+		background: color-mix(in srgb, var(--color-warning, #ff9500) 15%, transparent);
+		color: var(--color-warning, #ff9500);
 		font-size: var(--fs-xxs);
-		padding: 2px 6px;
-		border-radius: var(--radius-s);
+		font-weight: var(--fw-semibold);
+		padding: 3px 8px;
+		border-radius: var(--radius-pill);
 		align-self: flex-start;
+		border: 1px solid color-mix(in srgb, var(--color-warning, #ff9500) 30%, transparent);
+		text-transform: uppercase;
+		letter-spacing: 0.3px;
 	}
+	
 	&__note {
 		font-size: var(--fs-xs);
 		color: var(--color-text-muted);
 		line-height: var(--lh-body);
 		opacity: 0.9;
+		font-style: italic;
 	}
 }
+
+/* Utility classes */
 .transparent-bg {
 	background: transparent;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+	.supp-slot-card,
+	.supp-item-card,
+	.supp-item-card__check {
+		transition: none !important;
+	}
+	
+	.supp-slot-card:hover,
+	.supp-item-card:hover {
+		transform: none !important;
+	}
+}
+
+/* Mobile optimizations */
+@media (max-width: 420px) {
+	.supp-slot-card {
+		margin: var(--space-2);
+		padding: var(--space-3);
+		
+		&__header {
+			margin-bottom: var(--space-3);
+			padding-bottom: var(--space-2);
+		}
+		
+		&__title {
+			font-size: var(--fs-md);
+		}
+	}
+	
+	.supp-item-card {
+		padding: var(--space-3);
+		gap: var(--space-2);
+		
+		&__name {
+			font-size: var(--fs-sm);
+		}
+		
+		&__dose {
+			padding: 4px 8px;
+			font-size: var(--fs-xs);
+		}
+	}
 }
 </style>

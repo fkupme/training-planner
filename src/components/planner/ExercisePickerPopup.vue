@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import KeyboardPopup from '@/components/ui/KeyboardPopup.vue';
+import ActionButtons from '@/components/ui/ActionButtons.vue';
+import SmartSearch from '@/components/ui/SmartSearch.vue';
 import { EQUIPMENT_OPTIONS, useExercisesStore } from '@/stores/exercises';
 import { showDialog, showToast } from 'vant';
-import { computed, defineEmits, defineProps, ref, watch } from 'vue';
+import { computed, defineEmits, defineProps, ref, watch, nextTick } from 'vue';
 
 // Props & emits
-const props = defineProps<{ show: boolean; existingIds?: number[] }>();
+const props = defineProps<{ 
+	show: boolean; 
+	existingIds?: number[]; 
+	initialQuery?: string;
+	singleSelect?: boolean; // режим выбора одного упражнения (для замены)
+}>();
 const emit = defineEmits<{
 	(e: 'update:show', v: boolean): void;
-	(e: 'select', id: number): void; // (оставлено для совместимости)
+	(e: 'select', id: number): void;
 	(e: 'select-multiple', ids: number[]): void;
 	(e: 'open-create'): void;
 	(e: 'open-edit', id: number): void;
@@ -22,9 +29,40 @@ const modelShow = computed({
 
 // Состояние поиска / выбора
 const q = ref('');
-const isComposing = ref(false);
 const ex = useExercisesStore();
 const selectedIds = ref<number[]>([]);
+const searchLoading = ref(false);
+
+// Автокомплит для поиска
+const searchSuggestions = computed(() => {
+	const suggestions: Array<{id: string, text: string, type: 'muscle' | 'equipment' | 'category'}> = [];
+	
+	if (q.value.length >= 1) {
+		// Мышцы
+		ex.muscles.forEach(muscle => {
+			if (muscle.name.toLowerCase().includes(q.value.toLowerCase())) {
+				suggestions.push({
+					id: `muscle-${muscle.id}`,
+					text: muscle.name,
+					type: 'muscle'
+				});
+			}
+		});
+		
+		// Оборудование
+		EQUIPMENT_OPTIONS.forEach(eq => {
+			if (eq.label.toLowerCase().includes(q.value.toLowerCase())) {
+				suggestions.push({
+					id: `equipment-${eq.value}`,
+					text: eq.label,
+					type: 'equipment'
+				});
+			}
+		});
+	}
+	
+	return suggestions.slice(0, 6); // Ограничиваем
+});
 
 // Локальный фильтр как в добавках: быстрый и анимируемый
 const existingSet = computed(() => new Set(props.existingIds || []));
@@ -71,28 +109,40 @@ async function loadAll() {
 }
 watch(modelShow, async v => {
 	if (v) {
-		q.value = '';
-		selectedIds.value = [];
+		// Сначала загружаем мышцы и упражнения
 		await ex.loadMuscles();
 		await loadAll();
+		
+		// Используем nextTick чтобы убедиться что данные полностью загрузились
+		await nextTick();
+		
+		// Затем устанавливаем начальный поисковой запрос если передан
+		q.value = props.initialQuery || '';
+		selectedIds.value = [];
 	}
 });
 
 // Composition events для плавного UX (как в добавках)
-function onCompositionStart() {
-	isComposing.value = true;
+function onSearch(query: string) {
+	q.value = query;
 }
-function onCompositionEnd(e: CompositionEvent) {
-	isComposing.value = false;
-	q.value = (e.target as HTMLInputElement).value;
-}
-function onRawInput(e: Event) {
-	if (isComposing.value) q.value = (e.target as HTMLInputElement).value;
+
+function onSelectSuggestion(suggestion: any) {
+	q.value = suggestion.text;
 }
 
 // Выбор
 function toggleSelect(id: number) {
 	if (existingSet.value.has(id)) return; // уже есть
+	
+	// В режиме одиночного выбора сразу эмитим и закрываем
+	if (props.singleSelect) {
+		emit('select', id);
+		modelShow.value = false;
+		return;
+	}
+	
+	// Множественный выбор как было
 	const i = selectedIds.value.indexOf(id);
 	if (i >= 0) selectedIds.value.splice(i, 1);
 	else selectedIds.value.push(id);
@@ -131,19 +181,22 @@ async function removeExercise(id: number, name: string) {
 </script>
 
 <template>
-	<KeyboardPopup title="Выбор упражнения" v-model:show="modelShow" height="90%">
+	<KeyboardPopup 
+		:title="singleSelect ? 'Замена упражнения' : 'Выбор упражнения'" 
+		v-model:show="modelShow" 
+		height="90%"
+	>
 		<div class="picker">
-			<van-search
-				:model-value="q"
+			<SmartSearch
+				v-model="q"
 				placeholder="Поиск (название, описание, мышца, оборудование)"
-				class="picker__search"
-				:clearable="true"
-				@update:model-value="val => (q = val)"
-				@compositionstart="onCompositionStart"
-				@compositionend="onCompositionEnd"
-				@input="onRawInput"
+				:suggestions="searchSuggestions"
+				:loading="searchLoading"
+				@search="onSearch"
+				@select-suggestion="onSelectSuggestion"
 			/>
-			<div class="picker__list">
+			
+			<div class="picker__content">
 				<transition-group name="fade-list" tag="div" v-if="filteredList.length">
 					<div
 						v-for="item in filteredList"
@@ -154,13 +207,19 @@ async function removeExercise(id: number, name: string) {
 					>
 						<div class="picker-card__thumb">
 							<van-image
-								:src="item.media_path || ''"
+								:src="item.media_path || undefined"
 								width="100%"
 								height="100%"
 								fit="cover"
+								:show-error="false"
+								:show-loading="false"
+								icon="video"
 							>
 								<template #error>
-									<div class="picker-card__avatar-fallback">GIF</div>
+									<div class="picker-card__media-placeholder">
+										<van-icon name="video" color="var(--color-text-muted)"/>
+										<span>GIF</span>
+									</div>
 								</template>
 							</van-image>
 						</div>
@@ -214,6 +273,7 @@ async function removeExercise(id: number, name: string) {
 					</div>
 				</transition-group>
 				<van-empty v-else description="Ничего не найдено" />
+				
 				<van-cell
 					class="picker__create"
 					:title="'Создать упражнение'"
@@ -221,15 +281,18 @@ async function removeExercise(id: number, name: string) {
 					@click="openCreate"
 				/>
 			</div>
-			<div class="picker__footer">
-				<van-button
-					type="primary"
-					class="picker__add-btn"
-					:disabled="selectedIds.length === 0"
-					@click="addSelected"
-					>Добавить выбранные</van-button
-				>
-			</div>
+			
+			<ActionButtons
+				v-if="!singleSelect"
+				:actions="[
+					{ 
+						label: `Добавить выбранные${selectedIds.length ? ` (${selectedIds.length})` : ''}`, 
+						type: 'primary', 
+						onClick: addSelected,
+						disabled: selectedIds.length === 0
+					}
+				]"
+			/>
 		</div>
 	</KeyboardPopup>
 </template>
@@ -237,124 +300,231 @@ async function removeExercise(id: number, name: string) {
 <style lang="scss" scoped>
 .picker {
 	background: var(--color-bg);
-	padding: 0 var(--space-3) 20px; // верх под заголовок попапа, низ под футер
+	padding: var(--space-3);
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-  overflow: hidden;
+	gap: var(--space-3);
 
-	&__search {
-		background: var(--color-bg);
-		position: sticky;
-		top: 0;
-		z-index: 2;
-	}
-	&__list {
+	&__content {
 		flex: 1;
 		overflow-y: auto;
-		overflow-x: hidden;
 		-webkit-overflow-scrolling: touch;
-		width: 100%;
-		padding: 0;
-    margin-bottom: 70px;
+		padding-bottom: 110px; // Место под ActionButtons
 	}
-	&__create :deep(.van-cell__title) {
-		color: var(--van-blue);
-		font-weight: var(--fw-semibold);
-	}
-	&__footer {
-		position: fixed;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: var(--color-bg);
-		padding: var(--space-3);
-	}
-	&__add-btn {
-		margin-top: var(--space-2);
-		background-color: var(--color-accent);
-		color: var(--color-accent-contrast);
-		width: 100%;
+
+	&__create {
+		margin-top: var(--space-4);
+		background: var(--color-surface);
+		border-radius: var(--radius-l);
+		box-shadow: var(--shadow-xs);
+		border: 1px solid var(--color-border);
+		
+		:deep(.van-cell__title) {
+			color: var(--color-accent);
+			font-weight: var(--fw-semibold);
+		}
 	}
 }
 
-/* transitions */
+/* Анимации */
 .fade-list-enter-active,
 .fade-list-leave-active {
-	transition: all 0.16s ease;
+	transition: all var(--dur-2) var(--ease-std);
 }
 .fade-list-enter-from,
 .fade-list-leave-to {
 	opacity: 0;
-	transform: translateY(6px);
+	transform: translateY(8px);
 }
 .fade-list-move {
-	transition: transform 0.16s ease;
+	transition: transform var(--dur-2) var(--ease-std);
 }
 
+/* Карточки упражнений */
 .picker-card {
 	display: grid;
-	grid-template-columns: 33% 1fr;
-	gap: 10px;
-	padding: 8px 6px;
-	border: 1px solid var(--van-border-color);
-	border-radius: var(--radius-m);
+	grid-template-columns: 80px 1fr;
+	gap: var(--space-3);
+	padding: var(--space-3);
 	background: var(--color-surface);
-	margin-bottom: 8px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-l);
+	margin-bottom: var(--space-3);
+	box-shadow: var(--shadow-xs);
+	cursor: pointer;
+	transition: all var(--dur-2) var(--ease-std);
+	position: relative;
+	overflow: hidden;
+
+	&:hover {
+		box-shadow: var(--shadow-sm);
+		transform: translateY(-1px);
+	}
+
+	&:active {
+		transform: translateY(0);
+		box-shadow: var(--shadow-xs);
+	}
 
 	&__thumb {
-		width: 100%;
-		aspect-ratio: 1;
+		width: 80px;
+		height: 80px;
 		border-radius: var(--radius-m);
 		overflow: hidden;
-		background: var(--color-surface);
-		border: 1px solid var(--van-border-color);
-	}
-	&__avatar-fallback {
-		width: 100%;
-		height: 100%;
+		background: var(--color-elevated);
+		border: 1px solid var(--color-border);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: var(--color-text-muted);
 	}
+
+	&__media-placeholder {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-1);
+		background: linear-gradient(135deg, var(--color-elevated) 0%, var(--color-surface) 100%);
+		color: var(--color-text-muted);
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-medium);
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		
+		.van-icon {
+			font-size: 24px;
+			color: var(--color-accent);
+			opacity: 0.7;
+		}
+		
+		span {
+			opacity: 0.8;
+		}
+	}
+
+	&__body {
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
 	&__header {
 		display: grid;
 		grid-template-columns: auto 1fr auto;
 		align-items: center;
 		gap: var(--space-2);
 	}
-	&__actions {
-		display: inline-flex;
-		gap: var(--space-2);
-	}
+
 	&__title {
 		font-weight: var(--fw-semibold);
+		font-size: var(--fs-md);
+		color: var(--color-text);
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
+
+	&__actions {
+		display: flex;
+		gap: var(--space-2);
+		
+		.van-icon {
+			padding: var(--space-1);
+			border-radius: var(--radius-s);
+			transition: background-color var(--dur-1) var(--ease-std);
+			
+			&:hover {
+				background: var(--color-elevated);
+			}
+		}
+	}
+
 	&__icon--edit {
-		color: var(--van-blue);
+		color: var(--color-accent);
 	}
+
 	&__icon--delete {
-		color: var(--van-red);
+		color: var(--color-danger);
 	}
+
 	&__tags {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 6px;
-		margin: 6px 0;
+		gap: var(--space-1);
+		
+		:deep(.van-tag) {
+			font-size: var(--fs-xs);
+			font-weight: var(--fw-medium);
+			border-radius: var(--radius-s);
+			padding: 2px 6px;
+		}
+		
+		:deep(.van-tag--primary) {
+			background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+			color: var(--color-accent);
+			border-color: var(--color-accent);
+		}
+		
+		:deep(.van-tag--success) {
+			background: color-mix(in srgb, var(--color-success) 15%, transparent);
+			color: var(--color-success);
+			border-color: var(--color-success);
+		}
+		
+		:deep(.van-tag--warning) {
+			background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+			color: var(--color-warning);
+			border-color: var(--color-warning);
+		}
 	}
-	&__tags :deep(.van-tag) {
-		font-size: 11px;
-	}
+
 	&__badge {
-		margin-top: 4px;
-		font-size: 11px;
+		position: absolute;
+		top: var(--space-2);
+		right: var(--space-2);
+		background: var(--color-accent);
+		color: var(--color-accent-contrast);
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-medium);
+		padding: 2px 6px;
+		border-radius: var(--radius-s);
+		box-shadow: var(--shadow-xs);
+	}
+
+	:deep(.van-text-ellipsis) {
+		font-size: var(--fs-sm);
 		color: var(--color-text-muted);
-		font-style: italic;
+		line-height: 1.4;
+	}
+
+	:deep(.van-checkbox) {
+		--van-checkbox-size: 20px;
 	}
 }
+
 .picker-card--existing {
-	opacity: 0.7;
-	background: var(--color-surface);
+	opacity: 0.6;
+	background: var(--color-elevated);
+	cursor: default;
+	
+	&:hover {
+		transform: none;
+		box-shadow: var(--shadow-xs);
+	}
+}
+
+/* Empty state */
+:deep(.van-empty) {
+	padding: var(--space-6) var(--space-3);
+	
+	.van-empty__description {
+		color: var(--color-text-muted);
+		font-size: var(--fs-md);
+	}
 }
 </style>

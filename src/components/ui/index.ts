@@ -1,6 +1,7 @@
 // Themed Vant Component Wrappers
 // Import and re-export all themed components for easy use
 
+
 export { default as ThemedActionBar } from './ThemedActionBar.vue';
 export { default as ThemedActionBarButton } from './ThemedActionBarButton.vue';
 export { default as ThemedButton } from './ThemedButton.vue';
@@ -28,3 +29,5 @@ export { default as ThemeTimePicker } from './ThemeTimePicker.vue';
 export { default as FormField } from './FormField.vue';
 export { default as Tabs } from './Tabs.vue';
 export { default as ThemeActionSheet } from './ThemeActionSheet.vue';
+export { default as Field } from './wrappers/Field.vue';
+export { default as Cell } from './wrappers/Cell.vue';

@@ -652,6 +652,20 @@ export async function ensureSchema() {
     FOREIGN KEY(day_exercise_id) REFERENCES program_day_exercises(id) ON DELETE CASCADE
   )`);
 
+	// Замены упражнений в рамках конкретной сессии
+	await exec(`CREATE TABLE IF NOT EXISTS session_exercise_replacements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    day_exercise_id INTEGER NOT NULL, -- ссылка на program_day_exercises (оригинальное упражнение)
+    new_exercise_id INTEGER NOT NULL, -- новое упражнение
+    new_exercise_name TEXT NOT NULL, -- название нового упражнения
+    created_at INTEGER DEFAULT (unixepoch() * 1000),
+    FOREIGN KEY(session_id) REFERENCES training_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY(day_exercise_id) REFERENCES program_day_exercises(id) ON DELETE CASCADE,
+    FOREIGN KEY(new_exercise_id) REFERENCES exercises(id) ON DELETE CASCADE,
+    UNIQUE(session_id, day_exercise_id) -- один day_exercise может быть заменен только один раз в сессии
+  )`);
+
 	// Сид начальных мышечных групп (идемпотентный)
 	await seedMusclesIfMissing();
 	// Сид библиотеки упражнений (~120, идемпотентный)

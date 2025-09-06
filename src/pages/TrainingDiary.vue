@@ -1,235 +1,339 @@
 <template>
 	<div class="training-diary">
-		<div class="training-diary__inner">
-			<!-- Header / Search -->
-			<section class="training-diary__section training-diary__section--search">
-				<h1 class="training-diary__title">Дневник тренировок</h1>
-				<van-search
-					v-model="sessions.historySearchQuery"
-					shape="round"
-					background="transparent"
-					placeholder="Поиск по названию, дню или комментариям..."
-					@update:model-value="sessions.setHistorySearch"
-				/>
-			</section>
-
-			<!-- Stats -->
-			<section class="training-diary__section">
-				<h2 class="section-title">Статистика</h2>
-				<van-cell-group inset class="stats-cards">
-					<van-cell
-						title="Всего тренировок"
-						:value="sessions.trainingHistory.length.toString()"
-						icon="completed"
-					/>
-					<van-cell
-						title="За последний месяц"
-						:value="recentTrainingsCount.toString()"
-						icon="calendar-o"
-					/>
-				</van-cell-group>
-			</section>
-
-			<!-- History -->
-			<section class="training-diary__section">
-				<div class="section-title with-count">
-					<h2>История</h2>
-					<span v-if="sessions.filteredTrainingHistory.length" class="chip">{{
-						sessions.filteredTrainingHistory.length
-					}}</span>
-				</div>
-
-				<van-list
-					v-model:loading="sessions.isLoadingHistory"
-					:finished="true"
-					loading-text="Загрузка..."
-					class="sessions-list"
-				>
-					<transition-group name="fade-list" tag="div">
-						<div
-							v-for="session in sessions.filteredTrainingHistory"
-							:key="session.id"
-							class="session-card"
-							@click="openSessionDetails(session)"
-						>
-							<div class="session-card__header">
-								<div class="session-card__main">
-									<div class="session-card__program">
-										{{ session.program_name }}
-									</div>
-									<div class="session-card__meta">
-										{{ formatSessionInfo(session) }}
-									</div>
-								</div>
-								<div class="session-card__side">
-									<div class="session-card__date">
-										{{ formatDate(session.completed_at) }}
-									</div>
-									<div class="session-card__tags">
-										<van-tag round type="primary"
-											>{{ session.exercises_count }} упр.</van-tag
-										>
-										<van-tag round type="success"
-											>{{ session.total_sets }} подх.</van-tag
-										>
-									</div>
-								</div>
-							</div>
-							<div v-if="session.comments" class="session-card__comments">
-								<van-icon name="comment-o" />
-								<span>{{ session.comments }}</span>
-							</div>
-						</div>
-					</transition-group>
-
-					<van-empty
-						v-if="
-							!sessions.filteredTrainingHistory.length &&
-							!sessions.isLoadingHistory
-						"
-						image="search"
-						description="Нет тренировок"
-					/>
-				</van-list>
-			</section>
-		</div>
-
-		<!-- Popup details -->
-		<van-popup
-			v-model:show="showSessionDetails"
-			position="bottom"
-			round
-			:style="{ height: '80%' }"
-		>
-			<div class="session-details" v-if="selectedSession">
-				<van-nav-bar
-					:title="selectedSession.program_name"
-					left-text="Закрыть"
-					@click-left="showSessionDetails = false"
-				>
-					<template #right>
-						<van-icon name="share-o" @click="shareSession" />
-					</template>
-				</van-nav-bar>
-
-				<div class="session-details__content">
-					<van-cell-group inset>
-						<van-cell
-							title="День тренировки"
-							:value="selectedSession.day_name"
-							icon="calendar-o"
-						/>
-						<van-cell
-							title="Дата завершения"
-							:value="formatFullDate(selectedSession.completed_at)"
-							icon="clock-o"
-						/>
-						<van-cell
-							v-if="selectedSession.duration_minutes"
-							title="Длительность"
-							:value="`${selectedSession.duration_minutes} мин`"
-							icon="timer"
-						/>
-					</van-cell-group>
-
-					<van-cell-group inset title="Статистика">
-						<van-cell
-							title="Упражнений"
-							:value="selectedSession.exercises_count.toString()"
-							icon="service"
-						/>
-						<van-cell
-							title="Подходов"
-							:value="selectedSession.total_sets.toString()"
-							icon="records"
-						/>
-					</van-cell-group>
-
-					<van-cell-group
-						inset
-						title="Комментарии"
-						v-if="selectedSession.comments"
-					>
-						<van-cell>
-							<p class="session-comments__text">
-								{{ selectedSession.comments }}
-							</p>
-						</van-cell>
-					</van-cell-group>
-
-					<van-cell-group inset title="Упражнения">
-						<van-cell
-							title="Подробности упражнений"
-							label="Для просмотра деталей каждого упражнения перейдите в полную версию"
-							is-link
-							@click="viewFullSession"
-						/>
-					</van-cell-group>
+		<!-- Hero Header Section with Integrated Tabs -->
+		<div class="training-diary__hero">
+			<div class="training-diary__hero-content">
+				<div class="training-diary__hero-main">
+					<h1 class="training-diary__title">Дневник тренировок</h1>
+					<p class="training-diary__subtitle" v-if="sessions.trainingHistory.length">
+						{{ sessions.trainingHistory.length }} {{ pluralizeTr(sessions.trainingHistory.length) }}
+					</p>
 				</div>
 			</div>
-		</van-popup>
+			
+			<!-- Integrated Tab Buttons -->
+			<div class="training-diary__tab-buttons" v-if="sessions.trainingHistory.length > 0">
+				<button 
+					@click="activeTab = 'history'" 
+					:class="['training-diary__tab-btn', { 'training-diary__tab-btn--active': activeTab === 'history' }]"
+				>
+					История
+				</button>
+				<button 
+					@click="activeTab = 'stats'" 
+					:class="['training-diary__tab-btn', { 'training-diary__tab-btn--active': activeTab === 'stats' }]"
+				>
+					Статистика
+				</button>
+			</div>
+		</div>
+
+		<!-- Main Content -->
+		<div class="training-diary__content">
+			<template v-if="sessions.trainingHistory.length === 0">
+				<div class="training-diary__empty">
+					<div class="training-diary__empty-icon">
+						<van-icon name="completed" size="64" />
+					</div>
+					<h2 class="training-diary__empty-title">Дневник пуст</h2>
+					<p class="training-diary__empty-description">
+						Здесь будут отображаться завершенные тренировки
+					</p>
+				</div>
+			</template>
+
+			<template v-else>
+				<!-- Tab Content -->
+				<div class="training-diary__tab-content" v-if="activeTab === 'history'">
+					<DiaryTabHistory
+						:sessions="sessions"
+						:search-query="searchQuery"
+						:show-filters="showFilters"
+						:selected-period="selectedPeriod"
+						:selected-programs="selectedPrograms"
+						:filtered-sessions="filteredSessions"
+						:available-programs="availablePrograms"
+						:has-active-filters="hasActiveFilters"
+						:period-filters="periodFilters"
+						:search-suggestions="searchSuggestions"
+						@update:search-query="searchQuery = $event"
+						@update:show-filters="showFilters = $event"
+						@update:selected-period="selectedPeriod = $event"
+						@update:selected-programs="selectedPrograms = $event"
+						@open-session-details="openSessionDetails"
+						@handle-search="handleSearch"
+						@handle-suggestion-select="handleSuggestionSelect"
+						@toggle-period-filter="togglePeriodFilter"
+						@toggle-program-filter="toggleProgramFilter"
+						@clear-search="clearSearch"
+						@search-by-muscles="searchByMuscles"
+					/>
+				</div>
+				<div class="training-diary__tab-content" v-if="activeTab === 'stats'">
+					<DiaryTabStats
+						@open-record-details="openRecordDetails"
+					/>
+				</div>
+			</template>
+		</div>
 	</div>
+
+	<!-- Session Details Popup -->
+	<SessionDetailsPopup
+		v-model="showSessionDetails"
+		:session="selectedSession"
+		@close="closeSessionDetails"
+	/>
 </template>
 
 <script setup lang="ts">
 import { useSessionsStore, type TrainingHistory } from '@/stores/sessions';
-import { showToast } from 'vant';
+import SessionDetailsPopup from '@/components/Diary/SessionDetailsPopup.vue';
+import DiaryTabHistory from '@/components/Diary/DiaryTabHistory.vue';
+import DiaryTabStats from '@/components/Diary/DiaryTabStats.vue';
 import { computed, onMounted, ref } from 'vue';
+
+// Используем тип из SmartSearch компонента
+interface SearchSuggestion {
+	id: string;
+	text: string;
+	type: 'muscle' | 'equipment' | 'category' | 'recent';
+	icon?: string;
+}
+
+interface Record {
+	type: string;
+	title: string;
+	value: string;
+	date: string;
+	icon: string;
+	details?: any;
+}
 
 const sessions = useSessionsStore();
 
 const showSessionDetails = ref(false);
 const selectedSession = ref<TrainingHistory | null>(null);
 
-const recentTrainingsCount = computed(() => {
-	const oneMonthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-	return sessions.trainingHistory.filter(s => s.completed_at > oneMonthAgo)
-		.length;
+// Tab state
+const activeTab = ref<'history' | 'stats'>('history');
+
+// Smart Search State
+const searchQuery = ref('');
+const showFilters = ref(false);
+const selectedPeriod = ref<string | null>(null);
+const selectedPrograms = ref<string[]>([]);
+
+// Search Configuration
+const periodFilters = [
+	{ label: 'Сегодня', value: 'today' },
+	{ label: 'Неделя', value: 'week' },
+	{ label: 'Месяц', value: 'month' },
+	{ label: '3 месяца', value: '3months' },
+	{ label: 'Год', value: 'year' },
+];
+
+// Computed Properties
+const availablePrograms = computed(() => {
+	const programs = new Set<string>();
+	sessions.trainingHistory.forEach(session => {
+		if (session.program_name) {
+			programs.add(session.program_name);
+		}
+	});
+	return Array.from(programs).sort();
 });
 
-onMounted(async () => {
-	if (sessions.trainingHistory.length === 0) {
-		await sessions.loadTrainingHistory();
+const searchSuggestions = computed(() => {
+	const suggestions: SearchSuggestion[] = [];
+	
+	// Recent searches
+	if (searchQuery.value.length > 0) {
+		const query = searchQuery.value.toLowerCase();
+		const searchTerms = query.split(/\s+/).filter(term => term.length > 0);
+		const lastTerm = searchTerms[searchTerms.length - 1] || '';
+		
+		// Program suggestions как category
+		availablePrograms.value
+			.filter(p => p.toLowerCase().includes(lastTerm))
+			.slice(0, 2)
+			.forEach(program => {
+				suggestions.push({
+					id: `program-${program}`,
+					text: program,
+					type: 'category',
+					icon: '🏋️'
+				});
+			});
+		
+		// Day suggestions как recent
+		const uniqueDays = [...new Set(sessions.trainingHistory.map(s => s.day_name).filter(Boolean))];
+		uniqueDays
+			.filter(day => day!.toLowerCase().includes(lastTerm))
+			.slice(0, 2)
+			.forEach(day => {
+				suggestions.push({
+					id: `day-${day}`,
+					text: day!,
+					type: 'recent',
+					icon: '📅'
+				});
+			});
+			
+		// Muscle suggestions как muscle - учитываем уже введенные мышцы
+		const allMuscles = new Set<string>();
+		sessions.trainingHistory.forEach(session => {
+			if (session.muscle_groups?.primary) {
+				allMuscles.add(session.muscle_groups.primary);
+			}
+			session.muscle_groups?.secondary?.forEach(m => allMuscles.add(m));
+		});
+		
+		// Исключаем уже введенные мышцы из предложений
+		const existingMuscles = searchTerms.slice(0, -1).map(term => term.toLowerCase());
+		
+		Array.from(allMuscles)
+			.filter(muscle => 
+				muscle.toLowerCase().includes(lastTerm) &&
+				!existingMuscles.includes(muscle.toLowerCase())
+			)
+			.slice(0, 3)
+			.forEach(muscle => {
+				suggestions.push({
+					id: `muscle-${muscle}`,
+					text: muscle,
+					type: 'muscle',
+					icon: '💪'
+				});
+			});
 	}
+	
+	return suggestions;
 });
 
-function formatDate(timestamp: number): string {
-	const date = new Date(timestamp);
-	const now = new Date();
-	const diffDays = Math.floor(
-		(now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+const filteredSessions = computed(() => {
+	let filtered = sessions.trainingHistory;
+
+	// Text search
+	if (searchQuery.value) {
+		const query = searchQuery.value.toLowerCase().trim();
+		const searchTerms = query.split(/\s+/).filter(term => term.length > 0);
+		
+		filtered = filtered.filter(session => {
+			const searchableText = [
+				session.program_name,
+				session.day_name,
+				session.comments,
+				session.muscle_groups?.primary,
+				...(session.muscle_groups?.secondary || [])
+			]
+				.filter(Boolean)
+				.join(' ')
+				.toLowerCase();
+
+			return searchTerms.every(term => searchableText.includes(term));
+		});
+	}
+
+	// Period filter
+	if (selectedPeriod.value) {
+		const now = new Date();
+		let startDate: Date;
+
+		switch (selectedPeriod.value) {
+			case 'today':
+				startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+				break;
+			case 'week':
+				startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+				break;
+			case 'month':
+				startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+				break;
+			case '3months':
+				startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+				break;
+			case 'year':
+				startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+				break;
+			default:
+				startDate = new Date(0);
+		}
+
+		filtered = filtered.filter(session => {
+			const sessionDate = new Date(session.completed_at);
+			return sessionDate >= startDate;
+		});
+	}
+
+	// Program filter
+	if (selectedPrograms.value.length > 0) {
+		filtered = filtered.filter(session =>
+			selectedPrograms.value.includes(session.program_name || '')
+		);
+	}
+
+	return filtered.sort(
+		(a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime()
 	);
+});
 
-	if (diffDays === 0) return 'Сегодня';
-	if (diffDays === 1) return 'Вчера';
-	if (diffDays < 7) return `${diffDays} дн. назад`;
+const hasActiveFilters = computed(() => {
+	return !!(
+		searchQuery.value ||
+		selectedPeriod.value ||
+		selectedPrograms.value.length > 0
+	);
+});
 
-	return date.toLocaleDateString('ru-RU', {
-		day: '2-digit',
-		month: '2-digit',
-		year: '2-digit',
-	});
+// Event handlers
+function handleSearch(_query: string) {
+	// Search is handled reactively through computed
 }
 
-function formatFullDate(timestamp: number): string {
-	const date = new Date(timestamp);
-	return date.toLocaleDateString('ru-RU', {
-		weekday: 'long',
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric',
-		hour: '2-digit',
-		minute: '2-digit',
-	});
-}
-
-function formatSessionInfo(session: TrainingHistory): string {
-	const parts = [];
-	parts.push(session.day_name);
-	if (session.duration_minutes) {
-		parts.push(`${session.duration_minutes} мин`);
+function handleSuggestionSelect(suggestion: SearchSuggestion) {
+	if (suggestion.type === 'muscle') {
+		// Добавляем мышцу к поисковому запросу
+		const currentTerms = searchQuery.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+		const newTerms = [...currentTerms.slice(0, -1), suggestion.text];
+		searchQuery.value = newTerms.join(' ');
+	} else if (suggestion.type === 'category') {
+		// Заменяем весь запрос на программу
+		searchQuery.value = suggestion.text;
+	} else {
+		// Для остальных типов просто заменяем
+		searchQuery.value = suggestion.text;
 	}
-	return parts.join(' • ');
+}
+
+function searchByMuscles(primary: string, secondary: string[]) {
+	// Объединяем основную и вторичные мышцы
+	const muscles = [primary, ...secondary].filter(Boolean);
+	searchQuery.value = muscles.join(' ');
+}
+
+function clearSearch() {
+	searchQuery.value = '';
+	selectedPeriod.value = null;
+	selectedPrograms.value = [];
+	showFilters.value = false;
+}
+
+function togglePeriodFilter(period: string) {
+	if (selectedPeriod.value === period) {
+		selectedPeriod.value = null;
+	} else {
+		selectedPeriod.value = period;
+	}
+}
+
+function toggleProgramFilter(program: string) {
+	const index = selectedPrograms.value.indexOf(program);
+	if (index > -1) {
+		selectedPrograms.value.splice(index, 1);
+	} else {
+		selectedPrograms.value.push(program);
+	}
 }
 
 function openSessionDetails(session: TrainingHistory) {
@@ -237,224 +341,252 @@ function openSessionDetails(session: TrainingHistory) {
 	showSessionDetails.value = true;
 }
 
-function shareSession() {
-	if (!selectedSession.value) return;
-
-	const text = `🏋️ Тренировка: ${selectedSession.value.program_name}
-📅 ${selectedSession.value.day_name}
-⏱️ ${selectedSession.value.duration_minutes} мин
-🎯 ${selectedSession.value.exercises_count} упражнений, ${
-		selectedSession.value.total_sets
-	} подходов
-
-${selectedSession.value.comments || ''}`;
-
-	if (navigator.share) {
-		navigator.share({
-			title: 'Тренировка',
-			text: text,
-		});
-	} else {
-		navigator.clipboard.writeText(text);
-		showToast('Скопировано в буфер обмена');
-	}
+function closeSessionDetails() {
+	showSessionDetails.value = false;
+	selectedSession.value = null;
 }
 
-function viewFullSession() {
-	if (!selectedSession.value) return;
-	showToast('Детальный просмотр будет реализован в следующей версии');
-	// TODO: Можно загрузить полные данные сессии и показать все упражнения с подходами
+function openRecordDetails(record: Record) {
+	console.log('Opening record details:', record);
+	// В будущем можно добавить модалку с детальной информацией о рекорде
 }
+
+// Utility functions
+function pluralizeTr(count: number): string {
+	const cases = ['тренировка', 'тренировки', 'тренировок'];
+	const num = Math.abs(count) % 100;
+	const n = num % 10;
+	if (num > 10 && num < 20) return cases[2];
+	if (n > 1 && n < 5) return cases[1];
+	if (n === 1) return cases[0];
+	return cases[2];
+}
+
+onMounted(async () => {
+	
+	await sessions.loadTrainingHistory();
+});
 </script>
 
 <style lang="scss" scoped>
+// Training Diary Layout - Modern Adaptive Design like Planner
 .training-diary {
-	--card-bg: var(--color-surface, rgba(255, 255, 255, 0.04));
-	padding: var(--space-4) var(--space-3) var(--space-6);
-	background: var(--color-bg);
 	min-height: 100vh;
+	background: var(--color-bg);
 	display: flex;
-	justify-content: center;
+	flex-direction: column;
+	position: relative;
 
-	&__inner {
-		width: 100%;
-		max-width: 820px;
+	// Hero Section - Premium Header Design with Integrated Tabs
+	&__hero {
+		background: var(--grad-1);
+		padding: var(--space-4) var(--space-4) 0;
+		padding-top: calc(var(--space-4) + var(--safe-top, 0px));
+		box-shadow: var(--shadow-lg);
+		position: relative;
+		z-index: 2;
+		border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+		&::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: var(--surface-glass);
+			backdrop-filter: blur(20px);
+			z-index: -1;
+			border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+		}
+
+		&-content {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: var(--space-3);
+			max-width: 100%;
+			margin-bottom: var(--space-4);
+		}
+
+		&-main {
+			flex: 1;
+			min-width: 0;
+		}
 	}
 
 	&__title {
-		margin: 0 0 var(--space-2);
-		font-size: 1.55rem;
-		font-weight: 600;
-		text-align: center;
+		font-size: var(--fs-xl);
+		font-weight: var(--fw-bold);
+		line-height: var(--lh-title);
+		color: var(--color-accent-contrast);
+		margin: 0 0 var(--space-1);
+		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 	}
 
-	&__section {
-		margin-bottom: clamp(1.5rem, 2.5vh, 2.25rem);
-
-		&--search {
-			margin-bottom: var(--space-4);
-		}
+	&__subtitle {
+		font-size: var(--fs-sm);
+		color: var(--color-accent-contrast);
+		opacity: 0.8;
+		margin: 0;
+		font-weight: var(--fw-regular);
 	}
 
-	.section-title {
-		font-size: 0.95rem;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-text-secondary);
-		margin: 0 0 var(--space-2);
+	// Integrated Tab Buttons
+	&__tab-buttons {
 		display: flex;
-		align-items: center;
-		gap: 0.5rem;
+		background: var(--surface-glass);
+		border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+		margin: 0 calc(-1 * var(--space-4));
+	}
 
-		h2 {
-			all: unset;
+	&__tab-btn {
+		flex: 1;
+		background: transparent;
+		border: none;
+		color: var(--color-accent-contrast);
+		opacity: 0.7;
+		font-weight: var(--fw-semibold);
+		font-size: var(--fs-sm);
+		padding: var(--space-3) var(--space-4);
+		border-radius: 0 0 0 var(--radius-l);
+		transition: all var(--dur-2) var(--ease-std);
+		cursor: pointer;
+		position: relative;
+		overflow: hidden;
+		&:nth-child(2){
+			border-radius: 0 0 var(--radius-l) 0;
+		}
+		&::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: rgba(255, 255, 255, 0.1);
+			opacity: 0;
+			transition: opacity var(--dur-2) var(--ease-std);
 		}
 
-		&.with-count h2 {
-			cursor: default;
+		&:active::before {
+			opacity: 1;
 		}
-	}
 
-	.chip {
-		background: var(--van-primary-color);
-		color: #fff;
-		font-size: 0.7rem;
-		padding: 0.2rem 0.55rem;
-		border-radius: 999px;
-		line-height: 1;
-		font-weight: 600;
-	}
+		&:active {
+			transform: scale(0.98);
+		}
 
-	:deep(.van-search) {
-		padding: 0;
-		border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
-		border-radius: 40px;
-		box-shadow: 0 2px 4px -2px rgba(0, 0, 0, 0.35),
-			0 0 0 1px rgba(255, 255, 255, 0.02) inset;
-	}
+		&--active {
+			background: var(--color-accent-contrast);
+			color: var(--color-accent);
+			opacity: 1;
+			box-shadow: var(--shadow-sm);
 
-	.stats-cards {
-		:deep(.van-cell) {
-			background: transparent;
-			&:not(:last-child)::after {
-				left: 16px;
-				right: 16px;
+			&::before {
+				display: none;
 			}
 		}
-		background: linear-gradient(
-			145deg,
-			var(--card-bg) 0%,
-			rgba(255, 255, 255, 0.02) 100%
-		);
-		border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
-		border-radius: 18px;
-		box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.4),
-			0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
 	}
 
-	.sessions-list {
-		margin-top: 0.25rem;
-	}
-
-	.session-card {
+	// Main Content Area - Minimized Padding
+	&__content {
+		flex: 1;
 		position: relative;
-		background: var(--card-bg);
-		border: 1px solid var(--color-border, rgba(255, 255, 255, 0.07));
-		padding: 1rem 0.95rem 0.85rem;
-		border-radius: 18px;
-		margin-bottom: 0.9rem;
-		cursor: pointer;
+		z-index: 1;
+		background: var(--color-bg);
+		padding-top: var(--space-4);
+		min-height: 60vh;
+	}
+
+	// Empty State - Engaging Onboarding
+	&__empty {
 		display: flex;
 		flex-direction: column;
-		gap: 0.55rem;
-		transition: border-color 0.25s, background 0.25s, transform 0.25s;
-		backdrop-filter: blur(6px);
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		padding: var(--space-6) var(--space-4);
+		min-height: 50vh;
+		animation: fadeInUp 0.6s var(--ease-std);
 
-		&:hover {
-			border-color: var(--van-primary-color);
-		}
-		&:active {
-			transform: scale(0.985);
+		&-icon {
+			margin-bottom: var(--space-4);
+			color: var(--color-accent);
+			opacity: 0.6;
 		}
 
-		&__header {
-			display: flex;
-			justify-content: space-between;
-			gap: 0.75rem;
+		&-title {
+			font-size: var(--fs-xl);
+			font-weight: var(--fw-bold);
+			color: var(--color-text);
+			margin: 0 0 var(--space-3);
+			line-height: var(--lh-title);
 		}
-		&__main {
-			min-width: 0;
-		}
-		&__program {
-			font-weight: 600;
-			font-size: 0.95rem;
-			line-height: 1.25;
-		}
-		&__meta {
-			font-size: 0.7rem;
-			opacity: 0.7;
-			margin-top: 0.15rem;
-		}
-		&__side {
-			text-align: right;
-			display: flex;
-			flex-direction: column;
-			align-items: flex-end;
-			gap: 0.35rem;
-		}
-		&__date {
-			font-size: 0.65rem;
-			letter-spacing: 0.05em;
-			text-transform: uppercase;
-			opacity: 0.65;
-		}
-		&__tags {
-			display: flex;
-			gap: 0.4rem;
-			flex-wrap: wrap;
-			justify-content: flex-end;
-		}
-		&__comments {
-			font-size: 0.7rem;
-			display: flex;
-			align-items: flex-start;
-			gap: 0.35rem;
-			opacity: 0.85;
-			line-height: 1.2;
+
+		&-description {
+			font-size: var(--fs-md);
+			color: var(--color-text-muted);
+			line-height: var(--lh-body);
+			margin: 0 0 var(--space-5);
+			max-width: 280px;
 		}
 	}
 
-	.fade-list-enter-active,
-	.fade-list-leave-active {
-		transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-	.fade-list-enter-from,
-	.fade-list-leave-to {
-		opacity: 0;
-		transform: translateY(6px);
+	// Direct Tab Content - No Extra Container
+	&__tab-content {
+		padding: 0 var(--space-4) var(--space-4);
+		min-height: 400px;
+		height: calc(100vh - 200px); // Фиксированная высота для скролла
+		overflow: hidden; // Контролируем скролл внутри компонентов
+		&:first-child{
+			padding: 0;
+		}
 	}
 }
 
-.session-details {
-	height: 100%;
-	background: var(--color-bg);
+// Animations
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
 
-	&__content {
-		padding: var(--space-3);
-		padding-top: 0;
-		height: calc(100% - 46px);
-		overflow-y: auto;
-
-		:deep(.van-cell-group) {
-			margin-bottom: var(--space-3);
+// Reduced motion support
+@media (prefers-reduced-motion: reduce) {
+	.training-diary {
+		&__tab-btn {
+			transition: none;
 		}
 
-		.session-comments__text {
-			margin: 0;
-			line-height: 1.5;
-			color: var(--color-text);
+		&__empty {
+			animation: none;
 		}
 	}
+
+	@keyframes fadeInUp {
+		from, to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+}
+
+// Dark theme specific adjustments
+@media (prefers-color-scheme: dark) {
+	.training-diary {
+		&__hero::before {
+			background: rgba(0, 0, 0, 0.1);
+		}
+	}
+}
+
+// Safe area and IME support
+.training-diary {
+	padding-bottom: calc(var(--safe-bottom) + var(--ime-bottom));
 }
 </style>

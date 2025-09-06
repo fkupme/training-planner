@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import ActionButtons from '@/components/ui/ActionButtons.vue';
 import KeyboardPopup from '@/components/ui/KeyboardPopup.vue';
+import SmartSearch from '@/components/ui/SmartSearch.vue';
 import { useSupplementsStore } from '@/stores/supplements';
 import { showDialog, showToast } from 'vant';
 import { computed, defineEmits, defineProps, ref, watch } from 'vue';
@@ -12,35 +14,97 @@ const emit = defineEmits<{
 	(e: 'open-edit', id: number): void;
 }>();
 
+// v-model прокси
 const modelShow = computed({
 	get: () => props.show,
 	set: v => emit('update:show', v),
 });
 
+// Состояние поиска / выбора
 const q = ref('');
-const isComposing = ref(false);
 const store = useSupplementsStore();
 const selected = ref<number[]>([]);
+const searchLoading = ref(false);
 
-// Локальный фильтр по множеству полей (имя, описание, альтернативы, эффекты, форма, юнит)
+// Автокомплит для SmartSearch
+const searchSuggestions = computed(() => {
+	const suggestions: Array<{id: string, text: string, type: 'recent' | 'category' | 'muscle' | 'equipment'}> = [];
+	
+	if (q.value.length >= 1) {
+		const queryLower = q.value.toLowerCase();
+		const seenSuggestions = new Set<string>();
+		
+		// Формы выпуска как категории
+		store.list.forEach(item => {
+			if (item.form && item.form.toLowerCase().includes(queryLower)) {
+				const suggestionText = formatForm(item.form);
+				if (!seenSuggestions.has(suggestionText)) {
+					suggestions.push({
+						id: `form-${item.form}`,
+						text: suggestionText,
+						type: 'category'
+					});
+					seenSuggestions.add(suggestionText);
+				}
+			}
+		});
+		
+		// Эффекты как мышцы
+		store.list.forEach(item => {
+			item.effects?.forEach(effect => {
+				if (effect.toLowerCase().includes(queryLower)) {
+					if (!seenSuggestions.has(effect)) {
+						suggestions.push({
+							id: `effect-${effect}`,
+							text: effect,
+							type: 'muscle'
+						});
+						seenSuggestions.add(effect);
+					}
+				}
+			});
+		});
+		
+		// Единицы измерения как оборудование
+		store.list.forEach(item => {
+			if (item.default_unit && item.default_unit.toLowerCase().includes(queryLower)) {
+				const suggestionText = item.default_unit;
+				if (!seenSuggestions.has(suggestionText)) {
+					suggestions.push({
+						id: `unit-${item.default_unit}`,
+						text: suggestionText,
+						type: 'equipment'
+					});
+					seenSuggestions.add(suggestionText);
+				}
+			}
+		});
+	}
+	
+	return suggestions.slice(0, 6);
+});
+
+// Локальный фильтр как в упражнениях
+const presetSet = computed(() => new Set(props.preset || []));
+
+// Счетчик только новых добавок
+const newSelectedCount = computed(() => 
+	selected.value.filter(id => !presetSet.value.has(id)).length
+);
+
 const filteredList = computed(() => {
 	const query = q.value.trim().toLowerCase();
 	if (!query) return store.list;
-	return store.list.filter(s => {
+	return store.list.filter(item => {
 		const fields: (string | null | undefined)[] = [
-			s.name,
-			s.description,
-			// @ts-ignore
-			s.form,
-			// @ts-ignore
-			s.default_unit,
-			// @ts-ignore
-			s.default_amount != null ? String(s.default_amount) : null,
+			item.name,
+			item.description,
+			item.form,
+			item.default_unit,
+			item.default_amount != null ? String(item.default_amount) : null,
 		];
-		// @ts-ignore
-		const alt: string[] = s.alt_names || [];
-		// @ts-ignore
-		const eff: string[] = s.effects || [];
+		const alt: string[] = item.alt_names || [];
+		const eff: string[] = item.effects || [];
 		return (
 			fields.some(f => f && f.toLowerCase().includes(query)) ||
 			alt.some(a => a.toLowerCase().includes(query)) ||
@@ -49,32 +113,33 @@ const filteredList = computed(() => {
 	});
 });
 
+// Функции форматирования
 function formatForm(val?: string | null) {
 	if (!val) return '';
 	const map: Record<string, string> = {
-		capsule: 'Капс',
-		tablet: 'Таб',
+		capsule: 'Капсулы',
+		tablet: 'Таблетки',
 		powder: 'Порошок',
-		liquid: 'Жидк',
+		liquid: 'Жидкость',
 		other: 'Другое',
 	};
 	return map[val] || val;
 }
+
 function formatDose(item: any) {
-	// @ts-ignore legacy fields
 	const amount = item.default_amount;
-	// @ts-ignore
 	const unit = item.default_unit;
 	if (amount == null) return '';
 	return `${amount}${unit ? ' ' + unit : ''}`;
 }
+
 function formatCourse(item: any) {
-	// @ts-ignore
 	const days = item.course_days;
 	if (!days) return '';
-	return days + 'д';
+	return days + ' дней';
 }
 
+// Начальная загрузка при открытии попапа
 watch(modelShow, async v => {
 	if (v) {
 		q.value = '';
@@ -82,271 +147,435 @@ watch(modelShow, async v => {
 		selected.value = Array.from(new Set(props.preset || []));
 	}
 });
-// Если preset меняется пока попап открыт – обновим (не перетирая пользовательские новые, только добавляем недостающие)
-watch(
-	() => props.preset,
-	val => {
-		if (!modelShow.value) return;
-		const base = new Set(selected.value);
-		(val || []).forEach(id => base.add(id));
-		selected.value = Array.from(base);
-	}
-);
-// Поиск теперь локальный (реактивный через computed filteredList) + ручная обработка composition для мгновенности
 
-function onModelUpdate(val: string) {
-	if (!isComposing.value) q.value = val;
-	else q.value = val; // просто обновим
-}
-function onCompositionStart() {
-	isComposing.value = true;
-}
-function onCompositionEnd(e: CompositionEvent) {
-	isComposing.value = false;
-	q.value = (e.target as HTMLInputElement).value;
-}
-function onRawInput(e: Event) {
-	if (isComposing.value) q.value = (e.target as HTMLInputElement).value;
+// Обработчики SmartSearch
+function onSearch(query: string) {
+	q.value = query;
 }
 
-function toggle(id: number) {
+function onSelectSuggestion(suggestion: any) {
+	q.value = suggestion.text;
+}
+
+// Выбор
+function toggleSelect(id: number) {
+	// Не даем изменять уже существующие
+	if (presetSet.value.has(id)) return;
+	
 	const i = selected.value.indexOf(id);
 	if (i >= 0) selected.value.splice(i, 1);
 	else selected.value.push(id);
 }
+
 function addSelected() {
-	if (!selected.value.length) return;
-	emit('select', [...selected.value]);
+	// Отправляем только новые (не из preset)
+	const newSelected = selected.value.filter(id => !presetSet.value.has(id));
+	if (!newSelected.length) {
+		modelShow.value = false;
+		return;
+	}
+	emit('select', newSelected);
 	modelShow.value = false;
 }
+
 function openCreate() {
 	modelShow.value = false;
 	emit('open-create');
 }
-async function remove(itemId: number, name: string) {
+
+// Удаление
+async function removeSupplement(id: number, name: string) {
 	await showDialog({
 		title: 'Удалить добавку?',
 		message: name,
 		showCancelButton: true,
 	});
-	await store.deleteSupplement(itemId);
-	showToast('Удалено');
-	selected.value = selected.value.filter(id => id !== itemId);
+	try {
+		await store.deleteSupplement(id);
+		showToast('Удалено');
+		selected.value = selected.value.filter(sid => sid !== id);
+	} catch (e: any) {
+		console.error('deleteSupplement error', e);
+		showToast(e?.message || 'Ошибка удаления');
+	}
 }
 </script>
 
 <template>
-	<KeyboardPopup v-model:show="modelShow" title="Выбор добавок" height="85%">
-		<div class="supp-picker">
-			<van-search
-				:model-value="q"
-				placeholder="Поиск (имя, эффект, альт)"
-				class="supp-picker__search"
-				:clearable="true"
-				@update:model-value="onModelUpdate"
-				@compositionstart="onCompositionStart"
-				@compositionend="onCompositionEnd"
-				@input="onRawInput"
+	<KeyboardPopup
+		v-model:show="modelShow"
+		title="Выбор добавок"
+		:hideButton="true"
+		disableScrollTop
+		class="supplement-picker"
+	>
+		<div class="supplement-picker__search">
+			<SmartSearch
+				v-model="q"
+				:suggestions="searchSuggestions"
+				:loading="searchLoading"
+				placeholder="Поиск добавок"
+				@search="onSearch"
+				@select-suggestion="onSelectSuggestion"
 			/>
-			<div class="supp-picker__list">
-				<transition-group
-					name="fade-list"
-					tag="div"
-					class="supp-cards"
-					v-if="filteredList.length"
+		</div>
+
+		<div class="supplement-picker__content">
+			<!-- Карточная сетка как в пикере упражнений -->
+			<div class="supplement-grid">
+				<div
+					v-for="s in filteredList"
+					:key="s.id"
+					class="supplement-card"
+					:class="{ 
+						'supplement-card--selected': selected.includes(s.id),
+						'supplement-card--existing': presetSet.has(s.id)
+					}"
+					@click="toggleSelect(s.id)"
 				>
-					<van-swipe-cell
-						v-for="s in filteredList"
-						:key="s.id"
-						class="supp-card-wrapper"
-					>
-						<div
-							class="supp-card"
-							:class="{ 'supp-card--active': selected.includes(s.id) }"
-							@click="toggle(s.id)"
-						>
-							<div class="supp-card__header">
-								<van-checkbox
-									:model-value="selected.includes(s.id)"
-									@click.stop="toggle(s.id)"
-								/>
-								<div class="supp-card__title">{{ s.name }}</div>
-							</div>
-							<div class="supp-card__tags">
-								<van-tag v-if="formatForm(s.form)" plain type="primary">{{
-									formatForm(s.form)
-								}}</van-tag>
-								<van-tag v-if="formatDose(s)" plain type="success">{{
-									formatDose(s)
-								}}</van-tag>
-								<van-tag v-if="formatCourse(s)" plain type="warning">{{
-									formatCourse(s)
-								}}</van-tag>
-								<van-tag
-									v-for="eff in (s.effects || []).slice(0, 2)"
-									:key="eff"
-									plain
-									type="danger"
-									>{{ eff }}</van-tag
-								>
-								<van-tag v-if="(s.effects || []).length > 2" plain type="danger"
-									>+{{ (s.effects || []).length - 2 }}</van-tag
-								>
-							</div>
-							<div class="supp-card__meta">
-								<van-text-ellipsis :content="s.description || 'Нет описания'" />
+					<!-- Основная информация -->
+					<div class="supplement-card__content">
+						<div class="supplement-card__header">
+							<h3 class="supplement-card__title">{{ s.name }}</h3>
+							<div v-if="selected.includes(s.id) && !presetSet.has(s.id)" class="supplement-card__check">
+								<van-icon name="success" color="var(--van-primary-color)" size="16" />
 							</div>
 						</div>
-						<template #right>
-							<div class="swipe-actions">
-								<van-button
-									class="swipe-btn swipe-btn--danger"
-									type="danger"
-									@click.stop="remove(s.id, s.name)"
-								>
-									<van-icon name="delete" />
-								</van-button>
+
+						<!-- Описание -->
+						<p v-if="s.description" class="supplement-card__description">
+							{{ s.description }}
+						</p>
+
+						<!-- Метаданные -->
+						<div class="supplement-card__meta">
+							<!-- Форма выпуска -->
+							<div v-if="s.form" class="supplement-card__meta-item">
+								<van-icon name="goods-collect" size="12" color="var(--van-text-color-3)" />
+								<span>{{ formatForm(s.form) }}</span>
 							</div>
-						</template>
-						<template #left>
-							<div class="swipe-actions">
-								<van-button
-									class="swipe-btn swipe-btn--edit"
-									type="primary"
-									@click.stop="emit('open-edit', s.id)"
-								>
-									<van-icon name="edit" />
-								</van-button>
+
+							<!-- Дозировка -->
+							<div v-if="formatDose(s)" class="supplement-card__meta-item">
+								<van-icon name="label" size="12" color="var(--van-text-color-3)" />
+								<span>{{ formatDose(s) }}</span>
 							</div>
-						</template>
-					</van-swipe-cell>
-				</transition-group>
-				<van-empty v-else description="Пусто" />
-				<van-cell
-					class="supp-picker__create"
-					title="Создать добавку"
-					is-link
-					@click="openCreate"
-				/>
+
+							<!-- Длительность курса -->
+							<div v-if="formatCourse(s)" class="supplement-card__meta-item">
+								<van-icon name="clock" size="12" color="var(--van-text-color-3)" />
+								<span>{{ formatCourse(s) }}</span>
+							</div>
+						</div>
+
+						<!-- Эффекты как теги в упражнениях -->
+						<div v-if="s.effects && s.effects.length" class="supplement-card__effects">
+							<van-tag
+								v-for="effect in s.effects.slice(0, 2)"
+								:key="effect"
+								plain
+								type="primary"
+							>
+								{{ effect }}
+							</van-tag>
+							<van-tag
+								v-if="s.effects.length > 2"
+								plain
+								type="default"
+							>
+								+{{ s.effects.length - 2 }}
+							</van-tag>
+						</div>
+					</div>
+
+					<!-- Кнопки управления -->
+					<div class="supplement-card__actions">
+						<van-button
+							icon="edit"
+							plain
+							size="mini"
+							@click.stop="$emit('open-edit', s.id)"
+						/>
+						<van-button
+							icon="delete-o"
+							plain
+							size="mini"
+							type="danger"
+							@click.stop="removeSupplement(s.id, s.name)"
+						/>
+					</div>
+					
+					<!-- Badge для уже добавленных -->
+					<div v-if="presetSet.has(s.id)" class="supplement-card__badge">
+						Уже добавлена
+					</div>
+				</div>
 			</div>
-			<div class="supp-picker__footer">
-				<van-button
-					type="primary"
-					block
-					:disabled="!selected.length"
-					@click="addSelected"
-					>Добавить выбранные</van-button
-				>
-			</div>
+
+			<!-- Кнопка создать в конце списка как в упражнениях -->
+			<van-cell
+				v-if="filteredList.length"
+				class="supplement-picker__create"
+				title="Создать добавку"
+				is-link
+				@click="openCreate"
+			/>
+
+			<!-- Пустое состояние -->
+			<van-empty v-if="!filteredList.length" description="Нет результатов">
+				<van-button type="primary" plain size="small" @click="openCreate">
+					Создать добавку
+				</van-button>
+			</van-empty>
 		</div>
+
+		<!-- Нижняя панель с ActionButtons -->
+		<ActionButtons 
+			:actions="[{
+				label: `Добавить${newSelectedCount ? ` (${newSelectedCount})` : ''}`,
+				type: 'primary',
+				disabled: !newSelectedCount,
+				onClick: addSelected
+			}]"
+		/>
 	</KeyboardPopup>
 </template>
 
-<style scoped>
-.supp-picker {
-	/* flex layout: search fixed top, list scroll */
-	background: var(--color-bg);
-	padding: 0 var(--space-3) 90px;
+<style lang="scss" scoped>
+.supplement-picker {
+	background: var(--van-background-2);
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	
+	&__search {
+		padding: 16px;
+		padding-bottom: 8px;
+		background: var(--van-background-2);
+		flex-shrink: 0;
+	}
+
+	&__content {
+		flex: 1;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+		padding: 8px 16px 120px;
+		height: 66dvh;
+	}
+
+	&__footer {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		padding: 16px;
+		background: var(--van-background);
+		border-top: 1px solid var(--van-border-color);
+		z-index: 10;
+	}
+
+	&__create {
+		margin-top: 16px;
+		
+		:deep(.van-cell__title) {
+			color: var(--van-primary-color);
+			font-weight: 500;
+		}
+	}
 }
-.supp-picker__search {
-	background: var(--color-bg);
-	margin-bottom: var(--space-2);
-	position: sticky;
-	top: 0;
-	z-index: 2;
+
+.supplement-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 12px;
+	
+	@media (max-width: 640px) {
+		grid-template-columns: 1fr;
+	}
+	
+	@media (min-width: 641px) and (max-width: 768px) {
+		grid-template-columns: repeat(2, 1fr);
+	}
 }
-.supp-picker__list {
-	background: var(--color-bg);
-	flex: 1;
-	overflow-y: auto;
-	-webkit-overflow-scrolling: touch;
-  padding-bottom: 65px;
-}
-.supp-picker__create :deep(.van-cell__title) {
-	color: var(--van-blue);
-	font-weight: var(--fw-semibold);
-}
-.supp-picker__footer {
-	position: fixed;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background: var(--color-bg);
-	padding: var(--space-3);
-}
-.supp-card-wrapper {
-	--cell-padding-left: 0;
-}
-.supp-card {
-	padding: 10px 8px 12px;
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	background: var(--color-surface);
+
+.supplement-card {
+	background: var(--van-background);
 	border: 1px solid var(--van-border-color);
-	border-radius: var(--radius-m);
-	margin-bottom: 8px;
+	border-radius: 12px;
+	padding: 12px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	position: relative;
+
+	&:hover {
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	}
+
+	&:active {
+		transform: scale(0.98);
+	}
+
+	&--selected {
+		border-color: var(--van-primary-color);
+		box-shadow: 0 2px 8px var(--van-primary-color-light);
+		background: var(--van-primary-color-light);
+	}
+
+	&--existing {
+		opacity: 0.6;
+		background: var(--color-elevated);
+		cursor: default;
+		position: relative;
+		
+		&:hover {
+			transform: none;
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		}
+	}
+
+	&__badge {
+		position: absolute;
+		top: var(--space-2);
+		right: var(--space-2);
+		background: var(--color-accent);
+		color: var(--color-accent-contrast);
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-medium);
+		padding: 2px 6px;
+		border-radius: var(--radius-s);
+		box-shadow: var(--shadow-xs);
+	}
+
+	&__content {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	&__header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
+	&__title {
+		font-size: 14px;
+		font-weight: 500;
+		color: var(--van-text-color);
+		line-height: 1.3;
+		flex: 1;
+		margin: 0;
+	}
+
+	&__check {
+		flex-shrink: 0;
+	}
+
+	&__description {
+		font-size: 12px;
+		color: var(--van-text-color-2);
+		line-height: 1.4;
+		margin: 0;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
+	&__meta {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	&__meta-item {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 12px;
+		color: var(--van-text-color-3);
+	}
+
+	&__effects {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+
+		:deep(.van-tag) {
+			font-size: var(--fs-xs);
+			font-weight: var(--fw-medium);
+			border-radius: var(--radius-s);
+			padding: 2px 6px;
+		}
+		
+		:deep(.van-tag--primary) {
+			background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+			color: var(--color-accent);
+			border-color: var(--color-accent);
+		}
+		
+		:deep(.van-tag--success) {
+			background: color-mix(in srgb, var(--color-success) 15%, transparent);
+			color: var(--color-success);
+			border-color: var(--color-success);
+		}
+		
+		:deep(.van-tag--warning) {
+			background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+			color: var(--color-warning);
+			border-color: var(--color-warning);
+		}
+
+		:deep(.van-tag--default) {
+			background: color-mix(in srgb, var(--van-text-color-3) 15%, transparent);
+			color: var(--van-text-color-3);
+			border-color: var(--van-text-color-3);
+		}
+	}
+
+	&__actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 4px;
+		margin-top: 8px;
+		padding-top: 8px;
+		border-top: 1px solid var(--van-border-color);
+		
+		:deep(.van-button) {
+			background: transparent !important;
+			border: 1px solid var(--van-border-color) !important;
+			
+			&:hover {
+				background: var(--van-background-2) !important;
+			}
+			
+			&.van-button--danger {
+				border-color: var(--van-danger-color) !important;
+				color: var(--van-danger-color) !important;
+				
+				&:hover {
+					background: color-mix(in srgb, var(--van-danger-color) 10%, transparent) !important;
+				}
+			}
+		}
+	}
 }
-.supp-card--active {
-	outline: 2px solid var(--color-accent);
+
+/* Анимация появления карточек */
+.supplement-card {
+	animation: fadeInUp 0.3s ease-out;
 }
-.supp-card__header {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-.supp-card__title {
-	font-weight: var(--fw-semibold);
-	flex: 1;
-}
-.supp-card__tags {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
-}
-.supp-card__tags :deep(.van-tag) {
-	font-size: 11px;
-}
-.supp-card__meta {
-	font-size: 12px;
-	opacity: 0.75;
-}
-.swipe-actions {
-	display: flex;
-	height: 100%;
-}
-.swipe-btn {
-	height: 100%;
-	border: none;
-	display: flex;
-	border-radius: 0;
-	align-items: center;
-	justify-content: center;
-	padding: 0 14px;
-	font-size: 18px;
-}
-.swipe-btn--danger {
-	background: var(--color-danger, var(--van-danger-color));
-	color: #fff;
-}
-.swipe-btn--edit {
-	background: var(--color-accent, var(--van-primary-color));
-	color: #fff;
-}
-/* Transition */
-.fade-list-enter-active,
-.fade-list-leave-active {
-	transition: all 0.16s ease;
-}
-.fade-list-enter-from,
-.fade-list-leave-to {
-	opacity: 0;
-	transform: translateY(6px);
-}
-.fade-list-move {
-	transition: transform 0.16s ease;
+
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 </style>

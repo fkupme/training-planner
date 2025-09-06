@@ -81,8 +81,8 @@ async function onSubmit() {
 	<div class="auth auth--register">
 		<van-row justify="center" align="center" class="auth__row">
 			<van-col span="22" class="auth__col">
-				<van-space direction="vertical" alignment="center" class="auth__head">
-					<van-image :src="logoSrc" width="88" height="88" class="auth__logo" />
+				<van-space direction="vertical" alignment="center" class="auth__head" fill wrap>
+					<van-image :src="logoSrc" width="140" height="140" class="auth__logo" />
 					<div class="auth__tagline">
 						Прогресс — это система, а не случайность.
 					</div>
@@ -211,9 +211,11 @@ async function onSubmit() {
     border-color: var(--color-text-muted);
 	}
 	&__head {
+		text-align: center;
 		margin-bottom: var(--space-4);
 	}
 	&__logo {
+		text-align: center;
 		border-radius: 24px;
 		overflow: hidden;
 	}

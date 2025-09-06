@@ -44,15 +44,23 @@ async function onSubmit() {
 		return;
 	}
 	loading.value = true;
+	console.log('[LOGIN UI] Starting login submit...');
 	try {
+		console.log('[LOGIN UI] Calling auth.login...');
 		await auth.login(email.value, password.value);
+		console.log('[LOGIN UI] Login success, showing toast...');
 		showToast('Вход выполнен');
 		const redirect = String(route.query.redirect || '/planner');
-		router.replace(redirect);
+		console.log('[LOGIN UI] Redirecting to:', redirect);
+		console.log('[LOGIN UI] Current user state:', auth.currentUser?.id);
+		await router.replace(redirect);
+		console.log('[LOGIN UI] Redirect completed');
 	} catch (e: any) {
+		console.log('[LOGIN UI] Login error:', e);
 		showToast(auth.error || 'Ошибка входа');
 	} finally {
 		loading.value = false;
+		console.log('[LOGIN UI] Login submit finished');
 	}
 }
 </script>
@@ -61,8 +69,8 @@ async function onSubmit() {
 	<div class="auth auth--login">
 		<van-row justify="center" align="center" class="auth__row">
 			<van-col span="22" class="auth__col">
-				<van-space direction="vertical" alignment="center" class="auth__head">
-					<van-image :src="logoSrc" width="88" height="88" class="auth__logo" />
+				<van-space direction="vertical" alignment="center" class="auth__head" :wrap="true" :fill="true">
+					<van-image :src="logoSrc" width="140" height="140" class="auth__logo" />
 					<div class="auth__tagline">Собери план. Тренируйся умнее.</div>
 				</van-space>
 				<van-form class="auth__form" @submit="onSubmit">
@@ -173,9 +181,11 @@ async function onSubmit() {
     border-color: var(--color-text-muted);
 	}
 	&__head {
+		text-align: center;
 		margin-bottom: var(--space-4);
 	}
 	&__logo {
+		text-align: center;
 		border-radius: 24px;
 		overflow: hidden;
 	}

@@ -46,17 +46,18 @@ export default defineComponent({
 /* Используем CSS-переменные Vant вместо глубоких селекторов, т.к. ActionSheet телепортируется */
 .theme-action-sheet {
 	/* Цвета и фон */
-	--van-action-sheet-item-background: var(--color-bg);
+	--van-action-sheet-item-background: var(--color-surface);
 	--van-action-sheet-item-text-color: var(--color-text);
-	--van-action-sheet-cancel-padding-color: var(--color-surface);
+	--van-action-sheet-cancel-padding-color: var(--color-elevated);
 	--van-action-sheet-cancel-text-color: var(--color-text);
 	--van-action-sheet-subname-color: var(--color-text-muted);
 	--van-action-sheet-description-color: var(--color-text-muted);
 	--van-action-sheet-item-disabled-text-color: var(--color-text-muted);
-	--van-action-sheet-item-active-background: var(--color-surface);
-	/* Размеры */
-	--van-action-sheet-header-height: 32px;
-	--van-action-sheet-item-line-height: 12px;
+	--van-action-sheet-item-active-background: var(--color-elevated);
+	/* Размеры и контрастность */
+	--van-action-sheet-header-height: 48px;
+	--van-action-sheet-item-line-height: 22px;
+	--van-action-sheet-item-font-size: 16px;
 }
 
 /* Дополнительные улучшения без scoped, чтобы пройти сквозь teleport */
@@ -65,8 +66,37 @@ export default defineComponent({
 	color: var(--color-text);
 	font-weight: 600;
 	letter-spacing: 0.3px;
+	border-bottom: 1px solid var(--color-border);
 }
+
 .theme-action-sheet .van-action-sheet__cancel {
-	font-weight: 400;
+	font-weight: 500;
+	background: var(--color-elevated);
+	color: var(--color-text);
+	border-top: 1px solid var(--color-border);
+}
+
+.theme-action-sheet .van-action-sheet__item {
+	font-weight: 500;
+	color: var(--color-text);
+	background: var(--color-surface);
+}
+
+.theme-action-sheet .van-action-sheet__item:active {
+	background: var(--color-elevated);
+}
+
+.theme-action-sheet .van-cell {
+	background: var(--color-surface);
+	color: var(--color-text);
+}
+
+.theme-action-sheet .van-cell:active {
+	background: var(--color-elevated);
+}
+
+.theme-action-sheet .van-cell__title {
+	color: var(--color-text);
+	font-weight: 500;
 }
 </style>

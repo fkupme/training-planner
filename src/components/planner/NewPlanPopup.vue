@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-ignore - Vue SFC default export is provided by shim
 import KeyboardPopup from '@/components/ui/KeyboardPopup.vue';
+import ActionButtons from '@/components/ui/ActionButtons.vue';
 import ThemeActionSheet from '@/components/ui/ThemeActionSheet.vue';
 import ThemeTimePicker from '@/components/ui/ThemeTimePicker.vue';
 import { usePlannerStore } from '@/stores/planner';
@@ -26,11 +27,11 @@ const dateRange = ref<[Date, Date] | null>(null);
 const dateLabel = computed(() => {
 	if (!dateRange.value) return 'выбрать';
 	const [s] = dateRange.value;
-	const fmt = (d: Date) =>
-		`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-			d.getDate()
-		).padStart(2, '0')}`;
-	return fmt(s);
+	const months = [
+		'Января', 'Февраля', 'Марта', 'Апреля', 'Мая', 'Июня',
+		'Июля', 'Августа', 'Сентября', 'Октября', 'Ноября', 'Декабря'
+	];
+	return `${s.getDate()} ${months[s.getMonth()]} ${s.getFullYear()}`;
 });
 
 // Единицы
@@ -269,6 +270,14 @@ function onCalendarConfirm(val: Date | Date[]) {
 	}
 }
 
+function formatMonthTitle(date: Date) {
+	const months = [
+		'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+		'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+	];
+	return `${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 // (picker callbacks удалены – используем ActionSheet)
 
 async function onSave() {
@@ -383,10 +392,16 @@ function cycleDayCustomAt(dayIdx: number, setIdx: number) {
 					type="single"
 					confirm-text="Выбрать"
 					cancel-text="Отмена"
+					title="Выберите дату начала"
 					:weekdays="['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']"
 					@confirm="onCalendarConfirm"
 					:first-day-of-week="1"
-				/>
+					:showSubtitle="false"
+				>
+					<template #month-title="{ date }">
+						{{ formatMonthTitle(date) }}
+					</template>
+				</van-calendar>
 
 				<van-field label="Единицы">
 					<template #input>
@@ -591,14 +606,12 @@ function cycleDayCustomAt(dayIdx: number, setIdx: number) {
 			</van-cell-group>
 		</div>
 
-		<van-action-bar class="plan-new__action-bar">
-			<van-action-bar-button type="default" @click="modelShow = false"
-				>Отмена</van-action-bar-button
-			>
-			<van-action-bar-button type="primary" :disabled="!canSave" @click="onSave"
-				>Сохранить</van-action-bar-button
-			>
-		</van-action-bar>
+		<ActionButtons
+			:actions="[
+				{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
+				{ label: 'Сохранить', type: 'primary', onClick: onSave, disabled: !canSave },
+			]"
+		/>
 	</KeyboardPopup>
 </template>
 
@@ -606,61 +619,225 @@ function cycleDayCustomAt(dayIdx: number, setIdx: number) {
 .plan-new {
 	background: var(--color-bg);
 	padding: var(--space-3) var(--space-3) 110px var(--space-3);
-	&__action-bar {
-		border-top: 1px solid var(--van-border-color);
-		padding-top: var(--space-2);
-		background: var(--color-bg);
-		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
-	}
-	&__grid {
-		display: grid;
-		gap: var(--space-2);
-		padding: var(--space-2) var(--space-3) var(--space-3) var(--space-3);
-	}
-	&__grid--7 {
-		grid-template-columns: repeat(7, 1fr);
-	}
-	&__grid--custom {
-		grid-template-columns: repeat(7, 1fr);
-	}
-	&__day {
-		border-radius: var(--radius-m);
-		padding: 10px 8px;
-		text-align: center;
-		cursor: pointer;
-		user-select: none;
-		border: 1px solid var(--van-border-color);
-		background: var(--color-surface);
-		color: var(--color-text);
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 56px;
-		transition: background var(--dur-2) var(--ease-std);
-	}
-	&__label {
-		font-size: var(--fs-sm);
-		opacity: 0.9;
-	}
-	&__count {
-		font-weight: var(--fw-semibold);
-		margin-top: 6px;
-	}
-	&__day--rest {
-		opacity: 0.7;
-	}
-	&__day--one {
-		background: linear-gradient(180deg, rgba(64, 158, 255, 0.15), transparent);
-	}
-	&__day--two {
-		background: linear-gradient(180deg, rgba(64, 158, 255, 0.28), transparent);
-	}
-	&__micro {
-		padding: 0 var(--space-3) var(--space-2) var(--space-3);
-	}
+	min-height: 100%;
+}
+
+// Улучшаем визуальную иерархию для групп ячеек
+.plan-new :deep(.van-cell-group) {
+	background: var(--color-surface);
+	border-radius: var(--radius-l);
+	box-shadow: var(--shadow-xs);
+	border: 1px solid var(--color-border);
+	margin-bottom: var(--space-4);
+}
+
+.plan-new :deep(.van-cell-group.van-cell-group--inset) {
+	margin: 0 0 var(--space-4) 0;
+}
+
+.plan-new :deep(.van-cell) {
+	background: transparent;
+}
+
+.plan-new :deep(.van-cell:not(:last-child)::after) {
+	border-bottom: 1px solid var(--color-border);
+	opacity: 0.6;
+}
+
+.plan-new :deep(.van-cell:first-child) {
+	border-top-left-radius: var(--radius-l);
+	border-top-right-radius: var(--radius-l);
+}
+
+.plan-new :deep(.van-cell:last-child) {
+	border-bottom-left-radius: var(--radius-l);
+	border-bottom-right-radius: var(--radius-l);
+}
+
+// Улучшаем разделители
+.plan-new :deep(.van-divider) {
+	color: var(--color-text-muted);
+	font-weight: var(--fw-semibold);
+	font-size: var(--fs-sm);
+	margin: var(--space-6) 0 var(--space-4) 0;
+}
+
+.plan-new :deep(.van-divider::before),
+.plan-new :deep(.van-divider::after) {
+	border-color: var(--color-border);
+}
+
+// Улучшаем поля ввода
+.plan-new :deep(.van-field__label) {
+	color: var(--color-text);
+	font-weight: var(--fw-semibold);
+}
+
+.plan-new :deep(.van-field__control) {
+	color: var(--color-text);
+}
+
+// Улучшаем радио-кнопки и свитчи
+.plan-new :deep(.van-radio__icon--checked) {
+	background: transparent;
+	border: none;
+}
+
+.plan-new :deep(.van-switch--on) {
+	background: var(--color-accent);
+}
+
+.plan-new__grid {
+	display: grid;
+	gap: var(--space-2);
+	padding: var(--space-3);
+	background: var(--color-elevated);
+	border-radius: var(--radius-m);
+	border: 1px solid var(--color-border);
+	margin-bottom: var(--space-3);
+}
+
+.plan-new__grid--7 {
+	grid-template-columns: repeat(7, 1fr);
+}
+
+.plan-new__grid--custom {
+	grid-template-columns: repeat(7, 1fr);
+}
+
+.plan-new__day {
+	border-radius: var(--radius-m);
+	padding: 12px 8px;
+	text-align: center;
+	cursor: pointer;
+	user-select: none;
+	border: 2px solid var(--color-border);
+	background: var(--color-surface);
+	color: var(--color-text);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 64px;
+	transition: all var(--dur-2) var(--ease-std);
+	position: relative;
+	overflow: hidden;
+}
+
+.plan-new__day:hover {
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-md);
+}
+
+.plan-new__day:active {
+	transform: translateY(0);
+}
+
+.plan-new__label {
+	font-size: var(--fs-xs);
+	opacity: 0.85;
+	font-weight: var(--fw-semibold);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.plan-new__count {
+	font-weight: var(--fw-bold);
+	font-size: var(--fs-lg);
+	margin-top: 4px;
+	line-height: 1;
+}
+
+.plan-new__day--rest {
+	opacity: 0.6;
+	background: var(--color-elevated);
+	border-color: transparent;
+}
+
+.plan-new__day--rest .plan-new__count {
+	color: var(--color-text-muted);
+}
+
+.plan-new__day--one {
+	background: var(--color-accent-soft, rgba(59, 130, 246, 0.1));
+	border-color: var(--color-accent);
+	color: var(--color-accent);
+}
+
+.plan-new__day--one::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 3px;
+	background: var(--color-accent);
+}
+
+.plan-new__day--two {
+	background: var(--grad-2);
+	border-color: var(--color-accent);
+	color: var(--color-accent-contrast);
+}
+
+.plan-new__day--two .plan-new__label,
+.plan-new__day--two .plan-new__count {
+	color: var(--color-accent-contrast);
+}
+
+.plan-new__day--two::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 3px;
+	background: var(--color-accent-contrast);
+	opacity: 0.3;
+}
+
+.plan-new__micro {
+	padding: 0 var(--space-3) var(--space-2) var(--space-3);
+}
+
+.plan-new :deep(.van-field) {
+	margin-bottom: var(--space-2);
+}
+
+.plan-new :deep(.van-field:last-child) {
+	margin-bottom: 0;
+}
+
+// Улучшаем попап с подсказкой
+.plan-new__help {
+	padding: var(--space-6);
+	background: var(--color-surface);
+	border-radius: var(--radius-l) var(--radius-l) 0 0;
+}
+
+.plan-new__help h4 {
+	margin: 0 0 var(--space-4) 0;
+	color: var(--color-text);
+	font-size: var(--fs-lg);
+	font-weight: var(--fw-bold);
+}
+
+.plan-new__help p {
+	margin: 0 0 var(--space-3) 0;
+	color: var(--color-text-muted);
+	line-height: var(--lh-body);
+}
+
+.plan-new__help p:last-of-type {
+	margin-bottom: var(--space-5);
+}
+
+.plan-new__help code {
+	background: var(--color-elevated);
+	padding: 2px 6px;
+	border-radius: var(--radius-s);
+	font-family: var(--font-mono);
+	font-size: var(--fs-sm);
+	color: var(--color-accent);
 }
 </style>

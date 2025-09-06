@@ -74,7 +74,7 @@ export interface UpdateDayExerciseInput {
 	work_weight?: number | null;
 }
 
-export const EQUIPMENT_OPTIONS = [
+export const EQUIPMENT_OPTIONS = [     
 	{ value: 'barbell', label: 'Штанга' },
 	{ value: 'dumbbell', label: 'Гантели' },
 	{ value: 'machine', label: 'Тренажёр' },
@@ -118,6 +118,29 @@ export const useExercisesStore = defineStore('exercises', {
 		},
 		async searchByName(q: string) {
 			const trimmed = q.trim();
+			let sql = `
+				SELECT 
+					e.*,
+					m.name as primaryMuscleName,
+					GROUP_CONCAT(DISTINCT ms.name) as secondaryNames
+				FROM exercises e
+				LEFT JOIN muscles m ON m.id = e.primary_muscle_id
+				LEFT JOIN exercise_secondary_muscles esm ON esm.exercise_id = e.id
+				LEFT JOIN muscles ms ON ms.id = esm.muscle_id
+			`;
+			
+			if (trimmed) {
+				sql += ` WHERE e.name LIKE ? OR e.alt_names LIKE ? OR e.description LIKE ?`;
+				const pattern = `%${trimmed}%`;
+				this.list = await query<ExerciseRow & { primaryMuscleName?: string; secondaryNames?: string }>(sql + ` GROUP BY e.id ORDER BY e.name ASC`, [pattern, pattern, pattern]);
+			} else {
+				this.list = await query<ExerciseRow & { primaryMuscleName?: string; secondaryNames?: string }>(sql + ` GROUP BY e.id ORDER BY e.name ASC`);
+			}
+			
+			return this.list;
+
+			/*
+			const trimmed = q.trim();
 			if (!trimmed) {
 				const rows = await query<any>(
 					`SELECT e.id, e.name, e.description, e.primary_muscle_id, e.equipment, e.media_path, e.media_kind, e.created_at, e.alt_names,
@@ -159,6 +182,7 @@ export const useExercisesStore = defineStore('exercises', {
 			);
 			this.list = rows as ExerciseRow[] as any;
 			return rows;
+			*/
 		},
 		async getExerciseById(id: number) {
 			const rows = await query<ExerciseRow>(
@@ -434,24 +458,18 @@ export const useExercisesStore = defineStore('exercises', {
 				fields.push('sets_count = ?');
 				params.push(input.sets_count);
 			}
-			if (input.reps !== undefined) {
+			if (input.reps != null) {
 				const reps_json = Array.isArray(input.reps)
 					? JSON.stringify(input.reps)
-					: input.reps != null
-					? String(input.reps)
-					: null;
+					: String(input.reps);
 				fields.push('reps_json = ?');
 				params.push(reps_json);
 			}
-			if (input.intensity !== undefined) {
+			if (input.intensity != null) {
 				fields.push('intensity = ?');
 				params.push(input.intensity);
 			}
-			if (input.optional !== undefined) {
-				fields.push('optional_flag = ?');
-				params.push(input.optional ? 1 : 0);
-			}
-			if (input.work_weight !== undefined) {
+			if (input.work_weight != null) {
 				fields.push('work_weight = ?');
 				params.push(input.work_weight);
 			}

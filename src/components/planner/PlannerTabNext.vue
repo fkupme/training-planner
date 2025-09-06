@@ -1,6 +1,7 @@
 // @ts-nocheck
 <script setup lang="ts">
 import { computed } from 'vue';
+import ActionButtons from '@/components/ui/ActionButtons.vue';
 
 import { computePlanLocks } from '@/composables/usePlanLocks';
 
@@ -77,9 +78,14 @@ const disableReason = computed(() =>
 								width="100%"
 								height="100%"
 								fit="cover"
+								:show-error="false"
+								:show-loading="false"
 							>
 								<template #error>
-									<div class="next-card__avatar-fallback">GIF</div>
+									<div class="next-card__media-placeholder">
+										<van-icon name="video-o" />
+										<span>GIF</span>
+									</div>
 								</template>
 							</van-image>
 						</div>
@@ -143,8 +149,9 @@ const disableReason = computed(() =>
 					<template #left>
 						<div class="swipe-actions">
 							<van-button
-								class="swipe-btn swipe-btn--edit"
+								square
 								type="primary"
+								class="swipe-btn-full"
 								@click.stop="emit('open-params', it)"
 							>
 								<van-icon name="edit" />
@@ -154,8 +161,9 @@ const disableReason = computed(() =>
 					<template #right>
 						<div class="swipe-actions">
 							<van-button
-								class="swipe-btn swipe-btn--danger"
+								square
 								type="danger"
+								class="swipe-btn-full"
 								@click.stop="emit('remove-item', it)"
 							>
 								<van-icon name="delete" />
@@ -171,19 +179,19 @@ const disableReason = computed(() =>
 				/>
 			</template>
 		</van-cell-group>
-		<div class="planner-next__footer pad-bottom-safe">
-			<van-button
-				type="success"
-				block
-				:disabled="effectiveDisable"
-				@click="
-					() => {
-						if (!effectiveDisable) emit('start-workout');
+		
+		<!-- Fixed Action Button at bottom of container -->
+		<div v-if="hasItems" class="planner-next__action-footer">
+			<ActionButtons
+				:actions="[
+					{
+						label: hasActiveSession ? 'Тренировка →' : 'Начать тренировку',
+						type: 'primary',
+						onClick: () => emit('start-workout'),
+						disabled: effectiveDisable
 					}
-				"
-			>
-				{{ hasActiveSession ? 'Тренировка →' : 'Начать тренировку' }}
-			</van-button>
+				]"
+			/>
 			<div v-if="effectiveDisable && disableReason" class="planner-next__hint">
 				<van-icon name="warning-o" />
 				<span>{{ disableReason }}</span>
@@ -194,12 +202,24 @@ const disableReason = computed(() =>
 
 <style lang="scss" scoped>
 .planner-next {
-	height: 70dvh;
-	overflow: auto;
-	background: var(--color-bg);
-	border-radius: var(--radius-m);
+	height: 67dvh;
+	position: relative;
+	overflow: hidden;
+	background: linear-gradient(
+		135deg,
+		color-mix(in srgb, var(--color-bg) 96%, transparent) 0%,
+		color-mix(in srgb, var(--color-bg) 90%, transparent) 100%
+	);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-l);
+	box-shadow: var(--shadow-sm);
+	backdrop-filter: saturate(120%) blur(4px);
+	
 	&__group {
 		background: transparent;
+		height: calc(100% - 40px); // Оставляем место для кнопки
+		overflow: auto;
+		padding-bottom: 0; // Дополнительный отступ для контента
 	}
 	&__summary .van-cell__label {
 		color: var(--color-text-muted);
@@ -209,11 +229,38 @@ const disableReason = computed(() =>
 		height: 100%;
 		display: flex;
 	}
-	&__footer {
+	
+	&__action-footer {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		z-index: 10;
+		background: var(--color-bg);
 		border-top: 1px solid var(--color-border);
-		padding: var(--space-3);
-		background: linear-gradient(to top, rgba(0, 0, 0, 0.08), transparent);
+		padding: 0;
+		backdrop-filter: blur(6px) saturate(140%);
+		border-radius: 0 0 var(--radius-l) var(--radius-l);
+		box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.1);
+		
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		
+		:deep(.action-buttons) {
+			margin: 0 !important;
+			padding: 0 !important;
+		}
+		
+		:deep(.action-button) {
+			margin: 0 !important;
+		}
+		
+		:deep(.van-button) {
+			margin: 0 !important;
+		}
 	}
+	
 	&__hint {
 		margin-top: var(--space-2);
 		display: flex;
@@ -221,101 +268,94 @@ const disableReason = computed(() =>
 		gap: 6px;
 		font-size: var(--fs-xs);
 		color: var(--color-text-muted);
+		justify-content: center;
 	}
 }
 .transparent-bg {
 	background: transparent;
 }
 .next-card {
+	--_gap: 10px;
 	display: grid;
 	grid-template-columns: 33% 1fr;
-	gap: 10px;
-	padding-block: 8px;
-	border-bottom: 1px solid var(--van-border-color);
-	&__thumb {
-		width: 100%;
-		aspect-ratio: 1;
-		border-radius: var(--radius-m);
-		overflow: hidden;
-		background: var(--color-surface);
-		border: 1px solid var(--van-border-color);
+	gap: var(--_gap);
+	padding: 10px 0 12px;
+	border-bottom: 1px solid var(--color-border);
+	position: relative;
+	&:last-child { border-bottom: none; }
+	
+	&__thumb { 
+		width: 100%; 
+		aspect-ratio: 1; 
+		border-radius: var(--radius-l); 
+		overflow: hidden; 
+		background: var(--color-surface); 
+		border: 1px solid var(--color-border); 
+		box-shadow: var(--shadow-xs); 
 	}
-	&__avatar-fallback {
+	
+	&__media-placeholder {
 		width: 100%;
 		height: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: var(--color-text-muted);
-	}
-	&__title {
-		font-weight: var(--fw-semibold);
-		color: var(--color-text);
-	}
-	&__meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-		margin: 6px 0 2px;
-	}
-	&__chip {
-		border: 1px solid var(--van-border-color);
-		border-radius: var(--radius-xs);
-		padding: 1px 4px;
-		opacity: 0.95;
-		background: transparent;
-		font-size: var(--fs-xxs);
-		color: var(--color-text-muted);
-	}
-	&__chip--muted {
-		opacity: 0.8;
-	}
-	&__tags {
-		display: flex;
-		flex-wrap: wrap;
-		column-gap: 4px;
-		row-gap: 2px;
-		margin-top: 2px;
-	}
-	&__tag {
-		font-size: var(--fs-xxs);
-		background: var(--color-bg);
-	}
-	&__body {
 		display: flex;
 		flex-direction: column;
-	}
-	&__desc {
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-1);
+		background: linear-gradient(135deg, var(--color-elevated) 0%, var(--color-surface) 100%);
 		color: var(--color-text-muted);
-		margin-top: 4px;
-		font-size: var(--fs-xxs);
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-medium);
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		
+		.van-icon {
+			font-size: 20px;
+			color: var(--color-accent);
+			opacity: 0.7;
+		}
+		
+		span {
+			opacity: 0.8;
+		}
 	}
-	&__delete,
-	&__edit {
-		height: 100%;
-		border-radius: 0;
+	
+	&__avatar-fallback { 
+		width: 100%; 
+		height: 100%; 
+		display: flex; 
+		align-items: center; 
+		justify-content: center; 
+		color: var(--color-text-muted); 
+		font-size: var(--fs-xs); 
 	}
+	&__title { font-weight: var(--fw-semibold); color: var(--color-text); font-size: var(--fs-sm); letter-spacing: .3px; }
+	&__meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+	&__chip { 
+		border: 1px solid var(--color-border); 
+		border-radius: var(--radius-s); 
+		padding: 2px 6px; 
+		background: var(--color-elevated); 
+		font-size: var(--fs-xxs); 
+		color: var(--color-text-muted); 
+		line-height: 1.1; 
+		backdrop-filter: blur(2px); 
+	}
+	&__chip--muted { opacity: 0.65; font-style: italic; }
+	&__tags { display: flex; flex-wrap: wrap; column-gap: 4px; row-gap: 2px; margin-top: 4px; }
+	&__tag { font-size: var(--fs-xxs); background: var(--color-surface); border-radius: var(--radius-pill); }
+	&__body { display: flex; flex-direction: column; min-width: 0; }
+	&__desc { color: var(--color-text-muted); margin-top: 4px; font-size: var(--fs-xxs); line-height: 1.3; }
+	&__delete, &__edit { height: 100%; border-radius: 0; }
 }
 .swipe-actions {
 	display: flex;
 	height: 100%;
 }
-.swipe-btn {
-	height: 100%;
-	border: none;
-	display: flex;
-	border-radius: 0;
-	align-items: center;
-	justify-content: center;
-	padding: 0 14px;
-	font-size: 18px;
-}
-.swipe-btn--danger {
-	background: var(--color-danger, var(--van-danger-color));
-	color: #fff;
-}
-.swipe-btn--edit {
-	background: var(--color-accent, var(--van-primary-color));
-	color: #fff;
+
+/* Кнопки в свайп - стиль как в WorkoutCard */
+.swipe-btn-full {
+	height: 100% !important;
+	border-radius: 0 !important;
 }
 </style>

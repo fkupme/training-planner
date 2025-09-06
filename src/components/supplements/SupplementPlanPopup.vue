@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import KeyboardPopup from '@/components/ui/KeyboardPopup.vue';
+import ActionButtons from '@/components/ui/ActionButtons.vue';
 import { usePlannerStore } from '@/stores/planner';
 import { showToast } from 'vant';
 import { computed, defineEmits, defineProps, ref, watch } from 'vue';
@@ -225,6 +226,8 @@ function onCalendarConfirm(val: any) {
 				cancel-text="Отмена"
 				:weekdays="['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']"
 			/>
+
+			<van-divider>Тип цикла</van-divider>
 			<van-cell-group inset>
 				<van-field label="Weekly">
 					<template #input
@@ -313,69 +316,173 @@ function onCalendarConfirm(val: any) {
 				</template>
 			</van-cell-group>
 		</div>
-		<van-action-bar class="supp-plan__action-bar">
-			<van-action-bar-button type="default" @click="modelShow = false"
-				>Отмена</van-action-bar-button
-			>
-			<van-action-bar-button type="primary" @click="onSave"
-				>Сохранить</van-action-bar-button
-			>
-		</van-action-bar>
+
+		<ActionButtons
+			:actions="[
+				{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
+				{ label: 'Сохранить', type: 'primary', onClick: onSave },
+			]"
+		/>
 	</KeyboardPopup>
 </template>
 <style scoped lang="scss">
 .supp-plan {
 	background: var(--color-bg);
-	padding: var(--space-3) var(--space-3) 110px;
-	&__grid {
-		display: grid;
-		gap: var(--space-2);
-		padding: var(--space-2) var(--space-3) var(--space-3);
-	}
-	&__grid--7 {
-		grid-template-columns: repeat(7, 1fr);
-	}
-	&__grid--custom {
-		grid-template-columns: repeat(7, 1fr);
-	}
-	&__day {
-		border-radius: var(--radius-m);
-		padding: 10px 6px;
-		text-align: center;
-		cursor: pointer;
-		user-select: none;
-		border: 1px solid var(--van-border-color);
-		background: var(--color-surface);
-		color: var(--color-text);
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 56px;
-		transition: background var(--dur-2) var(--ease-std);
-	}
-	&__day--some {
-		background: linear-gradient(180deg, rgba(64, 158, 255, 0.18), transparent);
-	}
-	&__label {
-		font-size: var(--fs-sm);
-		opacity: 0.9;
-	}
-	&__count {
-		font-weight: var(--fw-semibold);
-		margin-top: 6px;
-	}
-	&__micro {
-		padding: 0 var(--space-3) var(--space-2);
-	}
-	&__action-bar {
-		border-top: 1px solid var(--van-border-color);
-		padding-top: var(--space-2);
-		background: var(--color-bg);
-		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
-	}
+	padding: var(--space-3) var(--space-3) 110px var(--space-3);
+	min-height: 100%;
+}
+
+// Улучшаем визуальную иерархию для групп ячеек
+.supp-plan :deep(.van-cell-group) {
+	background: var(--color-surface);
+	border-radius: var(--radius-l);
+	box-shadow: var(--shadow-xs);
+	border: 1px solid var(--color-border);
+	margin-bottom: var(--space-4);
+}
+
+.supp-plan :deep(.van-cell-group.van-cell-group--inset) {
+	margin: 0 0 var(--space-4) 0;
+}
+
+.supp-plan :deep(.van-cell) {
+	background: transparent;
+}
+
+.supp-plan :deep(.van-cell:not(:last-child)::after) {
+	border-bottom: 1px solid var(--color-border);
+	opacity: 0.6;
+}
+
+.supp-plan :deep(.van-cell:first-child) {
+	border-top-left-radius: var(--radius-l);
+	border-top-right-radius: var(--radius-l);
+}
+
+.supp-plan :deep(.van-cell:last-child) {
+	border-bottom-left-radius: var(--radius-l);
+	border-bottom-right-radius: var(--radius-l);
+}
+
+// Улучшаем разделители
+.supp-plan :deep(.van-divider) {
+	color: var(--color-text-muted);
+	font-weight: var(--fw-semibold);
+	font-size: var(--fs-sm);
+	margin: var(--space-6) 0 var(--space-4) 0;
+}
+
+.supp-plan :deep(.van-divider::before),
+.supp-plan :deep(.van-divider::after) {
+	border-color: var(--color-border);
+}
+
+// Улучшаем поля ввода
+.supp-plan :deep(.van-field__label) {
+	color: var(--color-text);
+	font-weight: var(--fw-semibold);
+}
+
+.supp-plan :deep(.van-field__control) {
+	color: var(--color-text);
+}
+
+// Улучшаем свитчи
+.supp-plan :deep(.van-switch--on) {
+	background: var(--color-accent);
+}
+
+.supp-plan__grid {
+	display: grid;
+	gap: var(--space-2);
+	padding: var(--space-3);
+	background: var(--color-elevated);
+	border-radius: var(--radius-m);
+	border: 1px solid var(--color-border);
+	margin-bottom: 0;
+}
+
+.supp-plan__grid--7 {
+	grid-template-columns: repeat(7, 1fr);
+}
+
+.supp-plan__grid--custom {
+	grid-template-columns: repeat(7, 1fr);
+}
+
+.supp-plan__day {
+	border-radius: var(--radius-m);
+	padding: 12px 8px;
+	text-align: center;
+	cursor: pointer;
+	user-select: none;
+	border: 2px solid var(--color-border);
+	background: var(--color-surface);
+	color: var(--color-text);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 64px;
+	transition: all var(--dur-2) var(--ease-std);
+	position: relative;
+	overflow: hidden;
+}
+
+.supp-plan__day:active {
+	transform: scale(0.95);
+}
+
+.supp-plan__label {
+	font-size: var(--fs-xs);
+	opacity: 0.85;
+	font-weight: var(--fw-semibold);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.supp-plan__count {
+	font-weight: var(--fw-bold);
+	font-size: var(--fs-lg);
+	margin-top: 4px;
+	line-height: 1;
+}
+
+.supp-plan__day--zero {
+	opacity: 0.6;
+	background: var(--color-elevated);
+	border-color: transparent;
+}
+
+.supp-plan__day--zero .supp-plan__count {
+	color: var(--color-text-muted);
+}
+
+.supp-plan__day--some {
+	background: var(--color-accent-soft, rgba(59, 130, 246, 0.1));
+	border-color: var(--color-accent);
+	color: var(--color-accent);
+}
+
+.supp-plan__day--some::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 3px;
+	background: var(--color-accent);
+}
+
+.supp-plan__micro {
+	padding: 0 var(--space-3) var(--space-2) var(--space-3);
+}
+
+.supp-plan :deep(.van-field) {
+	margin-bottom: var(--space-2);
+}
+
+.supp-plan :deep(.van-field:last-child) {
+	margin-bottom: 0;
 }
 </style>

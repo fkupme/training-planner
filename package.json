@@ -1,7 +1,7 @@
 {
 	"name": "training-planner",
 	"private": true,
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
@@ -11,10 +11,14 @@
 		"doctor": "tauri doctor",
 		"android:init": "tauri android init",
 		"android:dev": "tauri android dev",
-		"android:build": "tauri android build",
-		"android:studio": "tauri android open"
+		"android:dev-local": "ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ANDROID_NDK_HOME=$HOME/Library/Android/sdk/ndk/27.2.12479018 ANDROID_NDK_ROOT=$HOME/Library/Android/sdk/ndk/27.2.12479018 NDK_HOME=$HOME/Library/Android/sdk/ndk/27.2.12479018 tauri android dev",
+		"android:build": "ANDROID_HOME=$HOME/Library/Android/sdk ANDROID_SDK_ROOT=$HOME/Library/Android/sdk ANDROID_NDK_HOME=$HOME/Library/Android/sdk/ndk/27.2.12479018 ANDROID_NDK_ROOT=$HOME/Library/Android/sdk/ndk/27.2.12479018 NDK_HOME=$HOME/Library/Android/sdk/ndk/27.2.12479018 tauri android build",
+		"android:studio": "tauri android open",
+		"android:uninstall": "adb uninstall com.tauri_app.training_planner || true",
+		"android:setup": "bash scripts/android-setup-mac.sh"
 	},
 	"dependencies": {
+		"@iconify/vue": "^5.0.0",
 		"@tauri-apps/api": "^2",
 		"@tauri-apps/plugin-http": "^2.5.1",
 		"@tauri-apps/plugin-notification": "^2.3.0",
@@ -22,11 +26,15 @@
 		"@tauri-apps/plugin-sql": "^2.3.0",
 		"@tauri-apps/plugin-store": "^2.3.0",
 		"@vant/use": "^1.6.0",
+		"chart.js": "^4.5.0",
+		"chartjs-adapter-date-fns": "^3.0.0",
+		"date-fns": "^4.1.0",
 		"dayjs": "^1.11.13",
 		"pinia": "^3.0.3",
 		"sortablejs": "^1.15.6",
 		"vant": "^4.9.21",
 		"vue": "^3.5.13",
+		"vue-chartjs": "^5.3.2",
 		"vue-router": "^4.5.1"
 	},
 	"devDependencies": {

@@ -169,104 +169,104 @@ function handleBiometricToggle() {
 		</ThemedCellGroup>
 
 		<!-- Безопасность -->
-		<van-cell-group inset title="Безопасность">
-			<van-cell title="Биометрическая разблокировка">
+		<ThemedCellGroup inset title="Безопасность">
+			<ThemedCell title="Биометрическая разблокировка">
 				<template #right-icon>
-					<van-switch
+					<ThemedSwitch
 						:model-value="settings.settings.biometricEnabled"
 						@update:model-value="handleBiometricToggle"
 					/>
 				</template>
-			</van-cell>
-		</van-cell-group>
+			</ThemedCell>
+		</ThemedCellGroup>
 
 		<!-- Тренировки -->
-		<van-cell-group inset title="Тренировки">
-			<van-cell
+		<ThemedCellGroup inset title="Тренировки">
+			<ThemedCell
 				title="Единицы веса"
 				:value="currentUnitsLabel"
 				is-link
 				@click="showUnitsSelector"
 			/>
-			<van-cell
+			<ThemedCell
 				title="Время отдыха по умолчанию"
 				:value="currentRestTimeLabel"
 				is-link
 				@click="showRestTimeSelector"
 			/>
-			<van-cell title="Автозапуск таймера отдыха">
+			<ThemedCell title="Автозапуск таймера отдыха">
 				<template #right-icon>
-					<van-switch
+					<ThemedSwitch
 						:model-value="settings.settings.autoRestTimer"
 						@update:model-value="settings.toggleAutoRestTimer"
 					/>
 				</template>
-			</van-cell>
-		</van-cell-group>
+			</ThemedCell>
+		</ThemedCellGroup>
 
 		<!-- Уведомления -->
-		<van-cell-group inset title="Уведомления">
-			<van-cell title="Напоминания о тренировках">
+		<ThemedCellGroup inset title="Уведомления">
+			<ThemedCell title="Напоминания о тренировках">
 				<template #right-icon>
-					<van-switch
+					<ThemedSwitch
 						:model-value="settings.settings.notifications.workouts"
 						@update:model-value="
 							value => settings.updateNotificationSetting('workouts', value)
 						"
 					/>
 				</template>
-			</van-cell>
-			<van-cell title="Напоминания о добавках">
+			</ThemedCell>
+			<ThemedCell title="Напоминания о добавках">
 				<template #right-icon>
-					<van-switch
+					<ThemedSwitch
 						:model-value="settings.settings.notifications.supplements"
 						@update:model-value="
 							value => settings.updateNotificationSetting('supplements', value)
 						"
 					/>
 				</template>
-			</van-cell>
-			<van-cell title="Звуковые уведомления">
+			</ThemedCell>
+			<ThemedCell title="Звуковые уведомления">
 				<template #right-icon>
-					<van-switch
+					<ThemedSwitch
 						:model-value="settings.settings.notifications.sound"
 						@update:model-value="
 							value => settings.updateNotificationSetting('sound', value)
 						"
 					/>
 				</template>
-			</van-cell>
-			<van-cell title="Вибрация">
+			</ThemedCell>
+			<ThemedCell title="Вибрация">
 				<template #right-icon>
-					<van-switch
+					<ThemedSwitch
 						:model-value="settings.settings.notifications.vibration"
 						@update:model-value="
 							value => settings.updateNotificationSetting('vibration', value)
 						"
 					/>
 				</template>
-			</van-cell>
-		</van-cell-group>
+			</ThemedCell>
+		</ThemedCellGroup>
 
 		<!-- Дополнительно -->
-		<van-cell-group inset title="Дополнительно">
-			<van-cell
+		<ThemedCellGroup inset title="Дополнительно">
+			<ThemedCell
 				title="Сбросить настройки"
 				label="Восстановить значения по умолчанию"
 				is-link
 				@click="resetSettings"
 			/>
-			<van-cell title="Версия приложения" value="1.0.0" />
-		</van-cell-group>
+			<ThemedCell title="Версия приложения" value="1.0.0" />
+		</ThemedCellGroup>
 
 		<!-- Информация -->
 		<div class="settings__info">
-			<van-cell-group inset>
-				<van-cell
+			<ThemedCellGroup inset>
+				<ThemedCell
 					title="О приложении"
 					label="Training Planner - персональный планировщик тренировок"
 				/>
-			</van-cell-group>
+			</ThemedCellGroup>
 		</div>
 	</div>
 
@@ -308,38 +308,121 @@ function handleBiometricToggle() {
 
 <style lang="scss" scoped>
 .settings {
-	padding: var(--space-3);
 	background: var(--color-bg);
-	min-height: 100vh;
+	height: 100vh;
+	padding: var(--space-4) var(--space-3) var(--space-8);
+	overflow-y: auto;
 
-	:deep(.van-cell-group) {
-		margin-bottom: var(--space-3);
+	// Отступы между группами
+	:deep(.themed-cell-group) {
+		margin-bottom: var(--space-5);
+		
+		&:last-of-type {
+			margin-bottom: var(--space-4);
+		}
 	}
 
-	:deep(.van-cell-group__title) {
+	// Стилизация заголовков групп
+	:deep(.themed-cell-group__title) {
 		color: var(--color-text);
-		font-weight: var(--fw-semibold);
-		padding: var(--space-2) var(--space-3);
+		font-weight: var(--fw-bold);
+		font-size: var(--fs-lg);
+		margin-bottom: var(--space-3);
+		padding: 0 var(--space-2);
+		letter-spacing: -0.025em;
 	}
 
-	:deep(.van-cell) {
-		background: var(--color-surface);
-
-		&:hover {
+	// Улучшаем ячейки
+	:deep(.themed-cell) {
+		min-height: 56px;
+		padding: var(--space-4) var(--space-4);
+		transition: all var(--dur-2) var(--ease-std);
+		
+		&:active {
+			transform: scale(0.98);
+			background: var(--color-elevated);
+		}
+	}
+	
+	:deep(.themed-cell--link) {
+		cursor: pointer;
+		
+		&:active {
 			background: var(--color-elevated);
 		}
 	}
 
-	:deep(.van-switch) {
-		--van-switch-on-background-color: var(--color-accent);
+	// Заголовки ячеек
+	:deep(.themed-cell__title) {
+		font-weight: var(--fw-semibold);
+		font-size: var(--fs-md);
+		color: var(--color-text);
+		line-height: var(--lh-heading);
 	}
 
-	&__info {
-		margin-top: var(--space-6);
+	// Значения ячеек
+	:deep(.themed-cell__value) {
+		color: var(--color-accent);
+		font-weight: var(--fw-medium);
+		font-size: var(--fs-sm);
+	}
 
-		:deep(.van-cell__label) {
-			opacity: 0.8;
+	// Подписи ячеек
+	:deep(.themed-cell__label) {
+		color: var(--color-text-muted);
+		font-size: var(--fs-xs);
+		line-height: var(--lh-body);
+		margin-top: var(--space-1);
+		opacity: 0.85;
+	}
+
+	// Стилизация переключателей
+	:deep(.themed-switch) {
+		transform: scale(1.1);
+	}
+
+	// Информационный блок
+	&__info {
+		margin-top: var(--space-8);
+		
+		:deep(.themed-cell__label) {
+			opacity: 0.7;
+			font-style: italic;
 		}
+		
+		:deep(.themed-cell__title) {
+			color: var(--color-accent);
+			font-weight: var(--fw-bold);
+		}
+	}
+
+	// Адаптивность для больших экранов
+	@media (min-width: 768px) {
+		max-width: 600px;
+		margin: 0 auto;
+		padding-left: var(--space-6);
+		padding-right: var(--space-6);
+	}
+}
+
+// Улучшаем ActionSheet заголовки
+:deep(.van-action-sheet__header) {
+	font-weight: var(--fw-bold) !important;
+	font-size: var(--fs-lg) !important;
+	color: var(--color-text) !important;
+	padding: var(--space-5) var(--space-4) var(--space-4) !important;
+}
+
+// Элементы ActionSheet
+:deep(.van-action-sheet__item) {
+	padding: var(--space-4) var(--space-4) !important;
+	font-weight: var(--fw-medium) !important;
+	font-size: var(--fs-md) !important;
+	transition: all var(--dur-2) var(--ease-std) !important;
+	
+	&:active {
+		background: var(--color-accent-soft) !important;
+		color: var(--color-accent) !important;
 	}
 }
 </style>

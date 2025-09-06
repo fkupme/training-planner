@@ -32,19 +32,19 @@ export function createAppRouter() {
 		routes,
 	});
 
-	// First-load guard to avoid landing on protected page before session check
-	let firstResolved = false;
-	router.beforeResolve(async to => {
-		if (firstResolved) return true;
+	// Глобальный guard для защиты роутов
+	router.beforeEach(async (to, _from, next) => {
 		const { useAuthStore } = await import('@/stores/auth');
 		const auth = useAuthStore();
-		await auth.initFromSession();
-		firstResolved = true;
+		if (!auth.currentUser) {
+			await auth.initFromSession();
+		}
 		const isPublic = to.meta?.public === true;
 		if (!auth.currentUser && !isPublic) {
-			return { path: '/login', query: { redirect: to.fullPath } };
+			next({ path: '/login', query: { redirect: to.fullPath } });
+		} else {
+			next();
 		}
-		return true;
 	});
 
 	return router;

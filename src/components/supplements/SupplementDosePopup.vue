@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import KeyboardPopup from '@/components/ui/KeyboardPopup.vue';
+import ActionButtons from '@/components/ui/ActionButtons.vue';
 import ThemeActionSheet from '@/components/ui/ThemeActionSheet.vue';
 import { useSuppPlanStore } from '@/stores/suppPlan';
 import { showToast } from 'vant';
@@ -93,8 +94,7 @@ async function onSave() {
 }
 </script>
 <template>
-	<KeyboardPopup v-model:show="modelShow" height="fit-content">
-		<van-nav-bar style="background: var(--color-elevated)" title="Дозировка" />
+	<KeyboardPopup v-model:show="modelShow" height="fit-content" title="Дозировка">
 		<div class="dose-edit">
 			<van-cell-group inset>
 				<van-field
@@ -102,43 +102,33 @@ async function onSave() {
 					type="number"
 					label="Количество"
 					placeholder="число"
-					style="background: var(--color-elevated)"
 				/>
 				<van-cell
-					style="background: var(--color-elevated)"
 					is-link
 					title="Единица"
 					:value="unit || 'выбрать'"
 					@click="showUnitSheet = true"
 				/>
 				<van-field
-					style="background: var(--color-elevated)"
 					v-model="note"
 					type="textarea"
 					rows="2"
 					label="Заметка"
 				/>
-				<van-field
-					style="background: var(--color-elevated)"
-					label="Необязательное"
-				>
+				<van-field label="Необязательное">
 					<template #input>
 						<van-switch v-model="optional" size="20" />
 					</template>
 				</van-field>
 			</van-cell-group>
 		</div>
-		<van-action-bar class="dose-edit__bar">
-			<van-action-bar-button
-				class="dose-edit__btn-cancel"
-				type="default"
-				@click="modelShow = false"
-				>Отмена</van-action-bar-button
-			>
-			<van-action-bar-button type="primary" :loading="loading" @click="onSave"
-				>Сохранить</van-action-bar-button
-			>
-		</van-action-bar>
+
+		<ActionButtons
+			:actions="[
+				{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
+				{ label: 'Сохранить', type: 'primary', onClick: onSave, loading: loading },
+			]"
+		/>
 
 		<ThemeActionSheet
 			v-model:show="showUnitSheet"
@@ -150,21 +140,76 @@ async function onSave() {
 	</KeyboardPopup>
 </template>
 <style scoped lang="scss">
-.van-action-sheet__button {
-	background: var(--color-elevated);
-}
 .dose-edit {
 	background: var(--color-bg);
-	padding: 52px var(--space-3) 110px var(--space-3);
+	padding: var(--space-3) var(--space-3) 110px var(--space-3);
+	min-height: 100%;
 }
-.dose-edit__bar {
-	background: var(--color-elevated);
-	padding-block: 8px;
-	border-top: 1px solid var(--van-border-color);
+
+// Улучшаем визуальную иерархию для групп ячеек
+.dose-edit :deep(.van-cell-group) {
+	background: var(--color-surface);
+	border-radius: var(--radius-l);
+	box-shadow: var(--shadow-xs);
+	border: 1px solid var(--color-border);
+	margin-bottom: var(--space-4);
 }
-.dose-edit__btn-cancel {
+
+.dose-edit :deep(.van-cell-group.van-cell-group--inset) {
+	margin: 0 0 var(--space-4) 0;
+}
+
+.dose-edit :deep(.van-cell) {
+	background: transparent;
+}
+
+.dose-edit :deep(.van-cell:not(:last-child)::after) {
+	border-bottom: 1px solid var(--color-border);
+	opacity: 0.6;
+}
+
+.dose-edit :deep(.van-cell:first-child) {
+	border-top-left-radius: var(--radius-l);
+	border-top-right-radius: var(--radius-l);
+}
+
+.dose-edit :deep(.van-cell:last-child) {
+	border-bottom-left-radius: var(--radius-l);
+	border-bottom-right-radius: var(--radius-l);
+}
+
+// Улучшаем поля ввода
+.dose-edit :deep(.van-field__label) {
 	color: var(--color-text);
-	border: 1px solid var(--color-text);
-	background-color: var(--color-bg);
+	font-weight: var(--fw-semibold);
+}
+
+.dose-edit :deep(.van-field__control) {
+	color: var(--color-text);
+}
+
+// Улучшаем textarea
+.dose-edit :deep(.van-field__control--textarea) {
+	background: var(--color-elevated);
+	border-radius: var(--radius-s);
+	padding: var(--space-2);
+	border: 1px solid var(--color-border);
+	resize: none;
+	
+	&:focus {
+		border-color: var(--color-accent);
+		outline: none;
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
+	}
+}
+
+// Улучшаем свитчи
+.dose-edit :deep(.van-switch--on) {
+	background: var(--color-accent);
+}
+
+// Улучшаем ActionSheet
+.dose-edit :deep(.van-action-sheet__button) {
+	background: var(--color-elevated);
 }
 </style>

@@ -15,9 +15,10 @@ export function useSupplementPlannerData() {
 
 	const cfgSupp = computed(() => {
 		try {
-			return planner.currentProgram?.config
-				? JSON.parse(planner.currentProgram.config).supplements ?? null
+			const config = planner.currentProgram?.config
+				? JSON.parse(planner.currentProgram.config)
 				: null;
+			return config?.supplementPlan ?? config?.supplements ?? null;
 		} catch {
 			return null;
 		}

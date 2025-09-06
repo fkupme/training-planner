@@ -121,7 +121,7 @@ export function useSupplementPlannerLogic(data = useSupplementPlannerData()) {
 				? [
 						{
 							key: 'weekly',
-							title: 'Недельный цикл',
+							title: 'Цикл',
 							cycle_type: 'weekly' as const,
 							days: active,
 						},
@@ -155,6 +155,21 @@ export function useSupplementPlannerLogic(data = useSupplementPlannerData()) {
 		const prev = microSet.days[currentIndex - 1];
 		return cur.dayIndex - prev.dayIndex > 1;
 	}
+	
+	function getMaxSlotsForDay(cycleType: 'weekly' | 'custom', dayIndex: number): number {
+		const c = cfgSupp.value;
+		if (!c) return 0;
+		
+		if (cycleType === 'weekly' && Array.isArray(c.weekly?.days)) {
+			return c.weekly.days[dayIndex] || 0;
+		}
+		
+		if (cycleType === 'custom' && Array.isArray(c.custom?.days)) {
+			return c.custom.days[dayIndex] || 0;
+		}
+		
+		return 0;
+	}
 
 	return {
 		pendingAddTarget,
@@ -163,5 +178,6 @@ export function useSupplementPlannerLogic(data = useSupplementPlannerData()) {
 		reloadDayItems,
 		dayOfWeekLabel,
 		needsDivider,
+		getMaxSlotsForDay,
 	};
 }

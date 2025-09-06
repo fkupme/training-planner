@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // @ts-ignore
 import KeyboardPopup from "@/components/ui/KeyboardPopup.vue";
+import ActionButtons from '@/components/ui/ActionButtons.vue';
+import { useNumberInput } from '@/composables/useNumberInput';
 import { computed, ref, watch } from "vue";
 
 const props = defineProps<{
@@ -14,11 +16,14 @@ const props = defineProps<{
 	plannedReps?: number;
 	exerciseName?: string;
 	setNumber?: number;
+	exerciseData?: any; // Данные упражнения для получения последних значений
+	isLastSet?: boolean; // Флаг последнего подхода
 }>();
 
 const emit = defineEmits<{
 	(e: "update:show", v: boolean): void;
 	(e: "save"): void;
+	(e: "updateExerciseDefaults", data: { weight?: number; reps?: number }): void;
 }>();
 
 const modelShow = computed({
@@ -26,16 +31,78 @@ const modelShow = computed({
 	set: (v: boolean) => emit("update:show", v),
 });
 
-// Счетчик повторений
-const repsCounter = ref(0);
+// Композабл для работы с числовыми полями
+const { selectOnClick, selectOnFocus, setupStepperSelection } = useNumberInput();
 
-// Следим за изменениями в форме и обновляем счетчик
+// Реф для степпера
+const repsStepper = ref(null);
+
+// Получение последних значений из предыдущих подходов
+function getLastUsedValues() {
+	if (!props.exerciseData?.sets || props.exerciseData.sets.length === 0) {
+		const result = {
+			weight: Number(props.exerciseData?.work_weight) || 0,
+			reps: Number(props.plannedReps) || 0
+		};
+		console.log('getLastUsedValues - no sets:', result);
+		return result;
+	}
+
+	// Ищем последний выполненный подход
+	const completedSets = props.exerciseData.sets.filter((set: any) => set.reps_completed !== null && set.reps_completed !== undefined);
+	console.log('completedSets:', completedSets);
+	
+	if (completedSets.length === 0) {
+		const result = {
+			weight: Number(props.exerciseData?.work_weight) || 0,
+			reps: Number(props.plannedReps) || 0
+		};
+		console.log('getLastUsedValues - no completed sets:', result);
+		return result;
+	}
+
+	const lastSet = completedSets[completedSets.length - 1];
+	const result = {
+		weight: Number(lastSet.weight_used) || Number(props.exerciseData?.work_weight) || 0,
+		reps: Number(lastSet.reps_completed) || Number(props.plannedReps) || 0
+	};
+	console.log('getLastUsedValues - from last set:', { lastSet, result });
+	return result;
+}
+
+// Следим за изменениями в форме (можно убрать, так как теперь работаем напрямую)
+// watch(
+// 	() => props.setForm.reps,
+// 	(newReps) => {
+// 		// Больше не нужно
+// 	},
+// 	{ immediate: true }
+// );
+
+// Следим за изменениями данных упражнения
 watch(
-	() => props.setForm.reps,
-	(newReps) => {
-		repsCounter.value = newReps || 0;
+	() => props.exerciseData,
+	(newExerciseData) => {
+		if (newExerciseData && props.show) {
+			// Обновляем значения при изменении данных упражнения
+			const lastValues = getLastUsedValues();
+			
+			if (props.setForm.reps === undefined || props.setForm.reps === null) {
+				const repsValue = Number(lastValues.reps) || 0;
+				if (props.setForm) {
+					props.setForm.reps = repsValue;
+				}
+			}
+
+			if (props.setForm.weight === undefined || props.setForm.weight === null) {
+				const weightValue = Number(lastValues.weight) || 0;
+				if (props.setForm) {
+					props.setForm.weight = weightValue;
+				}
+			}
+		}
 	},
-	{ immediate: true }
+	{ deep: true }
 );
 
 // Следим за открытием попапа и устанавливаем дефолтные значения
@@ -43,37 +110,90 @@ watch(
 	() => props.show,
 	(isShown) => {
 		if (isShown) {
-			// Если повторений нет, подставляем запланированные
-			if (!props.setForm.reps && props.plannedReps) {
-				repsCounter.value = props.plannedReps;
-				// Эмитим изменение наверх через объект setForm
+			const lastValues = getLastUsedValues();
+			
+			console.log('SetEditorPopup opened:', {
+				setForm: props.setForm,
+				exerciseData: props.exerciseData,
+				lastValues,
+				plannedReps: props.plannedReps
+			});
+			
+			// Если в форме нет значений, подставляем последние использованные
+			if (props.setForm.reps === undefined || props.setForm.reps === null) {
+				const repsValue = Number(lastValues.reps) || 0;
 				if (props.setForm) {
-					props.setForm.reps = props.plannedReps;
+					props.setForm.reps = repsValue;
 				}
-			} else {
-				repsCounter.value = props.setForm.reps || 0;
 			}
+
+			// Подставляем последний использованный вес если нет значения
+			if (props.setForm.weight === undefined || props.setForm.weight === null) {
+				const weightValue = Number(lastValues.weight) || 0;
+				if (props.setForm) {
+					props.setForm.weight = weightValue;
+				}
+			}
+
+			// Настраиваем выделение текста для степпера
+			setTimeout(() => {
+				if (repsStepper.value) {
+					setupStepperSelection(repsStepper.value);
+				}
+			}, 200);
 		}
 	}
 );
 
-function incrementReps() {
-	repsCounter.value++;
-	if (props.setForm) {
-		props.setForm.reps = repsCounter.value;
-	}
-}
+async function onSave() {
+	// Если это последний подход, проверяем изменения и предлагаем обновить defaults
+	if (props.isLastSet && props.exerciseData) {
+		const currentDefaults = {
+			weight: props.exerciseData.work_weight || 0,
+			reps: props.plannedReps || 0
+		};
 
-function decrementReps() {
-	if (repsCounter.value > 0) {
-		repsCounter.value--;
-		if (props.setForm) {
-			props.setForm.reps = repsCounter.value;
+		const newValues = {
+			weight: props.setForm.weight || 0,
+			reps: props.setForm.reps || 0
+		};
+
+		const weightChanged = newValues.weight > currentDefaults.weight;
+		const repsChanged = newValues.reps > currentDefaults.reps;
+
+		if (weightChanged || repsChanged) {
+			const { showDialog } = await import('vant');
+			let message = 'Хотите установить для этого упражнения в будущем:\n';
+			
+			if (weightChanged && repsChanged) {
+				message += `• Вес: ${newValues.weight} кг\n• Повторения: ${newValues.reps}`;
+			} else if (weightChanged) {
+				message += `• Вес: ${newValues.weight} кг`;
+			} else if (repsChanged) {
+				message += `• Повторения: ${newValues.reps}`;
+			}
+
+			try {
+				await showDialog({
+					title: 'Обновить значения по умолчанию?',
+					message,
+					showCancelButton: true,
+					confirmButtonText: 'Да, обновить',
+					cancelButtonText: 'Нет'
+				});
+
+				// Пользователь согласился - отправляем данные для обновления
+				const updateData: { weight?: number; reps?: number } = {};
+				if (weightChanged) updateData.weight = newValues.weight;
+				if (repsChanged) updateData.reps = newValues.reps;
+				
+				emit("updateExerciseDefaults", updateData);
+			} catch {
+				// Пользователь отменил - ничего не делаем
+			}
 		}
 	}
-}
 
-function onSave() {
 	emit("save");
 }
 
@@ -91,107 +211,125 @@ function onCancel() {
 		<div class="set-editor">
 			<van-cell-group inset>
 				<!-- Счетчик повторений -->
-				<van-cell title="Повторений">
-					<template #value>
-						<div class="reps-counter">
-							<van-button
-								size="small"
-								type="primary"
-								@click="decrementReps"
-								:disabled="repsCounter <= 0"
-							>
-								-
-							</van-button>
-							<span class="reps-counter__value">{{ repsCounter }}</span>
-							<van-button size="small" type="primary" @click="incrementReps">
-								+
-							</van-button>
-						</div>
+				<van-cell>
+					<template #title>
+						<span v-if="plannedReps">Повторений (план: {{ plannedReps }})</span>
+						<span v-else>Повторений</span>
 					</template>
-					<template #label v-if="plannedReps">
-						Запланировано: {{ plannedReps }}
+					<template #value>
+						<van-stepper 
+							ref="repsStepper"
+							v-model="setForm.reps" 
+							min="0" 
+						>
+							<template #input>
+								<input 
+									:value="setForm.reps || 0" 
+									@input="(e: any) => setForm.reps = parseInt(e.target.value) || 0"
+									@click="selectOnClick"
+									@focus="selectOnFocus"
+									class="van-stepper__input"
+									type="number"
+									min="0"
+								/>
+							</template>
+						</van-stepper>
 					</template>
 				</van-cell>
 
 				<!-- Вес -->
-				<van-field
-					v-model="setForm.weight"
-					type="digit"
-					label="Вес (кг)"
-					placeholder="Рабочий вес"
-					input-align="right"
-				/>
+				<van-cell title="Вес (кг)">
+					<template #value>
+						<van-field
+							v-model="setForm.weight"
+							type="digit"
+							placeholder="Рабочий вес"
+							input-align="right"
+							@click="selectOnClick"
+						/>
+					</template>
+				</van-cell>
 
 				<!-- RPE/RIR -->
-				<van-field
-					v-model="setForm.rpe"
-					label="RPE/RIR"
-					placeholder="Например: RPE 8 или RIR 2"
-					input-align="right"
-				/>
-
+				<van-cell title="RPE/RIR">
+					<template #value>
+						<van-field
+							v-model="setForm.rpe"
+							placeholder="Например: RPE 8"
+							input-align="right"
+							@click="selectOnClick"
+						/>
+					</template>
+				</van-cell>				<!-- Заметки -->
 				<!-- Заметки -->
-				<van-field
-					v-model="setForm.notes"
-					type="textarea"
-					label="Заметки"
-					placeholder="Комментарии к подходу..."
-					rows="2"
-					autosize
-				/>
+				<van-cell>
+					<van-field
+						v-model="setForm.notes"
+						type="textarea"
+						label="Заметки"
+						placeholder="Комментарии к подходу..."
+						rows="2"
+						autosize
+					/>
+				</van-cell>
 			</van-cell-group>
 		</div>
 
-		<van-action-bar class="set-editor__actions">
-			<van-action-bar-button
-				class="set-editor__btn-cancel"
-				type="default"
-				@click="onCancel"
-			>
-				Отмена
-			</van-action-bar-button>
-			<van-action-bar-button type="primary" @click="onSave">
-				Сохранить
-			</van-action-bar-button>
-		</van-action-bar>
+		<ActionButtons
+			:actions="[
+				{ label: 'Отмена', type: 'secondary', onClick: onCancel },
+				{ label: 'Сохранить', type: 'primary', onClick: onSave },
+			]"
+		/>
 	</KeyboardPopup>
 </template>
 
 <style lang="scss" scoped>
 .set-editor {
 	background: var(--color-bg);
-	padding: 52px var(--space-3) 110px var(--space-3);
-
-	&__actions {
-		padding-top: 22px;
-		border-top: 1px solid var(--van-border-color);
-		background-color: var(--color-bg);
-	}
-
-	&__btn-cancel {
-		color: var(--color-text);
-		border: 1px solid var(--color-text);
-		background-color: var(--color-bg);
-	}
+	padding: var(--space-3) var(--space-3) 110px var(--space-3);
+	min-height: 100%;
 }
 
-.reps-counter {
-	display: flex;
-	align-items: center;
-	gap: var(--space-2);
+// Улучшаем визуальную иерархию для групп ячеек
+.set-editor :deep(.van-cell-group) {
+	background: var(--color-surface);
+	border-radius: var(--radius-l);
+	box-shadow: var(--shadow-xs);
+	border: 1px solid var(--color-border);
+	margin-bottom: var(--space-4);
+}
 
-	&__value {
-		font-size: var(--fs-lg);
-		font-weight: var(--fw-semibold);
-		min-width: 40px;
-		text-align: center;
-		color: var(--color-text);
-	}
+.set-editor :deep(.van-cell-group.van-cell-group--inset) {
+	margin: 0 0 var(--space-4) 0;
+}
 
-	:deep(.van-button) {
-		width: 32px;
-		height: 32px;
-		border-radius: 50%;
-	}
+.set-editor :deep(.van-cell) {
+	background: transparent;
+}
+
+.set-editor :deep(.van-cell:not(:last-child)::after) {
+	border-bottom: 1px solid var(--color-border);
+	opacity: 0.6;
+}
+
+.set-editor :deep(.van-cell:first-child) {
+	border-top-left-radius: var(--radius-l);
+	border-top-right-radius: var(--radius-l);
+}
+
+.set-editor :deep(.van-cell:last-child) {
+	border-bottom-left-radius: var(--radius-l);
+	border-bottom-right-radius: var(--radius-l);
+}
+
+// Улучшаем поля ввода
+.set-editor :deep(.van-field__label) {
+	color: var(--color-text);
+	font-weight: var(--fw-semibold);
+}
+
+.set-editor :deep(.van-field__control) {
+	color: var(--color-text);
 }
 </style>

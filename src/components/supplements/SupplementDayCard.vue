@@ -171,67 +171,179 @@ export default defineComponent({ name: 'SupplementDayCard' });
 	</div>
 </template>
 
-<style scoped>
+/* Adaptive Supplement Day Card */
+<style scoped lang="scss">
 .supp-card {
-	background: var(--color-elevated);
-	border: none;
-	border-radius: var(--radius-m);
-	padding: 8px 0 12px 0;
-	margin: 8px 12px;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-	overflow: auto;
+	background: linear-gradient(
+		135deg,
+		color-mix(in srgb, var(--color-elevated) 98%, transparent),
+		color-mix(in srgb, var(--color-surface) 95%, transparent)
+	);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-l);
+	margin: var(--space-3) var(--space-4);
+	box-shadow: var(--shadow-md);
+	overflow: hidden;
+	backdrop-filter: blur(6px) saturate(110%);
+	transition: all var(--dur-3) var(--ease-std);
+	
+	&:hover {
+		transform: translateY(-1px);
+		box-shadow: var(--shadow-lg);
+	}
+	
+	/* Day header styling */
+	.van-cell {
+		background: var(--grad-1) !important;
+		color: var(--color-accent-contrast) !important;
+		padding: var(--space-4) !important;
+		border-bottom: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent) !important;
+		
+		.van-cell__title {
+			font-size: var(--fs-lg) !important;
+			font-weight: var(--fw-bold) !important;
+			letter-spacing: 0.3px !important;
+			color: inherit !important;
+		}
+	}
 }
+
+/* Intake blocks */
 .supp-block {
 	position: relative;
-	margin: 8px 8px 12px 8px;
-	padding: 6px 8px 10px 10px;
+	margin: var(--space-3);
+	padding: var(--space-4);
 	background: linear-gradient(
-		145deg,
-		var(--color-elevated) 0%,
-		var(--color-elevated-alt, var(--color-elevated)) 100%
+		135deg,
+		color-mix(in srgb, var(--color-surface) 98%, transparent),
+		color-mix(in srgb, var(--color-bg) 95%, transparent)
 	);
-	border: 1px solid var(--van-border-color);
-	border-radius: var(--radius-s);
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+	border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+	border-radius: var(--radius-l);
+	box-shadow: var(--shadow-sm);
+	overflow: hidden;
+	
+	&::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 4px;
+		height: 100%;
+		background: var(--grad-2);
+		border-top-left-radius: var(--radius-l);
+		border-bottom-left-radius: var(--radius-l);
+	}
+	
+	/* Slot title */
+	.slot-title {
+		margin-bottom: var(--space-3);
+		
+		.van-cell {
+			background: transparent !important;
+			padding: 0 !important;
+			border: none !important;
+			
+			&__title {
+				font-size: var(--fs-xs) !important;
+				font-weight: var(--fw-bold) !important;
+				text-transform: uppercase !important;
+				letter-spacing: 1px !important;
+				color: var(--color-text-muted) !important;
+				background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important;
+				padding: 4px 12px !important;
+				border-radius: var(--radius-pill) !important;
+				border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent) !important;
+				display: inline-block !important;
+			}
+		}
+	}
+	
+	/* Supplement rows */
+	.slot-row {
+		border-radius: var(--radius-m);
+		overflow: hidden;
+		margin-bottom: var(--space-2);
+		
+		&:last-of-type {
+			margin-bottom: 0;
+		}
+		
+		.van-cell {
+			background: color-mix(in srgb, var(--color-elevated) 90%, transparent) !important;
+			border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent) !important;
+			transition: all var(--dur-2) var(--ease-std) !important;
+			
+			&:hover {
+				background: color-mix(in srgb, var(--color-elevated) 100%, transparent) !important;
+				border-color: color-mix(in srgb, var(--color-accent) 40%, transparent) !important;
+				transform: translateX(2px);
+			}
+			
+			&__title {
+				font-weight: var(--fw-semibold) !important;
+				color: var(--color-text) !important;
+				font-size: var(--fs-sm) !important;
+				letter-spacing: 0.2px !important;
+			}
+			
+			&__label {
+				color: var(--color-text-muted) !important;
+				font-size: var(--fs-xs) !important;
+				opacity: 0.9 !important;
+			}
+		}
+		
+		+ .slot-row {
+			border-top: 1px dashed color-mix(in srgb, var(--color-border) 50%, transparent);
+			padding-top: var(--space-2);
+		}
+	}
 }
-.supp-block::before {
-	/* яркая тонкая полоска слева */
-	content: '';
-	position: absolute;
-	inset: 0 auto 0 0;
-	width: 3px;
-	border-top-left-radius: var(--radius-s);
-	border-bottom-left-radius: var(--radius-s);
-	background: var(--grad-2, var(--color-accent));
-}
-.slot-title :deep(.van-cell__title) {
-	font-size: var(--fs-xxs);
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	color: var(--color-text-muted);
-}
-.slot-row + .slot-row {
-	/* разделитель между строками приёма */
-	border-top: 1px dashed var(--van-border-color);
-	margin-top: 2px;
-	padding-top: 2px;
-}
+
+/* Empty state */
 .supp-empty {
-	font-size: var(--fs-xxs);
+	font-size: var(--fs-xs);
 	color: var(--color-text-muted);
-	padding: 4px 12px 8px 12px;
+	padding: var(--space-3);
+	text-align: center;
+	font-style: italic;
+	background: color-mix(in srgb, var(--color-bg) 95%, transparent);
+	border: 1px dashed var(--color-border);
+	border-radius: var(--radius-m);
+	margin-bottom: var(--space-3);
 }
+
+/* Add button */
 .add {
-	background: var(--grad-2);
-	color: var(--color-accent-contrast);
-	border: none;
-	margin-top: 6px;
+	background: var(--grad-2) !important;
+	color: var(--color-accent-contrast) !important;
+	border: none !important;
+	border-radius: var(--radius-l) !important;
+	font-weight: var(--fw-semibold) !important;
+	font-size: var(--fs-sm) !important;
+	padding: var(--space-3) var(--space-4) !important;
+	box-shadow: var(--shadow-sm) !important;
+	transition: all var(--dur-2) var(--ease-std) !important;
+	letter-spacing: 0.3px !important;
+	
+	&:hover {
+		background: var(--grad-1) !important;
+		box-shadow: var(--shadow-md) !important;
+		transform: translateY(-1px);
+	}
+	
+	&:active {
+		transform: translateY(0) scale(0.98);
+	}
 }
+
+/* Swipe actions */
 .swipe-actions {
 	display: flex;
 	height: 100%;
 }
+
 .swipe-btn {
 	height: 100%;
 	border: none;
@@ -239,15 +351,83 @@ export default defineComponent({ name: 'SupplementDayCard' });
 	border-radius: 0;
 	align-items: center;
 	justify-content: center;
-	padding: 0 14px;
+	padding: 0 var(--space-4);
 	font-size: 18px;
+	transition: all var(--dur-2) var(--ease-std);
+	
+	&--danger {
+		background: var(--color-error, var(--van-danger-color));
+		color: var(--color-accent-contrast, #fff);
+		
+		&:hover {
+			background: color-mix(in srgb, var(--color-error, var(--van-danger-color)) 90%, black);
+		}
+	}
+	
+	&--edit {
+		background: var(--color-accent);
+		color: var(--color-accent-contrast, #fff);
+		
+		&:hover {
+			background: var(--color-accent-hover, var(--color-accent));
+		}
+	}
 }
-.swipe-btn--danger {
-	background: var(--color-danger, var(--van-danger-color));
-	color: #fff;
+
+/* Mobile optimizations */
+@media (max-width: 420px) {
+	.supp-card {
+		margin: var(--space-2) var(--space-3);
+	}
+	
+	.supp-block {
+		margin: var(--space-2);
+		padding: var(--space-3);
+		
+		&::before {
+			width: 3px;
+		}
+	}
+	
+	.slot-title .van-cell__title {
+		font-size: var(--fs-xxs) !important;
+		padding: 3px 8px !important;
+	}
+	
+	.slot-row .van-cell {
+		&__title {
+			font-size: var(--fs-xs) !important;
+		}
+		
+		&__label {
+			font-size: var(--fs-xxs) !important;
+		}
+	}
+	
+	.add {
+		padding: var(--space-2) var(--space-3) !important;
+		font-size: var(--fs-xs) !important;
+	}
+	
+	.swipe-btn {
+		padding: 0 var(--space-3);
+		font-size: 16px;
+	}
 }
-.swipe-btn--edit {
-	background: var(--color-accent, var(--van-primary-color));
-	color: #fff;
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+	.supp-card,
+	.slot-row .van-cell,
+	.add,
+	.swipe-btn {
+		transition: none !important;
+	}
+	
+	.supp-card:hover,
+	.slot-row .van-cell:hover,
+	.add:hover {
+		transform: none !important;
+	}
 }
 </style>

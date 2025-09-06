@@ -26,7 +26,7 @@ export function useKeyboardInsets() {
 		return Math.round(diff);
 	}
 
-	const applyUpdate = (source: string) => {
+	const applyUpdate = () => {
 		const inset = computeInset();
 		setCssVar(inset);
 		const nowOpen = inset > 80; // порог
@@ -52,17 +52,17 @@ export function useKeyboardInsets() {
 		const vv = (window as any).visualViewport as VisualViewport | undefined;
 
 
-		const onVVResize = () => applyUpdate('vv.resize');
-		const onVVScroll = () => applyUpdate('vv.scroll');
-		const onWinResize = () => applyUpdate('win.resize');
+		const onVVResize = () => applyUpdate();
+		const onVVScroll = () => applyUpdate();
+		const onWinResize = () => applyUpdate();
 		const onOrientation = () => {
 			baselineInnerHeight = Math.max(
 				window.innerHeight,
 				document.documentElement.clientHeight
 			);
-			applyUpdate('win.orientationchange');
+			applyUpdate();
 		};
-		const onFocusIn = () => applyUpdate('win.focusin');
+		const onFocusIn = () => applyUpdate();
 
 		if (vv) {
 			vv.addEventListener('resize', onVVResize);
@@ -73,7 +73,7 @@ export function useKeyboardInsets() {
 		window.addEventListener('focusin', onFocusIn);
 		window.addEventListener('focusout', handleFocusOut);
 
-		applyUpdate('mounted');
+		applyUpdate();
 
 		// Cleanup
 		onUnmounted(() => {
