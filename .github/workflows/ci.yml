@@ -19,10 +19,10 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies (tolerate peer deps)
+        run: npm install --legacy-peer-deps
 
-      - name: Typecheck + Build
+  - name: Typecheck + Web build (no APK)
         run: npm run build
 
       - name: Unit tests (stats quick run)
