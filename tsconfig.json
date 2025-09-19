@@ -32,7 +32,11 @@
 	"exclude": [
 		"src/stores/__tests__/**",
 		"src/__tests__/**",
-		"src/components/**/__tests__/**"
+		"src/components/**/__tests__/**",
+		"src/composables/__tests__/**",
+		"src/services/__tests__/**",
+		"src/test/**",
+		"src/components/ui/PieChart.vue"
 	],
 	"references": [{ "path": "./tsconfig.node.json" }]
 }

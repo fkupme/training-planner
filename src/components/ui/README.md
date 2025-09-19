@@ -3,7 +3,7 @@
 Тонкие обёртки над Vant и прикладные UI-компоненты. Ниже перечислены используемые компоненты и их API.
 
 ## Содержимое (используемые)
-- Графики: `BarChart.vue`, `LineChart.vue`, `PieChart.vue`.
+- Графики: `BarChart.vue`, `LineChart.vue`.
 - Навигация: `ThemedNavBar.vue`, `ThemedTabbar.vue`, `ThemedTabbarItem.vue`.
 - Ячейки/списки: `ThemedCell.vue`, `ThemedCellGroup.vue`.
 - Переключатели/ввод: `ThemedSwitch.vue`, `Tabs.vue`, `ThemeActionSheet.vue`, `ThemeTimePicker.vue`.
@@ -74,7 +74,7 @@
 - API: props — primaryLabel:string; secondaryLabel?:string; loading?:boolean; disabled?:boolean; emits — primary(), secondary()
 - методы: —
 
-Компонент: BarChart / LineChart / PieChart — графики
+Компонент: BarChart / LineChart — графики
 - описание: обёртки над либой графиков (с единым стилем)
 - API: props — data:any; options:any; height?:number|string; showLegend?:boolean (Bar/Pie)
 - методы: update(data, options) — при наличии ref-методов

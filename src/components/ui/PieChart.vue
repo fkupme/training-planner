@@ -80,10 +80,10 @@ const createChart = () => {
 						padding: 12,
 						usePointStyle: true,
 						pointStyle: 'circle',
-						generateLabels: (chart) => {
+						generateLabels: (chart: Chart) => {
 							const data = chart.data
 							if (data.labels && data.datasets.length > 0) {
-								return data.labels.map((label, i) => {
+								return (data.labels as string[]).map((label: string, i: number) => {
 									const dataset = data.datasets[0]
 									const value = dataset.data[i] as number
 									const total = (dataset.data as number[]).reduce((a, b) => a + b, 0)
@@ -126,9 +126,9 @@ const createChart = () => {
 					},
 					displayColors: true,
 					callbacks: {
-						label: (context) => {
+						label: (context: any) => {
 							const label = context.label || ''
-							const value = context.parsed
+							const value = context.parsed as number
 							const total = (context.dataset.data as number[]).reduce((a, b) => a + b, 0)
 							const percentage = ((value / total) * 100).toFixed(1)
 							return `${label}: ${value} кг (${percentage}%)`
