@@ -17,12 +17,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: 'npm'
 
       - name: Install dependencies (tolerate peer deps)
         run: npm install --legacy-peer-deps
 
-  - name: Typecheck + Web build (no APK)
+      - name: Typecheck + Web build (no APK)
         run: npm run build
 
       - name: Unit tests (stats quick run)

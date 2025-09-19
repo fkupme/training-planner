@@ -6,19 +6,29 @@ set -euo pipefail
 
 REPO="fkupme/training-planner"
 ISSUES_DIR="docs/issues"
-
-declare -A TITLES
-TITLES[001-i18n-multilanguage.md]="Implement i18n (multi-language)"
-TITLES[002-ios-build-support.md]="Add iOS build support (Tauri Mobile)"
-TITLES[003-background-session-runtime.md]="Background session runtime (timers/notifications)"
-TITLES[004-push-notifications-front.md]="Local notifications for reminders/sessions"
-TITLES[005-move-db-sql-to-rust.md]="Migrate DB/SQL logic to Rust side"
-
 LABELS="enhancement,roadmap"
+
+get_title() {
+  local file="$1"
+  case "$file" in
+    001-i18n-multilanguage.md)
+      echo "Implement i18n (multi-language)";;
+    002-ios-build-support.md)
+      echo "Add iOS build support (Tauri Mobile)";;
+    003-background-session-runtime.md)
+      echo "Background session runtime (timers/notifications)";;
+    004-push-notifications-front.md)
+      echo "Local notifications for reminders/sessions";;
+    005-move-db-sql-to-rust.md)
+      echo "Migrate DB/SQL logic to Rust side";;
+    *)
+      echo "Feature: $file";;
+  esac
+}
 
 for f in $(ls "$ISSUES_DIR"/*.md | sort); do
   file=$(basename "$f")
-  title=${TITLES[$file]:-"Feature: ${file}"}
+  title=$(get_title "$file")
   echo "Creating issue: $title"
   gh issue create \
     --repo "$REPO" \
