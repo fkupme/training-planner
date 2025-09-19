@@ -74,6 +74,11 @@ function storageKey() {
 	const prog = planner.currentProgram?.id || 'noprog';
 	return `supp_done_${prog}_${iso}`;
 }
+function storageKeyFor(date: Date) {
+	const iso = new Date(date.getTime()).toISOString().slice(0, 10);
+	const prog = planner.currentProgram?.id || 'noprog';
+	return `supp_done_${prog}_${iso}`;
+}
 function loadCompleted() {
 	try {
 		const raw = localStorage.getItem(storageKey());
@@ -102,6 +107,123 @@ function toggleCompleted(id: number) {
 }
 function isCompleted(id: number) {
 	return completedSet.value.has(id);
+}
+
+// Previous day completion set and items
+const prevCompletedSet = ref<Set<number>>(new Set());
+const prevIncomplete = ref<any[]>([]);
+const prevDateLabel = ref('');
+
+function parseISODateYMD(ymd: string): Date | null {
+	if (!ymd) return null;
+	const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+	if (!m) return null;
+	const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+	d.setHours(0, 0, 0, 0);
+	return d;
+}
+
+function loadPrevCompleted(prevDate: Date) {
+	try {
+		const raw = localStorage.getItem(storageKeyFor(prevDate));
+		if (raw) prevCompletedSet.value = new Set(JSON.parse(raw));
+		else prevCompletedSet.value = new Set();
+	} catch {
+		prevCompletedSet.value = new Set();
+	}
+}
+function persistPrevCompleted(prevDate: Date) {
+	try {
+		localStorage.setItem(
+			storageKeyFor(prevDate),
+			JSON.stringify(Array.from(prevCompletedSet.value))
+		);
+	} catch {}
+}
+function isCompletedPrev(id: number) {
+	return prevCompletedSet.value.has(id);
+}
+function toggleCompletedPrev(id: number) {
+	const targetYMD = nextDateISO.value;
+	const nextDate = targetYMD ? parseISODateYMD(targetYMD) : null;
+	const prevDate = nextDate ? new Date(nextDate.getTime() - 86400000) : (() => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - 1); return d; })();
+	if (prevCompletedSet.value.has(id)) prevCompletedSet.value.delete(id);
+	else prevCompletedSet.value.add(id);
+	persistPrevCompleted(prevDate);
+	// Also reflect immediately in the rendered list by refiltering
+	prevIncomplete.value = prevIncomplete.value.filter((it: any) => !prevCompletedSet.value.has(it.id));
+}
+
+async function loadPrevIncomplete() {
+	const p = planner.currentProgram;
+	const c = cfgSupp.value;
+	if (!p || !c) {
+		prevIncomplete.value = [];
+		prevDateLabel.value = '';
+		return;
+	}
+	// Base on nearest day (nextDateISO) -> previous calendar day
+	const msDay = 86400000;
+	const targetYMD = nextDateISO.value;
+	const nextDate = targetYMD ? parseISODateYMD(targetYMD) : null;
+	const prevDate = nextDate ? new Date(nextDate.getTime() - msDay) : (() => { const d = new Date(); d.setHours(0,0,0,0); return new Date(d.getTime() - msDay); })();
+	loadPrevCompleted(prevDate);
+	// Build human label
+	const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+	prevDateLabel.value = `${prevDate.getDate()} ${months[prevDate.getMonth()]} ${prevDate.getFullYear()}, вчера`;
+
+	// If plan hasn't started yet, skip
+	let start: Date | null = null;
+	if (c.startDate) {
+		try {
+			start = new Date(Number(c.startDate));
+			start.setHours(0, 0, 0, 0);
+		} catch { start = null; }
+	}
+	if (start && start.getTime() > prevDate.getTime()) {
+		prevIncomplete.value = [];
+		return;
+	}
+
+	let cycle: 'weekly' | 'custom' | null = null;
+	let dayIndex = 0;
+	if (c.cycleType === 'weekly' && Array.isArray(c.weekly?.days)) {
+		const dow = (prevDate.getDay() + 6) % 7; // Пн=0
+		if ((c.weekly.days as number[])[dow] > 0) {
+			cycle = 'weekly';
+			dayIndex = dow;
+		} else {
+			prevIncomplete.value = [];
+			return;
+		}
+	} else if (c.cycleType === 'custom' && Array.isArray(c.custom?.days)) {
+		const arr = c.custom.days as number[];
+		if (!arr.length) {
+			prevIncomplete.value = [];
+			return;
+		}
+		const effectiveStart = start ?? prevDate;
+		const daysSince = Math.floor((prevDate.getTime() - effectiveStart.getTime()) / msDay);
+		if (daysSince < 0) {
+			prevIncomplete.value = [];
+			return;
+		}
+		const idx = daysSince % arr.length;
+		if (arr[idx] > 0) {
+			cycle = 'custom';
+			dayIndex = idx;
+		} else {
+			prevIncomplete.value = [];
+			return;
+		}
+	} else {
+		prevIncomplete.value = [];
+		return;
+	}
+
+	const rows = await suppPlan.listForDayDetailed(p.id, cycle, dayIndex);
+	// Only those not marked completed yesterday
+	prevIncomplete.value = rows.filter((it: any) => !prevCompletedSet.value.has(it.id));
 }
 
 function toggleSlotCompleted(slot: number) {
@@ -308,7 +430,15 @@ onMounted(async () => {
 	await reloadDayItems();
 	await loadAllForConfig();
 	loadCompleted();
+	await loadPrevIncomplete();
 });
+
+watch(
+	() => nextDateISO.value,
+	async () => {
+		await loadPrevIncomplete();
+	}
+);
 </script>
 
 <template>
@@ -392,8 +522,12 @@ onMounted(async () => {
 						:format-dose="formatDose"
 						:is-completed="isCompleted"
 						:day-items-length="dayItems.length"
+						:prev-incomplete="prevIncomplete"
+						:prev-date-label="prevDateLabel"
+						:is-completed-prev="isCompletedPrev"
 						@toggle-item="toggleCompleted"
 						@toggle-slot="toggleSlotCompleted"
+						@toggle-item-prev="toggleCompletedPrev"
 					/>
 				</div>
 				<div class="supplements__tab-content" v-if="activeTab === 'all'">

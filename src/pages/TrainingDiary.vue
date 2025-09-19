@@ -347,7 +347,7 @@ function closeSessionDetails() {
 }
 
 function openRecordDetails(record: Record) {
-	console.log('Opening record details:', record);
+	void record; // reserved for future
 	// В будущем можно добавить модалку с детальной информацией о рекорде
 }
 

@@ -36,11 +36,14 @@ export default defineComponent({
 </template>
 <style>
 .themed-tabbar {
-	--van-tabbar-height: 54px;
+	/* Use shared height var; fallback to 54px */
+	--van-tabbar-height: var(--tabbar-height, 54px);
 	--van-tabbar-background: var(--color-elevated);
 	--van-tabbar-z-index: 100;
 	border-top: 1px solid var(--color-border);
 	backdrop-filter: blur(8px);
+	/* Не двигаем контейнер; увеличиваем внутренний отступ, чтобы контент был выше системной панели */
+	padding-bottom: var(--safe-bottom, env(safe-area-inset-bottom)) !important;
 }
 .themed-tabbar .van-tabbar-item {
 	transition: color var(--dur-2) var(--ease-std);

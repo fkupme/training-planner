@@ -124,11 +124,12 @@ const slotArray = (n: number) => Array.from({ length: n }, (_, i) => i);
 
 <style lang="scss" scoped>
 /* Adaptive Supplements All Tab - Based on Planner Style */
+
 .supp-all {
 	flex: 1;
 	overflow-y: auto;
 	overflow-x: hidden;
-	max-height: 66dvh;
+	max-height: calc(66dvh - var(--safe-bottom, env(safe-area-inset-bottom)) - var(--tabbar-height, 54px));
 	background: linear-gradient(
 		135deg,
 		color-mix(in srgb, var(--color-bg) 96%, transparent) 0%,

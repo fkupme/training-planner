@@ -1,20 +1,15 @@
 <script setup lang="ts">
 import {
-	ThemedIcon,
 	ThemedNavBar,
 	ThemedTabbar,
 	ThemedTabbarItem,
 } from '@/components/ui';
 import { computed, provide, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Icon } from '@iconify/vue';
-// Используем импортированные компоненты, чтобы линтер не ругался, пока правила шаблонов не настроены
-void [ThemedNavBar, ThemedIcon, ThemedTabbar, ThemedTabbarItem];
 
+// Router & header actions wire-up
 const route = useRoute();
 const router = useRouter();
-
-// Система для передачи действий в хедер от страниц
 const headerActions = ref<any[]>([]);
 provide('setHeaderActions', (actions: any[]) => {
 	headerActions.value = actions;
@@ -129,15 +124,6 @@ function handleBack() {
 			class="app-layout__header"
 			@clickLeft="handleBack"
 		>
-			<template #left>
-				<Icon
-					v-if="currentPageConfig.showBack"
-					icon="material-symbols:arrow-back"
-					width="24"
-					height="24"
-					class="nav-back-icon"
-				/>
-			</template>
 			<template #right>
 				
 			</template>
@@ -178,6 +164,9 @@ function handleBack() {
 	flex-direction: column;
 	background: var(--color-surface);
 	overflow: hidden;
+
+	/* Shared bottom tabbar height for inner tabs */
+	--tabbar-height: 54px;
 
 	&__header {
 		padding-top: calc(30px + var(--safe-top));
@@ -238,8 +227,8 @@ function handleBack() {
 		overflow-x: hidden;
 		background: var(--color-surface);
 
-		// Добавляем отступ для области безопасности
-		padding-bottom: env(safe-area-inset-bottom);
+		// Добавляем отступ для области безопасности (значение задаётся композаблом useSafeArea)
+		padding-bottom: var(--safe-bottom, env(safe-area-inset-bottom));
 	}
 
 	&__tabbar {
@@ -249,8 +238,8 @@ function handleBack() {
 		z-index: 100;
 		box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
     
-		// Учитываем нижнюю область безопасности
-		padding-bottom: calc(env(safe-area-inset-bottom) * 0.5);
+		// Отступ внутри самого таббара задаётся в ThemedTabbar.vue, здесь не дублируем
+		padding-bottom: 0;
 
 		:deep(.van-tabbar-item) {
 			color: var(--color-text-muted);

@@ -1,6 +1,8 @@
 <template>
 	<div class="chart-container">
 		<ApexChart
+			v-if="isMounted"
+			:key="chartKey"
 			type="bar"
 			:height="height"
 			:options="apexOptions"
@@ -12,7 +14,8 @@
 
 <script setup lang="ts">
 import ApexChart from 'vue3-apexcharts'
-import { computed } from 'vue'
+import ApexCharts from 'apexcharts'
+import { computed, onMounted, onBeforeUnmount, ref, getCurrentInstance } from 'vue'
 
 interface BarDataPoint {
 	label: string
@@ -75,16 +78,52 @@ const apexOptions = computed(() => {
 	const textColor = getComputedStyle(document.documentElement)
 		.getPropertyValue('--color-text').trim()
 
-	const colors = isChartData
-		? ((props.data as ChartData).datasets[0]?.backgroundColor as any) || [accentColor]
-		: (props.data as BarDataPoint[]).map(b => b.color || accentColor)
+	// Resolve CSS var() colors to computed values so ApexCharts doesn't render black bars
+	function resolveCssVar(value: string): string {
+		if (!value) return accentColor
+		const m = value.match(/^var\((--[^)]+)\)/)
+		if (m) {
+			const v = getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim()
+			return v || accentColor
+		}
+		return value
+	}
+	function normalizeColors(input: string | string[] | undefined): string[] {
+		if (!input) return [accentColor]
+		if (Array.isArray(input)) return input.map(resolveCssVar)
+		return [resolveCssVar(input)]
+	}
 
-		const base = {
+	// Build color palette: for multi-series charts, use each dataset's backgroundColor; otherwise derive from points
+	let colors: string[]
+	if (isChartData) {
+		const d = props.data as ChartData
+		const dsColors: string[] = []
+		for (const ds of d.datasets || []) {
+			if (Array.isArray(ds.backgroundColor)) {
+				// Use the first color for the series (Apex expects one color per series)
+				dsColors.push(resolveCssVar(ds.backgroundColor[0] as string))
+			} else if (typeof ds.backgroundColor === 'string') {
+				dsColors.push(resolveCssVar(ds.backgroundColor))
+			} else {
+				dsColors.push(accentColor)
+			}
+		}
+		colors = dsColors.length ? dsColors : [accentColor]
+	} else {
+		colors = normalizeColors((props.data as BarDataPoint[]).map(b => b.color || accentColor) as any)
+	}
+
+	const base = {
 		chart: {
 			type: 'bar',
 			stacked: false,
 			toolbar: { show: false },
-			foreColor: textColor || undefined,
+				foreColor: textColor || undefined,
+				animations: { enabled: false },
+				// vue3-apexcharts sometimes assumes events is an object; keep it defined
+				events: {},
+				id: chartKey
 		},
 		plotOptions: {
 			bar: {
@@ -102,16 +141,64 @@ const apexOptions = computed(() => {
 			title: { text: props.xAxisLabel }
 		},
 		yaxis: { labels: { formatter: (v: number) => `${v}` }, title: { text: props.yAxisLabel } },
-		grid: { borderColor },
-		legend: { show: props.showLegend },
+			grid: { borderColor },
+	legend: { show: props.showLegend },
 		title: { text: props.title, style: { color: textColor } },
-		tooltip: { theme: 'dark' },
+			tooltip: { theme: 'dark' },
 		responsive: [{ breakpoint: 480, options: { chart: { width: '100%' } } }]
 		} as any
 
-		// Allow external overrides via `options`
-		return props.options ? { ...base, ...props.options } : base
+		// Allow external overrides via `options` (sanitize Chart.js-specific keys)
+		function sanitizeOverrides(input: any): any {
+			if (!input || typeof input !== 'object') return {}
+			const disallowedTop = new Set([
+				// Chart.js-only keys that break Apex when merged
+				'responsive',
+				'maintainAspectRatio',
+				'plugins',
+				'scales',
+				'interaction',
+				'layout',
+				'indexAxis',
+				'hover',
+			])
+			const out: any = {}
+			for (const [k, v] of Object.entries(input)) {
+				if (disallowedTop.has(k)) continue
+				// shallow copy primitives/arrays/objects as-is; deep sanitize known subtrees if needed
+				if (k === 'chart' && v && typeof v === 'object') {
+					// prevent overriding id/animations/toolbar with incompatible shapes
+					const { id: _id, animations: _an, toolbar: _tb, ...rest } = v as any
+					out[k] = rest
+				} else {
+					out[k] = v
+				}
+			}
+			return out
+		}
+
+		const safeOverrides = sanitizeOverrides(props.options)
+		if (!props.options) return base
+		const merged = { ...base, ...safeOverrides } as any
+		if (safeOverrides.chart && typeof safeOverrides.chart === 'object') {
+			merged.chart = { ...base.chart, ...safeOverrides.chart }
+		}
+		return merged
 })
+
+// Workaround: avoid vue3-apexcharts update on unmounted DOM during route transitions
+const isMounted = ref(false)
+onMounted(() => { isMounted.value = true })
+onBeforeUnmount(() => {
+	isMounted.value = false
+	try {
+		// Ensure Apex instance is torn down to avoid wrapper errors
+		(ApexCharts as any)?.exec?.(chartKey, 'destroy')
+	} catch {}
+})
+
+// Stable key per component instance to avoid weird unmount state in vue3-apexcharts
+const chartKey = `bar-${getCurrentInstance()?.uid ?? 0}`
 </script>
 
 <style scoped>

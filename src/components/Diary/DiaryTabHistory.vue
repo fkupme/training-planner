@@ -436,7 +436,7 @@ function formatSessionInfo(session: TrainingHistory) {
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-4);
-	padding-bottom: var(--space-6);
+	padding-bottom: calc(40px + var(--tabbar-height, 54px) + var(--safe-bottom, env(safe-area-inset-bottom)) + var(--ime-bottom, 0px)); // Нижний отступ + безопасная зона + меню
 }
 
 .timeline-item {

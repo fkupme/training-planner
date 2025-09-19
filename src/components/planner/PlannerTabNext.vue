@@ -340,7 +340,7 @@ function onShiftCycle() {
 
 <style lang="scss" scoped>
 .planner-next {
-	height: 67dvh;
+	height: calc(67dvh - var(--safe-bottom, env(safe-area-inset-bottom)) - var(--tabbar-height, 54px));
 	position: relative;
 	overflow: hidden;
 	background: linear-gradient(

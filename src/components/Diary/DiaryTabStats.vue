@@ -1,248 +1,55 @@
 <template>
     <div class="diary-stats">
         <!-- Period Selector -->
-        <div class="stats-header">
-            <div class="period-selector">
-                <button
-                    v-for="period in periods"
-                    :key="period.value"
-                    :class="['period-btn', { active: selectedPeriod === period.value }]"
-                    @click="selectedPeriod = period.value"
-                >
-                    {{ period.label }}
-                </button>
-            </div>
-            
-            <button class="export-btn" @click="handleExport">
-                <van-icon name="share-o" />
-            </button>
-        </div>
+        <StatsHeader
+            v-model="selectedPeriod"
+            :periods="periods"
+            @export="handleExport"
+        />
 
         <!-- Quick Stats Cards -->
-        <div class="quick-stats">
-            <div class="stat-card">
-                <div class="stat-card__value">{{ quickStats.totalWorkouts }}</div>
-                <div class="stat-card__label">Тренировок</div>
-                <div class="stat-card__trend" :class="{ positive: quickStats.workoutsTrend > 0 }">
-                    <van-icon :name="quickStats.workoutsTrend > 0 ? 'arrow-up' : 'arrow-down'" />
-                    {{ Math.abs(quickStats.workoutsTrend) }}%
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-card__value">{{ quickStats.totalVolume }} кг</div>
-                <div class="stat-card__label">Тоннаж</div>
-                <div class="stat-card__trend" :class="{ positive: quickStats.volumeTrend > 0 }">
-                    <van-icon :name="quickStats.volumeTrend > 0 ? 'arrow-up' : 'arrow-down'" />
-                    {{ Math.abs(quickStats.volumeTrend) }}%
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-card__value">{{ quickStats.avgIntensity }}</div>
-                <div class="stat-card__label">Ср. RPE</div>
-                <div class="stat-card__trend" :class="{ neutral: true }">
-                    <van-icon name="minus" />
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-card__value">{{ quickStats.consistency }}%</div>
-                <div class="stat-card__label">Регулярность</div>
-                <div class="stat-card__trend" :class="{ positive: quickStats.consistency > 80 }">
-                    <van-icon name="fire-o" />
-                    {{ quickStats.streak }} д
-                </div>
-            </div>
-        </div>
+    <QuickStats :stats="quickStats" />
 
         <!-- Charts Section -->
         <div class="charts-container scroll-container">
             <!-- Volume Chart -->
-            <div class="chart-card">
-                <div class="chart-header">
-                    <h3 class="chart-title">Тренировочный объём</h3>
-                    <div class="chart-controls">
-                        <button 
-                            v-for="view in volumeViews" 
-                            :key="view"
-                            :class="['chart-view-btn', { active: volumeView === view }]"
-                            @click="volumeView = view"
-                        >
-                            {{ view }}
-                        </button>
-                    </div>
-                </div>
-                <div class="chart-content">
-                    <LineChart
-                        :data="volumeChartData"
-                        :options="volumeChartOptions"
-                        :height="150"
-                    />
-                </div>
-                <div class="chart-legend">
-                    <div class="legend-item" v-for="group in volumeLegend" :key="group.label">
-                        <span class="legend-dot" :style="{ background: group.color }"></span>
-                        <span class="legend-label">{{ group.label }}</span>
-                        <span class="legend-value">{{ group.value }} кг</span>
-                    </div>
-                </div>
-            </div>
+            <VolumeChart
+                v-model="volumeView"
+                :views="volumeViews"
+                :data="volumeChartData"
+                :options="volumeChartOptions"
+                :legend="volumeLegend"
+                :metric="volumeMetric"
+                :selected-exercise-label="volumeSelectedExerciseLabel"
+                @open-exercise-picker="openExercisePicker('volume')"
+                @toggle-metric="toggleVolumeMetric"
+            />
 
-            <!-- Muscle Groups Heatmap -->
-            <div class="chart-card">
-                <div class="chart-header">
-                    <h3 class="chart-title">Нагрузка по группам мышц</h3>
-                    <div class="chart-subtitle">Сеты за последние 4 недели</div>
-                </div>
-                <div class="heatmap-content">
-                    <div class="heatmap-grid">
-                        <div class="heatmap-labels">
-                            <div class="heatmap-label" v-for="muscle in muscleGroups" :key="muscle">
-                                {{ muscle }}
-                            </div>
-                        </div>
-                        <div class="heatmap-weeks">
-                            <div class="heatmap-week" v-for="week in 4" :key="week">
-                                <div class="heatmap-week-label">Нед {{ week }}</div>
-                                <div 
-                                    v-for="muscle in muscleGroups" 
-                                    :key="`${week}-${muscle}`"
-                                    class="heatmap-cell-wrapper"
-                                >
-                                    <div
-                                        class="heatmap-cell"
-                                        :style="{ 
-                                            background: getHeatmapColor(getMuscleSets(muscle, week)),
-                                            opacity: getHeatmapOpacity(getMuscleSets(muscle, week))
-                                        }"
-                                        @click="showMuscleTooltip(muscle, week)"
-                                    >
-                                        {{ getMuscleSets(muscle, week) || '-' }}
-                                    </div>
-                                    
-                                    <!-- Тултип для каждой ячейки -->
-                                    <div 
-                                        v-if="tooltipData.show && tooltipData.muscle === muscle && tooltipData.week === week"
-                                        class="muscle-tooltip"
-                                        @click="hideTooltip"
-                                    >
-                                        <div class="tooltip-header">
-                                            <strong>{{ muscle }} - Неделя {{ week }}</strong>
-                                        </div>
-                                        <div class="tooltip-body">
-                                            <div class="tooltip-row">
-                                                <span class="tooltip-label">Основная:</span>
-                                                <span class="tooltip-value">{{ tooltipData.primary }} подходов</span>
-                                            </div>
-                                            <div class="tooltip-row">
-                                                <span class="tooltip-label">Дополнительная:</span>
-                                                <span class="tooltip-value">{{ tooltipData.secondary }} подходов</span>
-                                            </div>
-                                            <div class="tooltip-row">
-                                                <span class="tooltip-label">Всего:</span>
-                                                <span class="tooltip-value total">{{ tooltipData.primary + tooltipData.secondary }} подходов</span>
-                                            </div>
-                                            <div class="tooltip-exercises" v-if="tooltipData.exercises.length > 0">
-                                                <div class="tooltip-label">Упражнения:</div>
-                                                <div class="exercise-list">
-                                                    <span v-for="(exercise, idx) in tooltipData.exercises" :key="idx" class="exercise-tag">
-                                                        {{ exercise }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="heatmap-scale">
-                        <span class="scale-label">Мало</span>
-                        <div class="scale-gradient"></div>
-                        <span class="scale-label">Много</span>
-                    </div>
-                </div>
-            </div>
+                                    <!-- Muscle Groups Heatmap (Apex) -->
+                                    <MuscleHeatmapApex
+                                        :muscle-groups="muscleGroups"
+                                        :get-muscle-sets="getMuscleSets"
+                                        :selected-muscles="selectedMuscles"
+                                        :weeks-count="weeksCount"
+                                        :get-muscle-details="getMuscleDetailsSync"
+                                    />
 
             <!-- Intensity Distribution -->
-            <div class="chart-card">
-                <div class="chart-header">
-                    <h3 class="chart-title">Распределение интенсивности</h3>
-                    <div class="chart-subtitle">RPE по подходам</div>
-                </div>
-                <div class="chart-content chart-content--hidden">
-                    <BarChart
-                        :data="intensityChartData"
-                        :options="intensityChartOptions"
-                        :height="220"
-                    />
-                </div>
-                <div class="intensity-zones">
-                    <div class="zone zone--light">
-                        <div class="zone-bar" :style="{ width: intensityZones.light + '%' }"></div>
-                        <span class="zone-label">Лёгкая (RPE 5-6)</span>
-                        <span class="zone-value">{{ intensityZones.light }}%</span>
-                    </div>
-                    <div class="zone zone--moderate">
-                        <div class="zone-bar" :style="{ width: intensityZones.moderate + '%' }"></div>
-                        <span class="zone-label">Средняя (RPE 7-8)</span>
-                        <span class="zone-value">{{ intensityZones.moderate }}%</span>
-                    </div>
-                    <div class="zone zone--hard">
-                        <div class="zone-bar" :style="{ width: intensityZones.hard + '%' }"></div>
-                        <span class="zone-label">Тяжёлая (RPE 9-10)</span>
-                        <span class="zone-value">{{ intensityZones.hard }}%</span>
-                    </div>
-                </div>
-            </div>
+                        <IntensityDistribution
+                            :rpe-data="intensityChartData.rpe"
+                            :rir-data="intensityChartData.rir"
+                            :options="intensityChartOptions"
+                            :zones="intensityZones"
+                        />
 
             <!-- Progress Tracking -->
-            <div class="chart-card">
-                <div class="chart-header">
-                    <h3 class="chart-title">Прогресс по упражнениям</h3>
-                    <van-field
-                        v-model="selectedExerciseName"
-                        is-link
-                        readonly
-                        label=""
-                        placeholder="Выберите упражнение"
-                        @click="showExercisePicker = true"
-                    />
-                </div>
-                <div class="chart-content">
-                    <LineChart
-                        v-if="progressChartData"
-                        :data="progressChartData"
-                        :options="progressChartOptions"
-                        :height="150"
-                    />
-                    <div v-else class="no-data">Выберите упражнение для просмотра прогресса</div>
-                </div>
-                <div class="progress-stats" v-if="exerciseProgress">
-                    <div class="progress-stat">
-                        <Icon icon="uil:chart-growth" width="24" height="24"/>
-                        <div class="stat-info">
-                            <div class="stat-value">+{{ exerciseProgress.improvement }}%</div>
-                            <div class="stat-label">Прирост</div>
-                        </div>
-                    </div>
-                    <div class="progress-stat">
-                        <Icon icon="uil:trophy" />
-                        <div class="stat-info">
-                            <div class="stat-value">{{ exerciseProgress.maxWeight }} кг</div>
-                            <div class="stat-label">Макс. вес</div>
-                        </div>
-                    </div>
-                    <div class="progress-stat">
-                        <Icon icon="mynaui:target-solid" />
-                        <div class="stat-info">
-                            <div class="stat-value">{{ exerciseProgress.avgRPE }}</div>
-                            <div class="stat-label">Ср. RPE</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                        <ProgressChart
+                            :data="progressChartData"
+                            :options="progressChartOptions"
+                            :progress="exerciseProgress"
+                            :model-value-name="progressExerciseName"
+                            @open-picker="openExercisePicker('progress')"
+                        />
 
             <!-- Microcycle Analysis -->
             <div class="chart-card">
@@ -366,10 +173,13 @@ import { useSessionsStore } from '@/stores/sessions';
 import { useExercisesStore } from '@/stores/exercises';
 import { useSupplementsStore } from '@/stores/supplements';
 import { useTrainingStats } from '@/composables/useTrainingStats';
-import LineChart from '@/components/ui/LineChart.vue';
-import BarChart from '@/components/ui/BarChart.vue';
 import ThemeActionSheet from '@/components/ui/ThemeActionSheet.vue';
-import { Icon } from '@iconify/vue';
+import StatsHeader from '@/components/Diary/Stats/StatsHeader.vue';
+import QuickStats from '@/components/Diary/Stats/QuickStats.vue';
+import VolumeChart from '@/components/Diary/Stats/VolumeChart.vue';
+import MuscleHeatmapApex from '@/components/Diary/Stats/MuscleHeatmapApex.vue';
+import IntensityDistribution from '@/components/Diary/Stats/IntensityDistribution.vue';
+import ProgressChart from '@/components/Diary/Stats/ProgressChart.vue';
 import { showToast } from 'vant';
 
 // Define emits
@@ -384,40 +194,26 @@ const stats = useTrainingStats();
 
 const selectedPeriod = ref('month');
 const volumeView = ref('Общий');
+const volumeMetric = ref<'tonnage' | 'reps'>('tonnage');
 const selectedExercise = ref<number | null>(null);
 const selectedExerciseName = ref('');
+const progressExerciseName = ref('');
+const volumeSelectedExerciseLabel = computed(() => selectedExerciseName.value || 'Все упражнения');
 const showExercisePicker = ref(false);
+const pickerContext = ref<'volume' | 'progress' | null>(null);
 
-// Тултип для heatmap
-const tooltipData = ref<{
-    show: boolean;
-    x: number;
-    y: number;
-    muscle: string;
-    week: number;
-    primary: number;
-    secondary: number;
-    exercises: string[];
-}>({
-    show: false,
-    x: 0,
-    y: 0,
-    muscle: '',
-    week: 0,
-    primary: 0,
-    secondary: 0,
-    exercises: []
-});
+// Кастомный оверлей тултипа для heatmap больше не используется (используем стандартный Apex tooltip)
 
 // Реактивные данные для графиков
 const quickStats = ref({ totalWorkouts: 0, workoutsTrend: 0, totalVolume: 0, volumeTrend: 0, avgIntensity: 7.2, consistency: 0, streak: 0 });
 const volumeChartData = ref({ labels: [] as string[], datasets: [] as any[] });
 const volumeLegend = ref([] as any[]);
-const intensityChartData = ref({ labels: [] as string[], datasets: [] as any[] });
+const intensityChartData = ref({ rpe: { labels: [] as string[], datasets: [] as any[] }, rir: { labels: [] as string[], datasets: [] as any[] } });
 const intensityZones = ref({ light: 0, moderate: 0, hard: 0 });
 const topExercises = ref([] as any[]);
 const progressChartData = ref(null as any);
 const exerciseProgress = ref(null as any);
+const progressExerciseId = ref<number | null>(null);
 
 const periods = [
     { label: 'Неделя', value: 'week' },
@@ -434,47 +230,58 @@ const fatigueStatus = computed(() => sessions.getFatigueStatus(fatigueLevel.valu
 const fatigueStatusText = computed(() => sessions.getFatigueStatusText(fatigueStatus.value));
 const recoveryMetrics = ref({ avgRestDays: 0, acuteLoad: 0, chronicLoad: 0, ratio: 0 });
 
+// (heatmap tooltip handler removed after switching to Radar)
+
 // Загрузка данных статистики
 const loadStatsData = async () => {
-    console.log('[DiaryTabStats] Загружаем статистику для периода:', selectedPeriod.value);
+    // log removed
     
     try {
         // Загружаем все данные параллельно
         const [
             quickStatsData,
-            volumeData,
+            _volumeData,
             intensityData,
             zonesData,
             exercisesData
         ] = await Promise.all([
             stats.getQuickStats(selectedPeriod.value),
-            stats.getVolumeChart(selectedPeriod.value, volumeView.value),
+            stats.getVolumeChart(selectedPeriod.value, volumeView.value, volumeMetric.value, selectedExercise.value || undefined),
             stats.getIntensityChart(selectedPeriod.value),
             stats.getIntensityZones(selectedPeriod.value),
             stats.getTopExercises(selectedPeriod.value)
         ]);
 
         quickStats.value = quickStatsData;
-        volumeChartData.value = volumeData;
+        volumeChartData.value = _volumeData;
         intensityChartData.value = intensityData;
         intensityZones.value = zonesData;
         topExercises.value = exercisesData;
 
-        // Автовыбор первого упражнения
-        if (exercisesData.length > 0 && !selectedExercise.value) {
-            const firstExercise = exercisesData[0];
-            selectedExercise.value = firstExercise.id;
-            selectedExerciseName.value = firstExercise.name;
-            
-            // Загружаем прогресс для первого упражнения
-            await loadExerciseProgress(firstExercise.id);
-        }
+    // Defaults:
+    // - Volume: All exercises (selectedExercise = null)
+    // - Progress: select first exercise by default
+    if (!progressExerciseId.value && exercisesData.length > 0) {
+        const first = exercisesData[0];
+        progressExerciseId.value = first.id;
+        progressExerciseName.value = first.name;
+        await loadExerciseProgress(first.id);
+    }
 
-        // Простая легенда для объёма (пока моковая)
-        volumeLegend.value = [
-            { label: 'Текущий период', value: quickStatsData.totalVolume.toString(), color: 'var(--color-accent)' },
-            { label: 'Предыдущий', value: Math.round(quickStatsData.totalVolume * 0.9).toString(), color: 'var(--color-text-muted)' }
-        ];
+        // Легенда подстраивается под выбранную метрику
+        // Легенда учитывает фильтр по упражнению
+        try {
+            const totals = await stats.getMetricTotals(selectedPeriod.value, volumeMetric.value, selectedExercise.value || undefined);
+            volumeLegend.value = [
+                { label: 'Текущий период', value: String(totals.current), color: 'var(--color-accent)' },
+                { label: 'Предыдущий', value: String(totals.previous), color: 'var(--color-text-muted)' }
+            ];
+        } catch {
+            volumeLegend.value = [
+                { label: 'Текущий период', value: (volumeMetric.value === 'tonnage' ? quickStatsData.totalTonnage : quickStatsData.totalVolume).toString(), color: 'var(--color-accent)' },
+                { label: 'Предыдущий', value: (volumeMetric.value === 'tonnage' ? quickStatsData.prevTonnage : quickStatsData.prevVolume).toString(), color: 'var(--color-text-muted)' }
+            ];
+        }
 
         // Загружаем данные по мышечным группам
         await loadMuscleData();
@@ -491,11 +298,7 @@ const loadStatsData = async () => {
             fatigueLevel.value = fatigueLevelData;
             recoveryMetrics.value = recoveryData;
 
-            console.log('[DiaryTabStats] Загружены реальные данные:', {
-                microcycles: microcyclesData,
-                fatigue: fatigueLevelData,
-                recovery: recoveryData
-            });
+            // log removed
         } catch (error) {
             console.error('[DiaryTabStats] Ошибка загрузки дополнительных данных:', error);
         }
@@ -508,6 +311,9 @@ const loadStatsData = async () => {
 
 // Обновление данных при смене периода
 const updateStatsForPeriod = () => {
+    if ((stats as any).refreshAll) {
+        void (stats as any).refreshAll(selectedPeriod.value, { view: volumeView.value, metric: volumeMetric.value, exerciseId: selectedExercise.value });
+    }
     loadStatsData();
 };
 
@@ -515,6 +321,11 @@ const updateStatsForPeriod = () => {
 import { watch } from 'vue';
 watch(selectedPeriod, updateStatsForPeriod);
 watch(volumeView, updateStatsForPeriod);
+watch(volumeMetric, updateStatsForPeriod);
+
+function toggleVolumeMetric() {
+    volumeMetric.value = volumeMetric.value === 'tonnage' ? 'reps' : 'tonnage'
+}
 
 // Chart options (из sessions store)
 const volumeChartOptions = sessions.getVolumeChartOptions();
@@ -524,77 +335,82 @@ const progressChartOptions = sessions.getProgressChartOptions();
 // Muscle groups heatmap
 const muscleGroups = computed(() => exercises.muscles.map(m => m.name));
 const muscleData = ref({} as Record<string, Record<number, number>>);
+const muscleDetails = ref({} as Record<string, Record<number, { primary: number; secondary: number; exercises: string[] }>>)
+// Поддержка фильтра мышц из модалки (пока все)
+const selectedMuscles = computed(() => muscleGroups.value)
+// Счёт недель от выбора периода (по умолчанию 4)
+const weeksCount = computed(() => selectedPeriod.value === 'month' ? 4 : selectedPeriod.value === 'quarter' ? 12 : selectedPeriod.value === 'year' ? 52 : 1)
 
 async function loadMuscleData() {
     const data: Record<string, Record<number, number>> = {};
+    const weeks = weeksCount.value || 4;
     for (const muscle of muscleGroups.value) {
         data[muscle] = {};
-        for (let week = 1; week <= 4; week++) {
+        for (let week = 1; week <= weeks; week++) {
             data[muscle][week] = await stats.getMuscleSets(muscle, week);
         }
     }
     muscleData.value = data;
+        // Префетч деталей для тултипов (чтобы tooltip работал синхронно)
+        const det: Record<string, Record<number, { primary: number; secondary: number; exercises: string[] }>> = {}
+        for (const muscle of muscleGroups.value) {
+            det[muscle] = {}
+            for (let week = 1; week <= weeks; week++) {
+                try {
+                    det[muscle][week] = await stats.getMuscleDetails(muscle, week)
+                } catch {
+                    det[muscle][week] = { primary: 0, secondary: 0, exercises: [] }
+                }
+            }
+        }
+        muscleDetails.value = det
 }
 
 function getMuscleSets(muscle: string, week: number) {
     return muscleData.value[muscle]?.[week] || 0;
 }
-function getHeatmapColor(value: number) {
-    return sessions.getHeatmapColor(value);
+function getMuscleDetailsSync(muscle: string, week: number) {
+    return muscleDetails.value[muscle]?.[week]
 }
-function getHeatmapOpacity(value: number) {
-    return sessions.getHeatmapOpacity(value);
-}
+// (heatmap color/opacity helpers no longer used)
 
-// Показ тултипа для мышечной группы
-async function showMuscleTooltip(muscle: string, week: number) {
-    const details = await stats.getMuscleDetails(muscle, week);
-    
-    tooltipData.value = {
-        show: true,
-        x: 0, // Не нужно для относительного позиционирования
-        y: 0, // Не нужно для относительного позиционирования
-        muscle,
-        week,
-        primary: details.primary,
-        secondary: details.secondary,
-        exercises: details.exercises
-    };
-    
-    // Автоскрытие через 5 секунд
-    setTimeout(() => {
-        if (tooltipData.value.muscle === muscle && tooltipData.value.week === week) {
-            tooltipData.value.show = false;
-        }
-    }, 5000);
-}
-
-// Скрытие тултипа
-function hideTooltip() {
-    tooltipData.value.show = false;
-}
+// Показ кастомного тултипа удалён — Apex показывает значения автоматически
 
 // Progress tracking
-const exerciseActions = computed(() => 
-    topExercises.value.map((ex: any) => ({ 
-        name: ex.name, 
-        value: ex.id
-    }))
-);
+const exerciseActions = computed(() => {
+    const all = [{ name: 'Все упражнения', value: null }];
+    const list = topExercises.value.map((ex: any) => ({ name: ex.name, value: ex.id }));
+    // Для Volume показываем вариант "Все упражнения", для Progress — только конкретные
+    return pickerContext.value === 'progress' ? list : [...all, ...list];
+});
 
-function onExerciseSelect(action: any) {
-    console.log('[DiaryTabStats] Выбрано упражнение:', action);
-    
-    if (!action?.value) {
-        console.warn('[DiaryTabStats] Неправильные данные упражнения:', action);
+async function onExerciseSelect(action: any) {
+    // log removed
+    showExercisePicker.value = false;
+
+    if (pickerContext.value === 'progress') {
+        if (!action || action.value == null) return;
+        progressExerciseId.value = action.value;
+        progressExerciseName.value = action.name;
+        await loadExerciseProgress(action.value);
         return;
     }
-    
-    selectedExercise.value = action.value;
-    selectedExerciseName.value = action.name;
 
-    // Загружаем прогресс для выбранного упражнения
-    loadExerciseProgress(action.value);
+    // Volume context — поддерживает "Все упражнения"
+    selectedExercise.value = action?.value ?? null;
+    selectedExerciseName.value = action?.value ? action.name : '';
+    const vol = await stats.getVolumeChart(selectedPeriod.value, volumeView.value, volumeMetric.value, selectedExercise.value || undefined);
+    volumeChartData.value = vol;
+    const totals = await stats.getMetricTotals(selectedPeriod.value, volumeMetric.value, selectedExercise.value || undefined);
+    volumeLegend.value = [
+        { label: 'Текущий период', value: String(totals.current), color: 'var(--color-accent)' },
+        { label: 'Предыдущий', value: String(totals.previous), color: 'var(--color-text-muted)' }
+    ];
+}
+
+function openExercisePicker(ctx: 'volume' | 'progress') {
+    pickerContext.value = ctx;
+    showExercisePicker.value = true;
 }
 
 async function loadExerciseProgress(exerciseId: number) {
@@ -606,7 +422,8 @@ async function loadExerciseProgress(exerciseId: number) {
         if (progress.weightHistory && progress.weightHistory.length > 0) {
             const labels = progress.weightHistory.map((h: any) => h.date);
             const weightData = progress.weightHistory.map((h: any) => h.weight);
-            const rpeData = progress.weightHistory.map((h: any) => h.rpe || 7);
+            // Attach per-point RPE/RIR metadata for tooltip
+            const pointMeta = progress.weightHistory.map((h: any) => ({ rpe: h.rpe, rir: h.rir }));
 
             progressChartData.value = {
                 labels,
@@ -617,16 +434,13 @@ async function loadExerciseProgress(exerciseId: number) {
                         borderColor: 'var(--color-accent)', 
                         tension: 0.3, 
                         yAxisID: 'y' 
-                    },
-                    { 
-                        label: 'RPE', 
-                        data: rpeData, 
-                        borderColor: 'var(--color-warning)', 
-                        tension: 0.3, 
-                        yAxisID: 'y1' 
                     }
                 ]
             };
+            // Store meta so tooltip can access it via apex options
+            // Using a convention: put in options.dataLabels.__meta
+            // Note: LineChart.vue reads this and renders it
+            (progressChartOptions as any).dataLabels = { ...(progressChartOptions as any).dataLabels, __meta: pointMeta };
         } else {
             progressChartData.value = null;
         }
@@ -642,19 +456,30 @@ function handleExport() {
 }
 
 onMounted(() => {
-    console.log('[DiaryTabStats] Компонент монтируется, загружаем данные...');
+    // log removed
     sessions.loadTrainingHistory();
     exercises.loadMuscles();
     supplements.loadAll();
     
     // Загружаем статистику после загрузки основных данных
-    setTimeout(() => {
+    setTimeout(async () => {
+        // Warm caches to show instantly; trigger background refresh
+        await stats.getTopExercises(selectedPeriod.value);
+        await stats.getQuickStats(selectedPeriod.value);
+        await stats.getVolumeChart(selectedPeriod.value, volumeView.value, volumeMetric.value, selectedExercise.value || undefined);
+        await stats.getIntensityChart(selectedPeriod.value);
+        await stats.getIntensityZones(selectedPeriod.value);
+        await stats.getMetricTotals(selectedPeriod.value, volumeMetric.value, selectedExercise.value || undefined);
+        // Also kick a consolidated background refresh but don’t await
+        if ((stats as any).refreshAll) {
+            void (stats as any).refreshAll(selectedPeriod.value, { view: volumeView.value, metric: volumeMetric.value, exerciseId: selectedExercise.value });
+        }
         loadStatsData();
     }, 500);
 });
 </script>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .diary-stats {
     height: 100%;
     display: flex;
@@ -778,7 +603,7 @@ onMounted(() => {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 0 var(--space-4) 90px; // Уменьшил нижний отступ
+    padding: 0 var(--space-4) calc(90px + var(--tabbar-height, 54px) + var(--safe-bottom, env(safe-area-inset-bottom)) + var(--ime-bottom, 0px)); // Нижний отступ + безопасная зона + меню
     height: 0; // Трюк для правильного flex: 1 со скроллом
 }
 
@@ -974,7 +799,7 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    padding-top: var(--space-3);
+    padding-top: var(--space-8);
     border-top: 1px solid var(--color-border);
     overflow: hidden;
 }
@@ -993,17 +818,10 @@ onMounted(() => {
     border-radius: var(--radius-pill);
     transition: width var(--dur-3) var(--ease-std);
 
-    .zone--light & {
-        background: var(--color-success);
-    }
-
-    .zone--moderate & {
-        background: var(--color-warning);
-    }
-
-    .zone--hard & {
-        background: var(--color-accent);
-    }
+    /* Align with charts: use a single accent hue with varying opacity */
+    .zone--light & { background: color-mix(in srgb, var(--color-accent) 35%, transparent); }
+    .zone--moderate & { background: color-mix(in srgb, var(--color-accent) 60%, transparent); }
+    .zone--hard & { background: var(--color-accent); }
 }
 
 .zone-label {

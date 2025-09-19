@@ -79,6 +79,10 @@ body {
 	--color-accent: #2e9cca;
 	--color-accent-contrast: #08141a;
 	--color-accent-soft: rgba(46, 156, 202, 0.15);
+	/* Apex helpers */
+	--apex-label: var(--color-text);
+	--apex-label-muted: var(--color-text-muted);
+	--apex-grid: var(--color-border);
 	--color-accent-hover: #3db0db;
 	--color-success: #10b981;
 	--color-warning: #f59e0b;
@@ -822,9 +826,7 @@ html {
 		color: var(--color-text) !important;
 		border-top: 1px solid var(--color-border) !important;
 	}
-	.van-picker__toolbar {
-		
-	}
+	// removed empty .van-picker__toolbar block to satisfy linter
 	.van-action-sheet__item {
 		font-weight: 500 !important;
 		color: var(--color-text) !important;

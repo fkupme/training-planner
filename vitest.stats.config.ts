@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
+// Dedicated config to run only the stats store tests in isolation.
 export default defineConfig({
   plugins: [vue()],
   resolve: {
@@ -13,13 +14,10 @@ export default defineConfig({
     environment: 'happy-dom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    include: ['src/stores/__tests__/stats.api.test.ts'],
     exclude: [
       '**/tests/e2e/**',
       '**/node_modules/**',
-  'src/__tests__/**',
-  'src/stores/__tests__/**',
-  'src/services/__tests__/**',
-      'src/composables/__tests__/usePlannerLogic.dayoffset.test.ts'
     ],
   },
 })

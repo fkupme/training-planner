@@ -134,7 +134,7 @@
 										<span class="set-number">{{ set.set_number }}</span>
 										<span class="set-reps">{{ set.reps_completed || '—' }}</span>
 										<span class="set-weight">{{ set.weight_used ? `${set.weight_used} кг` : '—' }}</span>
-										<span class="set-rpe">{{ set.rpe_rir || '—' }}</span>
+										<span class="set-rpe">{{ formatRPERIRForDisplay(set.rpe_rir) || '—' }}</span>
 									</div>
 									
 									<!-- Комментарий к подходу -->
@@ -253,6 +253,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { parseRPERIR } from '@/utils/rpeRirParser';
 import { type TrainingHistory, type SessionExerciseData, useSessionsStore } from '@/stores/sessions';
 import { showToast, showNotify } from 'vant';
 import { Icon } from '@iconify/vue';
@@ -495,7 +496,8 @@ function generateDetailedShareText(): string {
 			exercise.sets.forEach(set => {
 				text += `   • ${set.set_number}: ${set.reps_completed || '—'} повт.`;
 				if (set.weight_used) text += `, ${set.weight_used} кг`;
-				if (set.rpe_rir) text += `, RPE ${set.rpe_rir}`;
+				const display = formatRPERIRForDisplay(set.rpe_rir);
+				if (display) text += `, ${display}`;
 				if (set.notes) text += ` (${set.notes})`;
 				text += '\n';
 			});
@@ -506,6 +508,16 @@ function generateDetailedShareText(): string {
 	text += '\n\n📱 Сделано с помощью Training Planner';
 	
 	return text;
+}
+
+// Local helper to format RPE/RIR consistently for display
+function formatRPERIRForDisplay(rpeRirString: string | null): string {
+	const { rpe, rir } = parseRPERIR(rpeRirString);
+	if (rpe === null && rir === null) return '';
+	if (rir === null && rpe !== null) return `RPE ${rpe}`;
+	const rpePart = rpe !== null ? `RPE ${rpe}` : 'RPE ?';
+	const rirPart = rir !== null ? `RIR ${rir}` : 'RIR ?';
+	return `${rpePart} / ${rirPart}`;
 }
 
 function copyToClipboard(text: string, successMessage: string) {
