@@ -16,7 +16,7 @@
 		"android:studio": "tauri android open",
 		"android:uninstall": "adb uninstall com.tauri_app.training_planner || true",
 		"android:setup": "bash scripts/android-setup-mac.sh",
-		"test:stats": "vitest run --config vitest.stats.config.ts --reporter dot",
+		"test:stats": "vitest run --config vitest.stats.config.ts --reporter dot --passWithNoTests",
 		"issues:create": "bash scripts/gh-create-issues.sh",
 		"release:android": "bash scripts/gh-release-android.sh",
 		"release:android:skip-build": "BUILD=0 bash scripts/gh-release-android.sh",
@@ -49,6 +49,7 @@
 		"typescript": "~5.6.2",
 		"vite": "^6.0.3",
 		"vue-tsc": "^2.1.10",
-		"vitest": "^2.1.5"
+		"vitest": "^2.1.5",
+		"happy-dom": "^14.10.0"
 	}
 }
