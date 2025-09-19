@@ -3,9 +3,10 @@
 import KeyboardPopup from '@/components/ui/KeyboardPopup.vue';
 import ActionButtons from '@/components/ui/ActionButtons.vue';
 import InfoTooltip from '@/components/ui/InfoTooltip.vue';
+import RPERIRPicker from '@/components/ui/RPERIRPicker.vue';
 import { useExercisesStore } from '@/stores/exercises';
 import { useNumberInput } from '@/composables/useNumberInput';
-import { parseRPERIR, formatRPERIR, getRPERIRColumns, getRPERIRDisplayText } from '@/utils/rpeRirParser';
+import { parseRPERIR, formatRPERIR, getRPERIRDisplayText } from '@/utils/rpeRirParser';
 import { Icon } from '@iconify/vue';
 import { computed, defineEmits, defineProps, ref, watch } from 'vue';
 
@@ -46,15 +47,7 @@ const workWeight = ref<number>(0);
 const showRPERIRPicker = ref(false);
 const showRPERIRTooltip = ref(false);
 
-// Computed для дефолтных индексов picker'а
-const pickerDefaultIndexes = computed(() => {
-	const rpeIndex = rpeValue.value ? rpeValue.value - 1 : 6; // RPE 7 по умолчанию (индекс 6)
-	const rirIndex = rirValue.value !== null ? rirValue.value : 2; // RIR 2 по умолчанию
-	return [rpeIndex, rirIndex];
-});
 
-// RPE/RIR columns для picker
-const rpeRirColumns = getRPERIRColumns();
 
 watch(
 	() => props.item,
@@ -101,17 +94,10 @@ const rpeRirDisplayText = computed(() => {
 });
 
 // Обработка выбора RPE/RIR
-function onRPERIRConfirm(value: any) {
-	console.log('onRPERIRConfirm получено значение:', value);
-	
-	// value это объект с selectedValues или selectedIndexes
-	if (value && value.selectedValues && value.selectedValues.length >= 2) {
-		rpeValue.value = value.selectedValues[0];
-		rirValue.value = value.selectedValues[1];
-		console.log('Установлены значения:', { rpe: rpeValue.value, rir: rirValue.value });
-	}
-	
-	showRPERIRPicker.value = false;
+function onRPERIRConfirm(value: { rpe: number | null; rir: number | null }) {
+	console.log('DayExerciseParams onRPERIRConfirm получено значение:', value);
+	rpeValue.value = value.rpe;
+	rirValue.value = value.rir;
 }
 
 async function onSave() {
@@ -197,23 +183,13 @@ watch(
 			</van-cell-group>
 		</div>
 
-		<van-action-sheet 
-			title="Выбор RPE/RIR" 
+		<!-- RPE/RIR Picker -->
+		<RPERIRPicker
 			v-model:show="showRPERIRPicker"
-			class="rpe-rir-action-sheet"
-		>
-			<van-picker
-				:columns="rpeRirColumns"
-				:default-index="pickerDefaultIndexes"
-				@confirm="onRPERIRConfirm"
-				@cancel="showRPERIRPicker = false"
-			/>
-			<ActionButtons
-				:actions="[
-					{ label: 'Отмена', type: 'secondary', onClick: () => (showRPERIRPicker = false) },
-				]"
-			/>
-		</van-action-sheet>
+			:rpe-value="rpeValue"
+			:rir-value="rirValue"
+			@confirm="onRPERIRConfirm"
+		/>
 		
 		<ActionButtons
 			:actions="[

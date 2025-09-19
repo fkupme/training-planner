@@ -2,7 +2,9 @@
 // @ts-ignore
 import KeyboardPopup from "@/components/ui/KeyboardPopup.vue";
 import ActionButtons from '@/components/ui/ActionButtons.vue';
+import RPERIRPicker from '@/components/ui/RPERIRPicker.vue';
 import { useNumberInput } from '@/composables/useNumberInput';
+import { parseRPERIR, formatRPERIR, getRPERIRDisplayText } from '@/utils/rpeRirParser';
 import { computed, ref, watch } from "vue";
 
 const props = defineProps<{
@@ -37,12 +39,37 @@ const { selectOnClick, selectOnFocus, setupStepperSelection } = useNumberInput()
 // Реф для степпера
 const repsStepper = ref(null);
 
+// Состояние для RPE/RIR picker
+const showRPERIRPicker = ref(false);
+const rpeValue = ref<number | null>(null);
+const rirValue = ref<number | null>(null);
+
+// Computed для отображения выбранного RPE/RIR
+const rpeRirDisplayText = computed(() => {
+	if (rpeValue.value === null && rirValue.value === null) {
+		return 'Не указано';
+	}
+	return getRPERIRDisplayText(formatRPERIR(rpeValue.value, rirValue.value));
+});
+
+// Обработка выбора RPE/RIR
+function onRPERIRConfirm(value: { rpe: number | null; rir: number | null }) {
+	console.log('SetEditor onRPERIRConfirm:', value);
+	rpeValue.value = value.rpe;
+	rirValue.value = value.rir;
+	
+	// Сохраняем в JSON формате для базы данных
+	props.setForm.rpe = formatRPERIR(value.rpe, value.rir) || '';
+}
+
 // Получение последних значений из предыдущих подходов
 function getLastUsedValues() {
 	if (!props.exerciseData?.sets || props.exerciseData.sets.length === 0) {
 		const result = {
 			weight: Number(props.exerciseData?.work_weight) || 0,
-			reps: Number(props.plannedReps) || 0
+			reps: Number(props.plannedReps) || 0,
+			rpe: null as number | null,
+			rir: null as number | null
 		};
 		console.log('getLastUsedValues - no sets:', result);
 		return result;
@@ -55,16 +82,24 @@ function getLastUsedValues() {
 	if (completedSets.length === 0) {
 		const result = {
 			weight: Number(props.exerciseData?.work_weight) || 0,
-			reps: Number(props.plannedReps) || 0
+			reps: Number(props.plannedReps) || 0,
+			rpe: null as number | null,
+			rir: null as number | null
 		};
 		console.log('getLastUsedValues - no completed sets:', result);
 		return result;
 	}
 
 	const lastSet = completedSets[completedSets.length - 1];
+	
+	// Парсим RPE/RIR из последнего подхода
+	const { rpe, rir } = parseRPERIR(lastSet.rpe_rir);
+	
 	const result = {
 		weight: Number(lastSet.weight_used) || Number(props.exerciseData?.work_weight) || 0,
-		reps: Number(lastSet.reps_completed) || Number(props.plannedReps) || 0
+		reps: Number(lastSet.reps_completed) || Number(props.plannedReps) || 0,
+		rpe,
+		rir
 	};
 	console.log('getLastUsedValues - from last set:', { lastSet, result });
 	return result;
@@ -100,6 +135,21 @@ watch(
 					props.setForm.weight = weightValue;
 				}
 			}
+
+			// Парсим текущее RPE/RIR из формы если есть, иначе используем последние значения
+			if (props.setForm.rpe && typeof props.setForm.rpe === 'string') {
+				const { rpe, rir } = parseRPERIR(props.setForm.rpe);
+				if (rpe !== null) rpeValue.value = rpe;
+				if (rir !== null) rirValue.value = rir;
+			} else {
+				// Обновляем RPE/RIR если они не заданы
+				if (lastValues.rpe !== null && rpeValue.value === null) {
+					rpeValue.value = lastValues.rpe;
+				}
+				if (lastValues.rir !== null && rirValue.value === null) {
+					rirValue.value = lastValues.rir;
+				}
+			}
 		}
 	},
 	{ deep: true }
@@ -132,6 +182,21 @@ watch(
 				const weightValue = Number(lastValues.weight) || 0;
 				if (props.setForm) {
 					props.setForm.weight = weightValue;
+				}
+			}
+
+			// Парсим текущее RPE/RIR из формы если есть
+			if (props.setForm.rpe && typeof props.setForm.rpe === 'string') {
+				const { rpe, rir } = parseRPERIR(props.setForm.rpe);
+				if (rpe !== null) rpeValue.value = rpe;
+				if (rir !== null) rirValue.value = rir;
+			} else {
+				// Подставляем последние RPE/RIR если нет значений
+				if (lastValues.rpe !== null && rpeValue.value === null) {
+					rpeValue.value = lastValues.rpe;
+				}
+				if (lastValues.rir !== null && rirValue.value === null) {
+					rirValue.value = lastValues.rir;
 				}
 			}
 
@@ -251,16 +316,14 @@ function onCancel() {
 				</van-cell>
 
 				<!-- RPE/RIR -->
-				<van-cell title="RPE/RIR">
-					<template #value>
-						<van-field
-							v-model="setForm.rpe"
-							placeholder="Например: RPE 8"
-							input-align="right"
-							@click="selectOnClick"
-						/>
-					</template>
-				</van-cell>				<!-- Заметки -->
+				<van-cell 
+					is-link
+					title="RPE/RIR"
+					:label="rpeRirDisplayText"
+					@click="showRPERIRPicker = true"
+				/>
+
+				<!-- Заметки -->
 				<!-- Заметки -->
 				<van-cell>
 					<van-field
@@ -282,6 +345,14 @@ function onCancel() {
 			]"
 		/>
 	</KeyboardPopup>
+
+	<!-- RPE/RIR Picker -->
+	<RPERIRPicker
+		v-model:show="showRPERIRPicker"
+		:rpe-value="rpeValue"
+		:rir-value="rirValue"
+		@confirm="onRPERIRConfirm"
+	/>
 </template>
 
 <style lang="scss" scoped>

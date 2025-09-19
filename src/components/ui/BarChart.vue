@@ -1,31 +1,18 @@
 <template>
 	<div class="chart-container">
-		<canvas ref="chartCanvas"></canvas>
+		<ApexChart
+			type="bar"
+			:height="height"
+			:options="apexOptions"
+			:series="apexSeries"
+			data-testid="apex-chart"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
-import {
-	Chart,
-	CategoryScale,
-	LinearScale,
-	BarElement,
-	BarController,
-	Title,
-	Tooltip,
-	Legend
-} from 'chart.js'
-
-Chart.register(
-	CategoryScale,
-	LinearScale,
-	BarElement,
-	BarController,
-	Title,
-	Tooltip,
-	Legend
-)
+import ApexChart from 'vue3-apexcharts'
+import { computed } from 'vue'
 
 interface BarDataPoint {
 	label: string
@@ -65,193 +52,72 @@ const props = withDefaults(defineProps<{
 	horizontal: false
 })
 
-const chartCanvas = ref<HTMLCanvasElement | null>(null)
-let chart: Chart | null = null
+const apexSeries = computed(() => {
+	const isChartData = (props.data as any).labels && (props.data as any).datasets
+	if (isChartData) {
+		const d = props.data as ChartData
+		return (d.datasets || []).map(ds => ({ name: ds.label || '', data: ds.data }))
+	}
+	const barData = props.data as BarDataPoint[]
+	return [{ name: props.title || '', data: barData.map(b => b.value) }]
+})
 
-const createChart = () => {
-	if (!chartCanvas.value) return
+const apexOptions = computed(() => {
+	const isChartData = (props.data as any).labels && (props.data as any).datasets
+	const labels = isChartData
+		? (props.data as ChartData).labels
+		: (props.data as BarDataPoint[]).map(b => b.label)
 
-	// Проверяем тип данных
-	const isChartData = 'labels' in props.data && 'datasets' in props.data
-	if (!isChartData && (!Array.isArray(props.data) || props.data.length === 0)) return
+	const accentColor = getComputedStyle(document.documentElement)
+		.getPropertyValue('--color-accent').trim()
+	const borderColor = getComputedStyle(document.documentElement)
+		.getPropertyValue('--color-border').trim()
+	const textColor = getComputedStyle(document.documentElement)
+		.getPropertyValue('--color-text').trim()
 
-	const ctx = chartCanvas.value.getContext('2d')
-	if (!ctx) return
+	const colors = isChartData
+		? ((props.data as ChartData).datasets[0]?.backgroundColor as any) || [accentColor]
+		: (props.data as BarDataPoint[]).map(b => b.color || accentColor)
 
-	try {
-		// Получаем цвета из CSS переменных
-		const textColor = getComputedStyle(document.documentElement)
-			.getPropertyValue('--color-text').trim()
-		const mutedColor = getComputedStyle(document.documentElement)
-			.getPropertyValue('--color-text-muted').trim()
-		const borderColor = getComputedStyle(document.documentElement)
-			.getPropertyValue('--color-border').trim()
-		const accentColor = getComputedStyle(document.documentElement)
-			.getPropertyValue('--color-accent').trim()
-
-		// Подготавливаем данные в зависимости от типа
-		let chartData
-		if (isChartData) {
-			// Используем данные как есть
-			chartData = props.data as ChartData
-		} else {
-			// Преобразуем массив BarDataPoint в ChartData
-			const barData = props.data as BarDataPoint[]
-			chartData = {
-				labels: barData.map(item => item.label),
-				datasets: [{
-					data: barData.map(item => item.value),
-					backgroundColor: barData.map(item => 
-						item.color ? `${item.color}40` : `${accentColor}40`
-					),
-					borderColor: barData.map(item => 
-						item.color || accentColor
-					),
-					borderWidth: 2,
-					borderRadius: 6,
-				}]
-			}
-		}
-
-		chart = new Chart(ctx, {
+		const base = {
+		chart: {
 			type: 'bar',
-			data: chartData,
-			options: props.options || {
-				indexAxis: props.horizontal ? 'y' : 'x',
-				responsive: props.responsive,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: {
-						display: props.showLegend
-					},
-					tooltip: {
-						backgroundColor: 'var(--color-surface)',
-						titleColor: textColor,
-						bodyColor: textColor,
-						borderColor: borderColor,
-						borderWidth: 1,
-						cornerRadius: 8,
-						padding: 12,
-						titleFont: {
-							family: 'Inter, system-ui, sans-serif',
-							size: 13,
-							weight: 600
-						},
-						bodyFont: {
-							family: 'Inter, system-ui, sans-serif',
-							size: 12,
-							weight: 400
-						},
-						displayColors: false,
-						callbacks: {
-							label: (context: any) => {
-								const value = context.parsed[props.horizontal ? 'x' : 'y']
-								return `${value} кг`
-							}
-						}
-					},
-					title: {
-						display: !!props.title,
-						text: props.title,
-						color: textColor,
-						font: {
-							family: 'Inter, system-ui, sans-serif',
-							size: 16,
-							weight: 600
-						},
-						padding: {
-							top: 10,
-							bottom: 20
-						}
-					}
-				},
-			scales: {
-				x: {
-					title: {
-						display: !!props.xAxisLabel,
-						text: props.xAxisLabel,
-						color: mutedColor,
-						font: {
-							family: 'Inter, system-ui, sans-serif',
-							size: 12,
-							weight: 500
-						}
-					},
-					grid: {
-						color: borderColor,
-						lineWidth: 1,
-						display: !props.horizontal
-					},
-					ticks: {
-						color: mutedColor,
-						font: {
-							family: 'Inter, system-ui, sans-serif',
-							size: 11
-						}
-					}
-				},
-				y: {
-					title: {
-						display: !!props.yAxisLabel,
-						text: props.yAxisLabel,
-						color: mutedColor,
-						font: {
-							family: 'Inter, system-ui, sans-serif',
-							size: 12,
-							weight: 500
-						}
-					},
-					grid: {
-						color: borderColor,
-						lineWidth: 1,
-						display: props.horizontal
-					},
-					ticks: {
-						color: mutedColor,
-						font: {
-							family: 'Inter, system-ui, sans-serif',
-							size: 11
-						}
-					},
-					beginAtZero: true
-				}
-				}
+			stacked: false,
+			toolbar: { show: false },
+			foreColor: textColor || undefined,
+		},
+		plotOptions: {
+			bar: {
+				horizontal: props.horizontal,
+				borderRadius: 6,
 			}
-		})
-	} catch (error) {
-		console.error('Failed to create bar chart:', error)
-	}
-}
+		},
+		dataLabels: { enabled: false },
+		stroke: { width: 2 },
+		colors,
+		xaxis: {
+			categories: labels,
+			axisBorder: { show: false },
+			axisTicks: { show: false },
+			title: { text: props.xAxisLabel }
+		},
+		yaxis: { labels: { formatter: (v: number) => `${v}` }, title: { text: props.yAxisLabel } },
+		grid: { borderColor },
+		legend: { show: props.showLegend },
+		title: { text: props.title, style: { color: textColor } },
+		tooltip: { theme: 'dark' },
+		responsive: [{ breakpoint: 480, options: { chart: { width: '100%' } } }]
+		} as any
 
-const destroyChart = () => {
-	if (chart) {
-		chart.destroy()
-		chart = null
-	}
-}
-
-onMounted(() => {
-	createChart()
+		// Allow external overrides via `options`
+		return props.options ? { ...base, ...props.options } : base
 })
-
-onUnmounted(() => {
-	destroyChart()
-})
-
-watch(() => props.data, () => {
-	destroyChart()
-	createChart()
-}, { deep: true })
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .chart-container {
-	width:90%;
-	overflow: hidden;
-	height: v-bind(height + 'px');
-	background: var(--color-surface);
-	border-radius: var(--radius-l);
-	padding: var(--space-4);
-	border: 1px solid var(--color-border);
+	position: relative;
+	width: 100%;
+	height: 100%;
 }
 </style>

@@ -572,6 +572,8 @@ export async function ensureSchema() {
   )`);
 	// Новая колонка рабочего веса
 	await ensureColumn('program_day_exercises', 'work_weight', 'REAL');
+	// Колонка для отслеживания ручных изменений весов (NULL = автоматическое обновление)
+	await ensureColumn('program_day_exercises', 'updated_at', 'INTEGER');
 
 	await exec(`CREATE TABLE IF NOT EXISTS reminders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -666,10 +668,28 @@ export async function ensureSchema() {
     UNIQUE(session_id, day_exercise_id) -- один day_exercise может быть заменен только один раз в сессии
   )`);
 
+	// Единичные переносы тренировок (overrides) без смещения всего цикла
+	await exec(`CREATE TABLE IF NOT EXISTS workout_overrides (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		program_id INTEGER NOT NULL,
+		cycle_type TEXT NOT NULL, -- 'weekly' | 'custom'
+		original_day_index INTEGER NOT NULL,
+		original_session_slot INTEGER NOT NULL DEFAULT 0,
+		target_date_iso TEXT NOT NULL, -- YYYY-MM-DD локальная дата
+		created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+		UNIQUE(program_id, cycle_type, original_day_index, original_session_slot),
+		FOREIGN KEY(program_id) REFERENCES programs(id) ON DELETE CASCADE
+	)`);
+
 	// Сид начальных мышечных групп (идемпотентный)
 	await seedMusclesIfMissing();
 	// Сид библиотеки упражнений (~120, идемпотентный)
 	await seedExercisesIfSparse();
+
+	// удалить
+	// сид
+	//удалить
+	await seedDemoWeekly5xProgramWithSessions().catch(() => {});
 
 	// Расширенный сид добавок (идемпотентно, пополняет и обновляет пустые поля)
 	async function seedSupplementsIfMissing() {
@@ -2572,4 +2592,288 @@ export async function ensureSchema() {
 
 	// Теперь можно безопасно сидировать добавки
 	await seedSupplementsIfMissing();
+}
+
+// удалить
+// сид
+//удалить
+async function seedDemoWeekly5xProgramWithSessions() {
+	// Идемпотентный сид: создаём программу 5× в неделю, по 5 упражнений; и 20 завершённых сессий (6-6-6-2)
+	const programName = 'Демо 5×/неделя — 5 упражнений';
+	const now = Date.now();
+
+	// 1) Проверяем существование программы
+	const existing = await query<{ id: number }>(
+		`SELECT id FROM programs WHERE name = ? LIMIT 1`,
+		[programName]
+	);
+	let programId = existing[0]?.id as number | undefined;
+	if (!programId) {
+		const config = {
+			cycleType: 'weekly',
+			weekly: { days: [1, 1, 1, 1, 1, 0, 0] },
+			dayOffset: 0,
+		};
+		await exec(
+			`INSERT INTO programs (name, description, created_at, start_date, units, config) VALUES (?, ?, ?, ?, ?, ?)`,
+			[
+				programName,
+				'Демонстрационная 5-дневная программа с фиктивными завершёнными сессиями',
+				now,
+				now - 28 * 24 * 60 * 60 * 1000,
+				'metric',
+				JSON.stringify(config),
+			]
+		);
+		const last = await query<{ id: number }>(`SELECT last_insert_rowid() as id`);
+		programId = last[0]?.id as number | undefined;
+	}
+	if (!programId) return; // не удалось создать программу
+
+	// 2) Словарь упражнений по дням — используем названия из библиотеки сидов
+	const dayExercises: string[][] = [
+		[
+			'Жим штанги лёжа',
+			'Жим гантелей лёжа',
+			'Разводка гантелей лёжа',
+			'Сведение рук в кроссовере',
+			'Отжимания на брусьях',
+		], // День 0 — грудь
+		[
+			'Тяга штанги в наклоне',
+			'Тяга верхнего блока',
+			'Подтягивания',
+			'Тяга нижнего блока сидя',
+			'Тяга гантели в наклоне',
+		], // День 1 — спина
+		[
+			'Приседания со штангой',
+			'Жим ногами',
+			'Разгибания ног в тренажёре',
+			'Сгибания ног лёжа',
+			'Подъёмы на носки стоя',
+		], // День 2 — ноги
+		[
+			'Жим штанги стоя',
+			'Жим гантелей сидя',
+			'Разводка гантелей стоя',
+			'Тяга штанги к подбородку',
+			'Обратная разводка',
+		], // День 3 — плечи
+		[
+			'Подъёмы штанги на бицепс',
+			'Молот',
+			'Французский жим',
+			'Разгибания на блоке с канатом',
+			'Планка',
+		], // День 4 — руки/кор
+	];
+
+	// Получаем id упражнений по имени
+	async function getExerciseIdByName(name: string): Promise<number | null> {
+		const rows = await query<{ id: number }>(
+			`SELECT id FROM exercises WHERE name = ? LIMIT 1`,
+			[name]
+		);
+		return rows[0]?.id ?? null;
+	}
+
+	// План по весам: базовый вес и прирост по неделям (кг)
+	const baseAndInc: Record<string, { base: number; inc: number } | undefined> = {
+		'Жим штанги лёжа': { base: 60, inc: 2.5 },
+		'Жим гантелей лёжа': { base: 22.5, inc: 2.5 },
+		'Разводка гантелей лёжа': { base: 10, inc: 1 },
+		'Сведение рук в кроссовере': { base: 20, inc: 2 },
+		'Отжимания на брусьях': { base: 0, inc: 0 },
+		'Тяга штанги в наклоне': { base: 60, inc: 2.5 },
+		'Тяга верхнего блока': { base: 50, inc: 2 },
+		'Подтягивания': { base: 0, inc: 0 },
+		'Тяга нижнего блока сидя': { base: 45, inc: 2 },
+		'Тяга гантели в наклоне': { base: 30, inc: 2 },
+		'Приседания со штангой': { base: 80, inc: 5 },
+		'Жим ногами': { base: 120, inc: 10 },
+		'Разгибания ног в тренажёре': { base: 35, inc: 2 },
+		'Сгибания ног лёжа': { base: 30, inc: 2 },
+		'Подъёмы на носки стоя': { base: 60, inc: 5 },
+		'Жим штанги стоя': { base: 40, inc: 2.5 },
+		'Жим гантелей сидя': { base: 18, inc: 1.5 },
+		'Разводка гантелей стоя': { base: 8, inc: 1 },
+		'Тяга штанги к подбородку': { base: 30, inc: 2 },
+		'Обратная разводка': { base: 7, inc: 0.5 },
+		'Подъёмы штанги на бицепс': { base: 30, inc: 2 },
+		'Молот': { base: 14, inc: 1 },
+		'Французский жим': { base: 30, inc: 2 },
+		'Разгибания на блоке с канатом': { base: 30, inc: 2 },
+		'Планка': { base: 0, inc: 0 },
+	};
+
+	// План повторений и сетов для упражнений
+	const repsPlan: Record<string, { sets: number; reps: number[] }> = {
+		'Жим штанги лёжа': { sets: 4, reps: [8, 8, 6, 6] },
+		'Жим гантелей лёжа': { sets: 3, reps: [10, 10, 8] },
+		'Разводка гантелей лёжа': { sets: 3, reps: [12, 12, 12] },
+		'Сведение рук в кроссовере': { sets: 3, reps: [15, 12, 12] },
+		'Отжимания на брусьях': { sets: 3, reps: [12, 10, 8] },
+		'Тяга штанги в наклоне': { sets: 4, reps: [8, 8, 6, 6] },
+		'Тяга верхнего блока': { sets: 3, reps: [10, 10, 8] },
+		'Подтягивания': { sets: 3, reps: [8, 7, 6] },
+		'Тяга нижнего блока сидя': { sets: 3, reps: [12, 10, 10] },
+		'Тяга гантели в наклоне': { sets: 3, reps: [12, 10, 10] },
+		'Приседания со штангой': { sets: 4, reps: [6, 6, 5, 5] },
+		'Жим ногами': { sets: 4, reps: [12, 10, 10, 8] },
+		'Разгибания ног в тренажёре': { sets: 3, reps: [15, 12, 12] },
+		'Сгибания ног лёжа': { sets: 3, reps: [12, 10, 10] },
+		'Подъёмы на носки стоя': { sets: 4, reps: [15, 15, 12, 12] },
+		'Жим штанги стоя': { sets: 4, reps: [8, 8, 6, 6] },
+		'Жим гантелей сидя': { sets: 3, reps: [10, 10, 8] },
+		'Разводка гантелей стоя': { sets: 4, reps: [15, 12, 12, 12] },
+		'Тяга штанги к подбородку': { sets: 3, reps: [12, 10, 10] },
+		'Обратная разводка': { sets: 3, reps: [15, 12, 12] },
+		'Подъёмы штанги на бицепс': { sets: 3, reps: [12, 10, 8] },
+		'Молот': { sets: 3, reps: [12, 12, 10] },
+		'Французский жим': { sets: 3, reps: [12, 10, 10] },
+		'Разгибания на блоке с канатом': { sets: 3, reps: [15, 12, 12] },
+		'Планка': { sets: 3, reps: [60, 45, 45] }, // секунды в notes
+	};
+
+	// Проверяем, созданы ли day_exercises для этой программы
+	const existingDayEx = await query<{ n: number }>(
+		`SELECT COUNT(1) as n FROM program_day_exercises WHERE program_id = ? AND cycle_type = 'weekly'`,
+		[programId]
+	);
+	if ((existingDayEx[0]?.n ?? 0) === 0) {
+		for (let day = 0; day < dayExercises.length; day++) {
+			const names = dayExercises[day];
+			let pos = 0;
+			for (const name of names) {
+				const exId = await getExerciseIdByName(name);
+				if (!exId) continue;
+				const rp = repsPlan[name] || { sets: 3, reps: [10, 10, 10] };
+				const bw = baseAndInc[name]?.base ?? 0;
+				await exec(
+					`INSERT INTO program_day_exercises (program_id, cycle_type, day_index, exercise_id, sets_count, reps_json, intensity, optional_flag, position, created_at, work_weight, updated_at) VALUES (?, 'weekly', ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL)`,
+					[
+						programId,
+						day,
+						exId,
+						rp.sets,
+						JSON.stringify(rp.reps),
+						'RPE 7-8',
+						pos,
+						now,
+						bw,
+					]
+				);
+				pos += 100;
+			}
+		}
+	}
+
+	// Мапа day_exercise_id по дню для генерации сетов
+	const dayExerciseRows = await query<{
+		id: number;
+		day_index: number;
+		name: string;
+	}>(
+		`SELECT pde.id, pde.day_index, e.name as name
+		 FROM program_day_exercises pde
+		 JOIN exercises e ON e.id = pde.exercise_id
+		 WHERE pde.program_id = ? AND pde.cycle_type = 'weekly'
+		 ORDER BY pde.day_index, pde.position`,
+		[programId]
+	);
+	const byDay: Record<number, { id: number; name: string }[]> = {};
+	for (const row of dayExerciseRows) {
+		if (!byDay[row.day_index]) byDay[row.day_index] = [];
+		byDay[row.day_index].push({ id: row.id, name: row.name });
+	}
+
+	// 3) Если уже есть завершённые сессии для этой программы — выходим (идемпотентность)
+	const existingSessions = await query<{ n: number }>(
+		`SELECT COUNT(1) as n FROM training_sessions WHERE program_id = ?`,
+		[programId]
+	);
+	if ((existingSessions[0]?.n ?? 0) > 0) return;
+
+	// График недель: 6-6-6-2 + ещё 2 недели 6 и 2 (итого 28)
+	const weeks = [6, 6, 6, 2, 6, 2];
+	// Привязка дат: якорь — прошедшая пятница; старт так, чтобы уложить весь период подряд
+	const today = new Date();
+	today.setHours(10, 0, 0, 0);
+	const dow = today.getDay(); // 0=вс..6=сб
+	const daysBackToFriday = (dow >= 5) ? (dow - 5) : (7 - (5 - dow));
+	const friday = new Date(today.getTime());
+	friday.setDate(today.getDate() - (daysBackToFriday % 7));
+	friday.setHours(18, 0, 0, 0);
+	const start = new Date(friday.getTime());
+	start.setDate(friday.getDate() - (weeks.length * 7 - 1));
+
+	let sessionIndex = 0;
+	for (let w = 0; w < weeks.length; w++) {
+		const count = weeks[w];
+		for (let i = 0; i < count; i++) {
+			const dayType = (sessionIndex % 5); // 5 типов тренировочных дней
+			const trainingDate = new Date(start.getTime());
+			trainingDate.setDate(start.getDate() + sessionIndex);
+			trainingDate.setHours(18, 0, 0, 0);
+			const startedAt = trainingDate.getTime();
+			const completedAt = startedAt + 60 * 60 * 1000 + (i % 3) * 5 * 60 * 1000; // 60-70-80 мин
+
+			const title = `Неделя ${w + 1}, сессия ${i + 1} — День ${dayType + 1}`;
+			const comment = `Хорошая тренировка. Неделя ${w + 1}, прогрессируем веса на +${Object.values(baseAndInc).reduce((a, v) => a + (v?.inc ?? 0), 0) > 0 ? 'немного' : 'стабильно'}. Фокус на технику и контроль темпа.`;
+			await exec(
+				`INSERT INTO training_sessions (program_id, cycle_type, day_index, session_slot, name, comments, started_at, completed_at, duration_minutes, status, created_at) VALUES (?, 'weekly', ?, 0, ?, ?, ?, ?, ?, 'completed', ?)`,
+				[
+					programId,
+					dayType,
+					title,
+					comment,
+					startedAt,
+					completedAt,
+					Math.round((completedAt - startedAt) / 60000),
+					completedAt,
+				]
+			);
+			const lastS = await query<{ id: number }>(
+				`SELECT last_insert_rowid() as id`
+			);
+			const sessionId = lastS[0]?.id;
+			if (!sessionId) continue;
+
+			// Заполняем подходы по day_exercise_id для соответствующего типа дня
+			const deList = byDay[dayType] || [];
+			let setClock = startedAt + 10 * 60 * 1000; // первый подход через 10 минут
+			for (const de of deList) {
+				const rp = repsPlan[de.name] || { sets: 3, reps: [10, 10, 10] };
+				const plan = baseAndInc[de.name];
+				const weightBase = plan?.base ?? 0;
+				const inc = plan?.inc ?? 0;
+				const weight = weightBase + inc * w; // по неделям
+				for (let s = 0; s < rp.sets; s++) {
+					const reps = rp.reps[Math.min(s, rp.reps.length - 1)];
+					const rpe = 7 + Math.min(2, Math.floor((s + w) / 2));
+					const rest = 90 + (s % 2) * 30; // 90-120 сек
+					setClock += rest * 1000;
+					await exec(
+						`INSERT INTO session_exercise_sets (session_id, day_exercise_id, set_number, reps_completed, weight_used, rpe_rir, rest_seconds, notes, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+						[
+							sessionId,
+							de.id,
+							s + 1,
+							reps,
+							de.name === 'Планка' ? 0 : Number(weight.toFixed(1)),
+							`RPE ${rpe}`,
+							rest,
+							de.name === 'Планка'
+								? `Держать ${reps} сек, фокус на напряжении кора`
+								: `Контроль эксцентрики, пауза 1 сек у груди/внизу` ,
+							setClock,
+						]
+					);
+				}
+			}
+
+			sessionIndex++;
+		}
+	}
 }

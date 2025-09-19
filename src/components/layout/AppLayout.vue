@@ -180,7 +180,7 @@ function handleBack() {
 	overflow: hidden;
 
 	&__header {
-		padding-top: 30px;
+		padding-top: calc(30px + var(--safe-top));
 		flex-shrink: 0;
 		background: var(--grad-1);
 		border-bottom: 1px solid var(--color-border);

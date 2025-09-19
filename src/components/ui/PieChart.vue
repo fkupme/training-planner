@@ -173,6 +173,27 @@ watch(() => props.data, () => {
 	destroyChart()
 	createChart()
 }, { deep: true })
+
+// Пересоздаём график при изменении ключевых пропсов конфигурации
+watch(() => props.doughnut, () => {
+	destroyChart()
+	createChart()
+})
+
+watch(() => props.showLegend, () => {
+	destroyChart()
+	createChart()
+})
+
+watch(() => props.title, () => {
+	destroyChart()
+	createChart()
+})
+
+watch(() => props.responsive, () => {
+	destroyChart()
+	createChart()
+})
 </script>
 
 <style lang="scss" scoped>

@@ -1,34 +1,19 @@
 <template>
   <div class="line-chart-container">
-    <canvas ref="chartCanvas"></canvas>
+    <ApexChart
+      type="line"
+      :height="height"
+      :options="apexOptions"
+      :series="apexSeries"
+      data-testid="apex-chart"
+    />
   </div>
+  
 </template>
 
 <script lang="ts" setup>
-import {
-  CategoryScale,
-  Chart as ChartJS,
-  Legend,
-  LineController,
-  LineElement,
-  LinearScale,
-  PointElement,
-  Title,
-  Tooltip,
-} from 'chart.js';
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-
-// Регистрируем компоненты Chart.js
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  LineController,
-  Title,
-  Tooltip,
-  Legend
-);
+import ApexChart from 'vue3-apexcharts';
+import { computed } from 'vue';
 
 interface Props {
   data: {
@@ -66,49 +51,52 @@ const props = withDefaults(defineProps<Props>(), {
   }),
 });
 
-const chartCanvas = ref<HTMLCanvasElement | null>(null);
-let chart: ChartJS | null = null;
-
-const createChart = () => {
-  if (!chartCanvas.value) return;
-
-  // Уничтожаем существующий график
-  if (chart) {
-    chart.destroy();
-  }
-
-  // Создаём новый график
-  chart = new ChartJS(chartCanvas.value, {
-    type: 'line',
-    data: props.data,
-    options: props.options,
-  });
-};
-
-const updateChart = () => {
-  if (!chart) return;
-
-  // Обновляем данные
-  chart.data = props.data;
-  chart.options = props.options;
-  chart.update();
-};
-
-onMounted(async () => {
-  await nextTick();
-  createChart();
+// Преобразование в ApexCharts series/options
+const apexSeries = computed(() => {
+  return (props.data.datasets || []).map(ds => ({
+    name: ds.label,
+    data: ds.data,
+  }));
 });
 
-onUnmounted(() => {
-  if (chart) {
-    chart.destroy();
-    chart = null;
-  }
+const apexOptions = computed(() => {
+  const labels = props.data.labels || [];
+  const colors = (props.data.datasets || []).map(ds => ds.borderColor);
+  const curve = (props.data.datasets || []).every(ds => !ds.tension)
+    ? 'straight'
+    : 'smooth';
+  return {
+    chart: {
+      type: 'line',
+      toolbar: { show: false },
+      animations: { enabled: true },
+      foreColor: getComputedStyle(document.documentElement)
+        .getPropertyValue('--color-text')
+        .trim() || undefined,
+    },
+    stroke: { curve, width: 2 },
+    colors,
+    xaxis: {
+      categories: labels,
+      axisBorder: { show: false },
+      tooltip: { enabled: false },
+    },
+    yaxis: {
+      decimalsInFloat: 0,
+    },
+    grid: {
+      borderColor: getComputedStyle(document.documentElement)
+        .getPropertyValue('--color-border')
+        .trim() || undefined,
+    },
+    legend: {
+      show: props.options?.plugins?.legend?.display !== false,
+    },
+    tooltip: {
+      theme: 'dark',
+    },
+  } as any;
 });
-
-// Отслеживаем изменения в данных
-watch(() => props.data, updateChart, { deep: true });
-watch(() => props.options, updateChart, { deep: true });
 </script>
 
 <style scoped>
@@ -116,11 +104,5 @@ watch(() => props.options, updateChart, { deep: true });
   position: relative;
   width: 100%;
   height: 100%;
-}
-
-canvas {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
 }
 </style>

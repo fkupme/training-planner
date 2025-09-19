@@ -3,6 +3,7 @@
 import AppLayout from '@/components/layout/AppLayout.vue';
 import OnboardingPopup from '@/components/OnboardingPopup.vue';
 import { useKeyboardInsets } from '@/composables/useKeyboardInsets';
+import { useSafeArea } from '@/composables/useSafeArea';
 import { useAuthStore } from '@/stores/auth';
 import { useSessionsStore } from '@/stores/sessions';
 import { useSettingsStore } from '@/stores/settings';
@@ -18,6 +19,7 @@ const sessions = useSessionsStore();
 const router = useRouter();
 
 useKeyboardInsets();
+useSafeArea(); // Initialize safe area support
 
 async function evalOnboarding() {
 	await nextTick();

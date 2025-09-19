@@ -26,15 +26,14 @@
 		"@tauri-apps/plugin-sql": "^2.3.0",
 		"@tauri-apps/plugin-store": "^2.3.0",
 		"@vant/use": "^1.6.0",
-		"chart.js": "^4.5.0",
-		"chartjs-adapter-date-fns": "^3.0.0",
+		"apexcharts": "^3.49.0",
+		"vue3-apexcharts": "^1.5.3",
 		"date-fns": "^4.1.0",
 		"dayjs": "^1.11.13",
 		"pinia": "^3.0.3",
 		"sortablejs": "^1.15.6",
 		"vant": "^4.9.21",
 		"vue": "^3.5.13",
-		"vue-chartjs": "^5.3.2",
 		"vue-router": "^4.5.1"
 	},
 	"devDependencies": {

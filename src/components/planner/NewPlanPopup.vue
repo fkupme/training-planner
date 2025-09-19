@@ -146,12 +146,13 @@ const progressionPercentInput = ref<string>('0.8');
 const progressionPercent = computed({
 	get() {
 		const normalized = progressionPercentInput.value.replace(',', '.');
-		const num = Number(normalized);
+		const num = parseFloat(normalized);
 		if (isNaN(num)) return 0.8;
-		return Math.max(0, Math.min(10, num)); // ограничим до 10% на всякий
+		return Math.max(0, Math.min(20, num)); // увеличим лимит до 20%
 	},
 	set(v: number) {
-		progressionPercentInput.value = String(v);
+		// Сохраняем с точкой, а не запятой, и ограничиваем до 2 знаков после запятой
+		progressionPercentInput.value = v.toFixed(1);
 	},
 });
 const showProgressionHelp = ref(false);
@@ -205,9 +206,8 @@ function loadFromProgram() {
 		const cfg = p.config ? JSON.parse(p.config) : {};
 		goal.value = cfg.goal ?? 'maintain';
 		if (cfg.progression?.percentPerCycle != null) {
-			progressionPercentInput.value = String(
-				cfg.progression.percentPerCycle
-			).replace('.', ',');
+			// Сохраняем точку, не заменяя на запятую
+			progressionPercentInput.value = String(cfg.progression.percentPerCycle);
 		}
 		durationWeeks.value = cfg.durationWeeks ?? 8;
 		if (cfg.cycleType === 'weekly') {
@@ -541,7 +541,7 @@ function cycleDayCustomAt(dayIdx: number, setIdx: number) {
 					type="number"
 					inputmode="decimal"
 					placeholder="0.8"
-					@blur="progressionPercentInput = progressionPercent.toString()"
+					step="0.1"
 				>
 					<template #right-icon>
 						<van-icon
@@ -554,16 +554,16 @@ function cycleDayCustomAt(dayIdx: number, setIdx: number) {
 					<div class="plan-new__help">
 						<h4>Прогрессия рабочих весов</h4>
 						<p>
-							Процент прироста за один цикл (неделю или микроцикл). 0.8 означает
-							+0.8% сложным процентом.
+							Процент прироста за один цикл (неделю или микроцикл). Диапазон: 0-20%. 
+							Например, 0.8 означает +0.8% сложным процентом.
 						</p>
 						<p>
-							Формула: <code>новый = базовый × (1 + p)^n</code>, где p — доля
-							(0.8% = 0.8), n — завершённых циклов.
+							Формула: <code>новый = базовый × (1 + p/100)^n</code>, где p — процент
+							(0.8 = 0.8%), n — завершённых циклов.
 						</p>
 						<p>
 							Вес округляется вниз до ближайшего возможного (обычно шаг 2.5кг /
-							5lb). Не рекомендуем ставить &gt; 1% без причины.
+							5lb). Рекомендуем: 0.5-1.5% для большинства упражнений.
 						</p>
 						<van-button
 							type="primary"

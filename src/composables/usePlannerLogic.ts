@@ -34,28 +34,16 @@ export function usePlannerLogic(data?: ReturnType<typeof usePlannerData>) {
 	} | null {
 		const sessions = useSessionsStore();
 		
-		// Если есть nextWorkout данные, используем их
+		// ЦЕНТРАЛИЗОВАННАЯ ЛОГИКА - берем данные из sessions store
 		if (sessions.nextWorkout) {
-			console.log('usePlannerLogic: Using sessions.nextWorkout data:', sessions.nextWorkout);
+			console.log('usePlannerLogic: Using centralized sessions.nextWorkout data:', sessions.nextWorkout);
 			
-			// Правильно вычисляем dayOffset для nextWorkout
-			const today = new Date();
-			today.setHours(0, 0, 0, 0);
-			const dow = (today.getDay() + 6) % 7; // Пн=0, сегодня пятница = 4
-			const targetDow = sessions.nextWorkout.day_index; // суббота = 5
-			
-			// Вычисляем offset: сколько дней от сегодня до целевого дня
-			let dayOffset = (targetDow - dow + 7) % 7;
-			if (dayOffset === 0 && targetDow !== dow) {
-				dayOffset = 7; // если тот же день недели но в следующую неделю
-			}
-			
-			console.log('usePlannerLogic: Calculated dayOffset:', dayOffset, 'from dow', dow, 'to', targetDow);
-			
+			// При смещенном цикле следующая тренировка всегда "сегодня" (dayOffset = 0)
+			// Потому что sessions.loadNextWorkout уже учел смещение при поиске
 			return {
 				cycleType: sessions.nextWorkout.cycle_type as 'weekly' | 'custom',
 				dayIndex: sessions.nextWorkout.day_index,
-				dayOffset: dayOffset
+				dayOffset: 0 // Всегда 0 потому что смещение уже учтено в API слое
 			};
 		}
 		
@@ -163,10 +151,39 @@ export function usePlannerLogic(data?: ReturnType<typeof usePlannerData>) {
 
 	async function reloadDayItems() {
 		const p = planner.currentProgram;
+		const sessions = useSessionsStore();
+		
 		if (!p) {
 			dayItems.value = [];
 			return;
 		}
+		
+		// ЦЕНТРАЛИЗОВАННАЯ ЛОГИКА - используем данные из sessions store
+		if (sessions.nextWorkout) {
+			console.log('reloadDayItems: Using centralized nextWorkout data');
+			const workout = sessions.nextWorkout;
+			// Преобразуем SessionExerciseData в DayExerciseDetailed формат
+			dayItems.value = workout.exercises.map((ex, index) => ({
+				id: ex.day_exercise_id,
+				day_exercise_id: ex.day_exercise_id,
+				program_id: workout.program_id,
+				exercise_id: ex.exercise_id,
+				exercise_name: ex.exercise_name,
+				sets_count: ex.planned_sets,
+				reps_json: typeof ex.planned_reps === 'string' ? ex.planned_reps : JSON.stringify(ex.planned_reps),
+				work_weight: ex.work_weight,
+				position: index * 10,
+				intensity: ex.intensity,
+				optional_flag: ex.optional_flag ? 1 : 0,
+				cycle_type: workout.cycle_type,
+				day_index: workout.day_index,
+				created_at: Date.now()
+			}));
+			await loadExerciseDetailsFor(dayItems.value);
+			return;
+		}
+		
+		// Fallback: если нет nextWorkout, ищем любой день с тренировкой
 		const nextDay = findNextDayIndex();
 		if (nextDay == null) {
 			const c = cfg.value;

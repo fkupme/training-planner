@@ -4,8 +4,9 @@ import KeyboardPopup from "@/components/ui/KeyboardPopup.vue";
 import ActionButtons from '@/components/ui/ActionButtons.vue';
 import { useExercisesStore } from "@/stores/exercises";
 import { useWorkoutsStore, type WorkoutType } from "@/stores/workouts";
+import { usePlannerStore } from "@/stores/planner";
 import { showToast } from "vant";
-import { computed, defineEmits, defineProps, onMounted, ref } from "vue";
+import { computed, defineEmits, defineProps, onMounted, ref, watch } from "vue";
 
 const props = defineProps<{
 	show: boolean;
@@ -33,6 +34,7 @@ const chosenMuscleIds = ref<number[]>([]);
 
 const exercisesStore = useExercisesStore();
 const workouts = useWorkoutsStore();
+const planner = usePlannerStore();
 
 const muscleActions = computed(() =>
 	exercisesStore.muscles.map((m) => ({ name: m.name, id: m.id }))
@@ -58,25 +60,68 @@ const musclesLabel = computed(() => {
 	return names.join(", ");
 });
 
-onMounted(async () => {
+// Вычисляем «эффективный» индекс дня (program day), чтобы мета следовала за смещением
+const effectiveDayIndex = computed(() => {
+	if (props.cycleType !== 'weekly') return props.dayIndex;
+	const cfgRaw = planner.currentProgram?.config ? JSON.parse(planner.currentProgram.config) : null;
+	const weeklyDays: number[] | undefined = cfgRaw?.weekly?.days;
+	const dayOffset: number = (cfgRaw?.dayOffset ?? 0);
+	if (!weeklyDays || !Array.isArray(weeklyDays)) return props.dayIndex;
+	const activeDays = weeklyDays.map((v: number, i: number) => (v > 0 ? i : -1)).filter((i: number) => i >= 0);
+	const activeLen = activeDays.length;
+	if (activeLen === 0) return props.dayIndex;
+	const trainingShift = ((dayOffset % activeLen) + activeLen) % activeLen;
+	const k = activeDays.indexOf(props.dayIndex);
+	if (k === -1) return props.dayIndex;
+	const mapped = activeDays[(k + trainingShift) % activeLen];
+	return mapped;
+});
+
+async function loadMeta() {
 	await exercisesStore.loadMuscles();
+	const dayIdx = effectiveDayIndex.value;
 	const meta = await workouts.getWorkout(
 		props.programId,
 		props.cycleType,
-		props.dayIndex,
+		dayIdx,
 		props.sessionSlot
 	);
-	if (meta) {
-		description.value = meta.description ?? "";
-		type.value = (meta.type ?? "strength") as WorkoutType;
-	}
+	description.value = meta?.description ?? "";
+	type.value = (meta?.type ?? "strength") as WorkoutType;
 	chosenMuscleIds.value = await workouts.getWorkoutMuscleIds(
 		props.programId,
 		props.cycleType,
-		props.dayIndex,
+		dayIdx,
 		props.sessionSlot
 	);
+}
+
+function resetState() {
+	description.value = "";
+	type.value = "strength" as WorkoutType;
+	chosenMuscleIds.value = [];
+}
+
+onMounted(async () => {
+	if (modelShow.value) {
+		await loadMeta();
+	}
 });
+
+watch(modelShow, async (v: boolean) => {
+	if (v) {
+		await loadMeta();
+	} else {
+		resetState();
+	}
+});
+
+watch(
+	() => [props.programId, props.cycleType, props.dayIndex, props.sessionSlot],
+	async () => {
+		if (modelShow.value) await loadMeta();
+	}
+);
 
 function toggleMuscle(id: number) {
 	const i = chosenMuscleIds.value.indexOf(id);
@@ -93,7 +138,7 @@ async function onSave() {
 	await workouts.upsertWorkout({
 		program_id: props.programId,
 		cycle_type: props.cycleType,
-		day_index: props.dayIndex,
+	day_index: effectiveDayIndex.value,
 		slot: props.sessionSlot,
 		description: description.value.trim() || null,
 		type: type.value,
@@ -101,7 +146,7 @@ async function onSave() {
 	await workouts.setWorkoutMuscleIds(
 		props.programId,
 		props.cycleType,
-		props.dayIndex,
+	effectiveDayIndex.value,
 		props.sessionSlot,
 		chosenMuscleIds.value
 	);
@@ -144,7 +189,7 @@ async function onSave() {
 
 		<ActionButtons
 			:actions="[
-				{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
+				{ label: 'Отмена', type: 'secondary', onClick: () => emit('update:show', false) },
 				{ label: 'Сохранить', type: 'primary', onClick: onSave },
 			]"
 		/>

@@ -472,6 +472,9 @@ export const useExercisesStore = defineStore('exercises', {
 			if (input.work_weight != null) {
 				fields.push('work_weight = ?');
 				params.push(input.work_weight);
+				// При ручном изменении веса устанавливаем updated_at для предотвращения автоматических обновлений
+				fields.push('updated_at = ?');
+				params.push(Date.now());
 			}
 			if (!fields.length) return;
 			params.push(input.id);

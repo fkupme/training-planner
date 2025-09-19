@@ -29,5 +29,10 @@
 		}
 	},
 	"include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue"],
+	"exclude": [
+		"src/stores/__tests__/**",
+		"src/__tests__/**",
+		"src/components/**/__tests__/**"
+	],
 	"references": [{ "path": "./tsconfig.node.json" }]
 }

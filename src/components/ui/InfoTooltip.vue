@@ -62,17 +62,20 @@ onUnmounted(() => {
 });
 
 // Автоскрытие
-let autoHideTimer: number | null = null;
+let autoHideTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(() => props.show, (newShow) => {
+	// Очистим предыдущий таймер, если был
+	if (autoHideTimer) {
+		clearTimeout(autoHideTimer);
+		autoHideTimer = null;
+	}
+
 	if (newShow && (props.autoHide !== false)) {
 		const delay = props.autoHideDelay || 5000;
 		autoHideTimer = setTimeout(() => {
 			hideTooltip();
 		}, delay);
-	} else if (autoHideTimer) {
-		clearTimeout(autoHideTimer);
-		autoHideTimer = null;
 	}
 });
 </script>

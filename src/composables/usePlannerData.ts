@@ -51,7 +51,7 @@ export function usePlannerData() {
 		const p = planner.currentProgram;
 		if (!p) return "";
 		try {
-			return `Создано: ${new Date(p.created_at).toLocaleDateString()}`;
+			return `Создано: ${new Date(p.created_at).toLocaleDateString('ru-RU')}`;
 		} catch {
 			return "";
 		}
@@ -79,30 +79,29 @@ export function usePlannerData() {
 		const p = planner.currentProgram;
 		const c = cfg.value;
 		if (!p || c?.cycleType !== "weekly" || !Array.isArray(c.weekly?.days)) return;
-		const indices = (c.weekly.days as number[])
-			.map((v: number, i: number) => (v > 0 ? i : -1))
-			.filter((i: number) => i >= 0);
-		const uniqueIdx = Array.from(new Set(indices));
-		const map: Record<number, DayExerciseDetailed[]> = {};
-		for (const idx of uniqueIdx) {
-			map[idx] = await exercises.listExercisesForDayDetailed(p.id, "weekly", idx);
-		}
-		allExercisesWeekly.value = map;
+		
+		// НОВАЯ ЛОГИКА: используем централизованную смещенную программу из sessions store
+		const { useSessionsApiStore } = await import('@/stores/sessions.api');
+		const sessionsApi = useSessionsApiStore();
+		
+		console.log('🔍 usePlannerData.loadAllExercisesForWeekly: using centralized shifted program');
+		
+		// Получаем всю смещенную программу из sessions store
+		const shiftedProgram = sessionsApi.getAllShiftedExercises;
+		console.log('🔍 usePlannerData.loadAllExercisesForWeekly: shifted program =', shiftedProgram);
+		
+		allExercisesWeekly.value = shiftedProgram;
 	}
 
 	async function loadAllExercisesForCustom() {
 		const p = planner.currentProgram;
 		const c = cfg.value;
 		if (!p || c?.cycleType !== "custom" || !Array.isArray(c.custom?.days)) return;
-		const indices = (c.custom.days as number[])
-			.map((v: number, i: number) => (v > 0 ? i : -1))
-			.filter((i: number) => i >= 0);
-		const uniqueIdx = Array.from(new Set(indices));
-		const map: Record<number, DayExerciseDetailed[]> = {};
-		for (const idx of uniqueIdx) {
-			map[idx] = await exercises.listExercisesForDayDetailed(p.id, "custom", idx);
-		}
-		allExercisesCustom.value = map;
+		// Используем централизованный shiftedProgram так же, как для weekly
+		const { useSessionsApiStore } = await import('@/stores/sessions.api');
+		const sessionsApi = useSessionsApiStore();
+		console.log('🔍 usePlannerData.loadAllExercisesForCustom: using centralized shifted program');
+		allExercisesCustom.value = sessionsApi.getAllShiftedExercises;
 	}
 
 	// Helper function to get exercise weight

@@ -5,6 +5,7 @@ import ExercisePickerPopup from '@/components/planner/ExercisePickerPopup.vue';
 import ActionButtons from '@/components/ui/ActionButtons.vue';
 import { useSessionsStore } from '@/stores/sessions';
 import { useExercisesStore } from '@/stores/exercises';
+import { parseRPERIR } from '@/utils/rpeRirParser';
 import { showDialog, showNotify, showToast } from 'vant';
 import {
 	computed,
@@ -431,13 +432,14 @@ function getPlannedRepsNumber(exercise: any): number | undefined {
 }
 
 // Получает актуальные значения для отображения в карточке подхода
-function getDisplayValuesForSet(exercise: any, setIndex: number): { reps: number; weight: number } {
+function getDisplayValuesForSet(exercise: any, setIndex: number): { reps: number; weight: number; rpeRir: string | null } {
 	// Если это уже выполненный подход, возвращаем его значения
 	const existingSet = exercise.sets[setIndex];
 	if (existingSet && existingSet.reps_completed !== null) {
 		return {
 			reps: existingSet.reps_completed || 0,
-			weight: existingSet.weight_used || 0
+			weight: existingSet.weight_used || 0,
+			rpeRir: existingSet.rpe_rir || null
 		};
 	}
 
@@ -447,20 +449,41 @@ function getDisplayValuesForSet(exercise: any, setIndex: number): { reps: number
 		const lastSet = completedSets[completedSets.length - 1];
 		return {
 			reps: lastSet.reps_completed || getPlannedRepsNumber(exercise) || 0,
-			weight: lastSet.weight_used || exercise.work_weight || 0
+			weight: lastSet.weight_used || exercise.work_weight || 0,
+			rpeRir: lastSet.rpe_rir || null
 		};
 	}
 
 	// Если нет выполненных подходов, используем дефолтные значения
 	return {
 		reps: getPlannedRepsNumber(exercise) || 0,
-		weight: exercise.work_weight || 0
+		weight: exercise.work_weight || 0,
+		rpeRir: null
 	};
 }
 
 function startRestTimer(seconds: number = 90) {
 	sessions.startRestTimer(seconds);
 	showToast(`Таймер отдыха: ${seconds}с`);
+}
+
+// Локальная функция для компактного отображения RPE/RIR
+function formatRPERIRForDisplay(rpeRirString: string | null): string {
+	if (!rpeRirString) return '';
+	
+	const { rpe, rir } = parseRPERIR(rpeRirString);
+	
+	if (rpe === null && rir === null) return '';
+	
+	if (rir === null && rpe !== null) {
+		return `RPE ${rpe}`;
+	}
+	
+	if (rpe === null && rir !== null) {
+		return `RIR ${rir}`;
+	}
+	
+	return `RPE ${rpe} / RIR ${rir}`;
 }
 
 // Computed properties для редактора подходов
@@ -705,8 +728,8 @@ async function replaceExercise(newExerciseId: number) {
 											<van-tag type="primary">
 												{{ exercise.sets[setIndex - 1].reps_completed || '-' }}×{{ exercise.sets[setIndex - 1].weight_used || '-' }}кг
 											</van-tag>
-											<van-tag v-if="exercise.sets[setIndex - 1].rpe_rir" type="success">
-												{{ exercise.sets[setIndex - 1].rpe_rir }}
+											<van-tag v-if="exercise.sets[setIndex - 1].rpe_rir" type="success" class="rpe-tag">
+												{{ formatRPERIRForDisplay(exercise.sets[setIndex - 1].rpe_rir) }}
 											</van-tag>
 										</div>
 									</div>
@@ -716,6 +739,9 @@ async function replaceExercise(newExerciseId: number) {
 										<div class="placeholder-chips">
 											<van-tag type="default" plain>
 												{{ getDisplayValuesForSet(exercise, setIndex - 1).reps }}×{{ getDisplayValuesForSet(exercise, setIndex - 1).weight }}кг
+											</van-tag>
+											<van-tag v-if="getDisplayValuesForSet(exercise, setIndex - 1).rpeRir" type="default" plain class="rpe-tag">
+												{{ formatRPERIRForDisplay(getDisplayValuesForSet(exercise, setIndex - 1).rpeRir) }}
 											</van-tag>
 										</div>
 									</div>
@@ -1077,8 +1103,15 @@ async function replaceExercise(newExerciseId: number) {
 				border-color: var(--color-success);
 			}
 		}
-	}
 
+		
+	}
+// Специальный стиль для RPE/RIR - меньший шрифт
+		:deep(.rpe-tag) {
+			font-size: calc(var(--fs-xs) * 0.8) !important;
+			padding: 1px 4px !important;
+			line-height: 1.2 !important;
+		}
 	.set-placeholder-content {
 		flex: 1;
 		display: flex;

@@ -52,7 +52,6 @@ const {
 	allExercisesWeekly,
 	allExercisesCustom,
 	cfg,
-	nextSummary,
 	createdAtLabel,
 	getExerciseWeight,
 	loadAllExercisesForWeekly,
@@ -126,87 +125,57 @@ async function onReorder(payload: {
 	await reloadDayItems();
 }
 
-// Refs для даты следующей тренировки
-const nextDateLabel = ref('');
-const nextDateISO = ref<string | null>(null);
+// УБИРАЕМ старую логику - теперь данные берутся из sessions store
+// const nextDateLabel = ref('');
+// const nextDateISO = ref<string | null>(null);
 
-// Функция для обновления даты
-async function updateNextDate() {
-	console.log('🔍 updateNextDate: Called');
-	const next = await findNextDayIndex();
-	console.log('🔍 updateNextDate: findNextDayIndex returned:', next);
-	if (!next) {
-		console.log('🔍 updateNextDate: No next day, clearing date');
-		nextDateLabel.value = '';
-		nextDateISO.value = null;
-		return;
+// // Функция для обновления даты
+// async function updateNextDate() {
+// 	// НЕ НУЖНО - используем sessions.nextWorkoutDate и "Сегодня"
+// }
+
+// (removed unused programStartISO)
+
+// Форматированная дата ближайшей тренировки
+const nextWorkoutDateLabel = computed(() => {
+	const date = sessions.nextWorkoutDate;
+	if (!date) return 'Сегодня';
+	
+	const today = new Date();
+	const workoutDate = new Date(date);
+	
+	// Сравниваем даты без времени
+	const todayStr = today.toDateString();
+	const workoutStr = workoutDate.toDateString();
+	
+	// Форматируем полную дату (все строчными)
+	const fullDateFormat = workoutDate.toLocaleDateString('ru-RU', {
+		weekday: 'long',
+		day: 'numeric',
+		month: 'long'
+	});
+	
+	if (todayStr === workoutStr) {
+		return `Сегодня, ${fullDateFormat}`;
 	}
 	
-	const now = new Date();
-	const base = new Date();
-	base.setHours(0, 0, 0, 0);
-
-	let diff = 0;
-	let target: Date;
-
-	// Для weekly: dayIndex это день недели (Пн=0)
-	if (next.cycleType === 'weekly') {
-		const currentDow = (now.getDay() + 6) % 7; // Пн=0
-		diff = (next.dayIndex - currentDow + 7) % 7; // 0..6
-		target = new Date(base.getTime() + diff * 86400000);
-	} else {
-		// Для custom: dayOffset уже содержит смещение (0=сегодня, 1=завтра ...) в рамках поиска
-		diff = next.dayOffset;
-		target = new Date(base.getTime() + diff * 86400000);
+	// Завтра
+	const tomorrow = new Date(today);
+	tomorrow.setDate(tomorrow.getDate() + 1);
+	if (tomorrow.toDateString() === workoutStr) {
+		return `Завтра, ${fullDateFormat}`;
 	}
 	
-	nextDateLabel.value = formatWithRelative(target, diff);
-	nextDateISO.value = target.toISOString().slice(0, 10);
-}
-
-const programStartISO = computed(() => {
-	const d = planner.currentProgram?.start_date;
-	if (!d) return null as string | null;
-	try {
-		return new Date(d).toISOString().slice(0, 10);
-	} catch {
-		return null;
+	// Послезавтра
+	const dayAfterTomorrow = new Date(today);
+	dayAfterTomorrow.setDate(today.getDate() + 2);
+	if (dayAfterTomorrow.toDateString() === workoutStr) {
+		return `Послезавтра, ${fullDateFormat}`;
 	}
+	
+	// Обычный формат даты с заглавной буквы только в начале
+	return fullDateFormat.charAt(0).toUpperCase() + fullDateFormat.slice(1);
 });
-
-// Дизейбл кнопки "Начать тренировку": если ближайшая тренировка в будущем из-за будущей start_date
-const disableStartWorkout = computed(() => {
-	const todayISO = new Date().toISOString().slice(0, 10);
-	if (!nextDateISO.value) return true; // если нет дня — нечего начинать
-	// Если есть активная сессия — не дизейблим (можно продолжить)
-	if (sessions.hasActiveSession) return false;
-	return nextDateISO.value > todayISO; // нельзя начинать раньше назначенного дня
-});
-
-function formatWithRelative(dateObj: Date, diff: number) {
-	const months = [
-		'января',
-		'февраля',
-		'марта',
-		'апреля',
-		'мая',
-		'июня',
-		'июля',
-		'августа',
-		'сентября',
-		'октября',
-		'ноября',
-		'декабря',
-	];
-	const dd = dateObj.getDate();
-	const mm = months[dateObj.getMonth()];
-	const yyyy = dateObj.getFullYear();
-	let rel = '';
-	if (diff === 0) rel = 'сегодня';
-	else if (diff === 1) rel = 'завтра';
-	else if (diff === 2) rel = 'послезавтра';
-	return `${dd} ${mm} ${yyyy}${rel ? ', ' + rel : ''}`;
-}
 
 // Component state
 const showNewPlan = ref(false);
@@ -462,8 +431,42 @@ async function loadWorkoutMetaFor(cycle: 'weekly' | 'custom') {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function metaFor(cycle: 'weekly' | 'custom', dayIndex: number) {
+	// Map calendar day -> effective program day for weekly sparse rotation
 	const src =
 		cycle === 'weekly' ? workoutMetaWeekly.value : workoutMetaCustom.value;
+	if (cycle === 'weekly') {
+		const c = cfg.value;
+		const weeklyDays: number[] | undefined = c?.weekly?.days;
+		const dayOffset: number = (c?.dayOffset ?? 0);
+		if (Array.isArray(weeklyDays)) {
+			const activeDays = weeklyDays
+				.map((v: number, i: number) => (v > 0 ? i : -1))
+				.filter((i: number) => i >= 0);
+			const activeLen = activeDays.length;
+			if (activeLen > 0) {
+				const trainingShift = ((dayOffset % activeLen) + activeLen) % activeLen;
+				const k = activeDays.indexOf(dayIndex);
+				const mapped = k === -1 ? dayIndex : activeDays[(k + trainingShift) % activeLen];
+				return src[mapped] || { A: null, B: null };
+			}
+		}
+	} else if (cycle === 'custom') {
+		const c = cfg.value;
+		const customDays: number[] | undefined = c?.custom?.days;
+		const dayOffset: number = (c?.dayOffset ?? 0);
+		if (Array.isArray(customDays)) {
+			const activeDays = customDays
+				.map((v: number, i: number) => (v > 0 ? i : -1))
+				.filter((i: number) => i >= 0);
+			const activeLen = activeDays.length;
+			if (activeLen > 0) {
+				const trainingShift = ((dayOffset % activeLen) + activeLen) % activeLen;
+				const k = activeDays.indexOf(dayIndex);
+				const mapped = k === -1 ? dayIndex : activeDays[(k + trainingShift) % activeLen];
+				return src[mapped] || { A: null, B: null };
+			}
+		}
+	}
 	return src[dayIndex] || { A: null, B: null };
 }
 
@@ -530,19 +533,73 @@ async function loadWorkoutMusclesFor(cycle: 'weekly' | 'custom') {
 function musclesFor(cycle: 'weekly' | 'custom', dayIndex: number) {
 	const src =
 		cycle === 'weekly' ? muscleNamesWeekly.value : muscleNamesCustom.value;
+	if (cycle === 'weekly') {
+		const c = cfg.value;
+		const weeklyDays: number[] | undefined = c?.weekly?.days;
+		const dayOffset: number = (c?.dayOffset ?? 0);
+		if (Array.isArray(weeklyDays)) {
+			const activeDays = weeklyDays
+				.map((v: number, i: number) => (v > 0 ? i : -1))
+				.filter((i: number) => i >= 0);
+			const activeLen = activeDays.length;
+			if (activeLen > 0) {
+				const trainingShift = ((dayOffset % activeLen) + activeLen) % activeLen;
+				const k = activeDays.indexOf(dayIndex);
+				const mapped = k === -1 ? dayIndex : activeDays[(k + trainingShift) % activeLen];
+				return src[mapped] || { A: [], B: [] };
+			}
+		}
+	} else if (cycle === 'custom') {
+		const c = cfg.value;
+		const customDays: number[] | undefined = c?.custom?.days;
+		const dayOffset: number = (c?.dayOffset ?? 0);
+		if (Array.isArray(customDays)) {
+			const activeDays = customDays
+				.map((v: number, i: number) => (v > 0 ? i : -1))
+				.filter((i: number) => i >= 0);
+			const activeLen = activeDays.length;
+			if (activeLen > 0) {
+				const trainingShift = ((dayOffset % activeLen) + activeLen) % activeLen;
+				const k = activeDays.indexOf(dayIndex);
+				const mapped = k === -1 ? dayIndex : activeDays[(k + trainingShift) % activeLen];
+				return src[mapped] || { A: [], B: [] };
+			}
+		}
+	}
 	return src[dayIndex] || { A: [], B: [] };
 }
 
-watch(
-	() => cfg.value,
-	async () => {
+// TODO(microcycles): если в config.custom.microcycles задана структура микроциклов
+// (length или groups), вычислять active microIndex из логического индекса,
+// который уже отражает trainingShift (через shiftedProgram). Так границы
+// микроциклов «едут» вместе со сдвигом цикла без отдельного microShift.
+
+// флаг для предотвращения дублирования инициализации
+const isInitialized = ref(false);
+
+// централизованная функция загрузки данных
+async function loadPlannerData() {
+	try {
+		console.log('🔍 Planner: Loading data...');
+		
+		// Очистим предыдущие данные
+		dayItems.value = [];
+		
 		const c = cfg.value;
-		if (!planner.currentProgram || !c) return;
+		if (!c) return;
+		
 		await exercises.loadMuscles();
+		// КРИТИЧНО: сначала загружаем смещенную программу через sessions store
+		await sessions.loadShiftedProgram();
+		await sessions.loadNextWorkout();
+		await reloadDayItems();
+		
+		// подгрузка для вкладки "Весь план"
 		if (c.cycleType === 'weekly') {
 			await loadAllExercisesForWeekly();
 			await loadWorkoutMetaFor('weekly');
 			await loadWorkoutMusclesFor('weekly');
+			// Очистим данные другого типа цикла
 			allExercisesCustom.value = {};
 			workoutMetaCustom.value = {} as any;
 			muscleNamesCustom.value = {} as any;
@@ -550,35 +607,46 @@ watch(
 			await loadAllExercisesForCustom();
 			await loadWorkoutMetaFor('custom');
 			await loadWorkoutMusclesFor('custom');
+			// Очистим данные другого типа цикла
 			allExercisesWeekly.value = {};
 			workoutMetaWeekly.value = {} as any;
 			muscleNamesWeekly.value = {} as any;
 		}
-		// Обновим ближайший день после смены конфига
-		await reloadDayItems();
-	},
-	{ immediate: true }
+		
+		console.log('🔍 Planner: Data loaded successfully');
+	} catch (error) {
+		console.error('🔥 Planner: Error loading data:', error);
+	}
+}
+
+watch(
+	() => cfg.value,
+	async (newCfg) => {
+		if (!planner.currentProgram || !newCfg) return;
+		
+		// Загружаем данные только если уже инициализированы
+		if (isInitialized.value) {
+			console.log('🔍 Planner: Config changed, reloading data');
+			await loadPlannerData();
+		}
+	}
 );
 
 onMounted(async () => {
-	await planner.fetchPrograms();
-	console.log('🔍 Planner onMounted: Loading next workout...');
-	await sessions.loadNextWorkout();
-	console.log('🔍 Planner onMounted: Next workout loaded:', sessions.nextWorkout);
-	await updateNextDate();
-	await reloadDayItems();
-	await exercises.loadMuscles();
-	// подгрузка для вкладки "Весь план"
-	const c = cfg.value;
-	if (c?.cycleType === 'weekly') {
-		await loadAllExercisesForWeekly();
-		await loadWorkoutMetaFor('weekly');
-		await loadWorkoutMusclesFor('weekly');
-	}
-	if (c?.cycleType === 'custom') {
-		await loadAllExercisesForCustom();
-		await loadWorkoutMetaFor('custom');
-		await loadWorkoutMusclesFor('custom');
+	try {
+		console.log('🔍 Planner onMounted: Starting initialization...');
+		
+		await planner.fetchPrograms();
+		
+		// Загружаем данные если есть конфиг
+		if (cfg.value) {
+			await loadPlannerData();
+		}
+		
+		isInitialized.value = true;
+		console.log('🔍 Planner onMounted: Initialization completed');
+	} catch (error) {
+		console.error('🔥 Planner onMounted error:', error);
 	}
 });
 
@@ -676,12 +744,10 @@ async function onExerciseEdited() {
 				<!-- Tab Content without wrapper -->
 				<div class="planner__tab-content" v-if="activeTab === 'next'">
 					<PlannerTabNext
-						:day-items="dayItems"
-						:next-summary="nextSummary"
-						:next-date-label="nextDateLabel"
-						:next-date-iso="nextDateISO"
-						:program-start-iso="programStartISO"
-						:disable-start="disableStartWorkout"
+						:day-items="sessions.nextWorkoutExercises"
+						:next-summary="sessions.nextWorkoutSummary || {}"
+						:next-date-label="nextWorkoutDateLabel"
+						:disable-start="false"
 						:has-active-session="sessions.hasActiveSession"
 						:exercise-info-map="exerciseInfoMap"
 						:get-exercise-weight="getExerciseWeight"
