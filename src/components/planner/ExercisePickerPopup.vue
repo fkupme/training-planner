@@ -274,26 +274,26 @@ async function removeExercise(id: number, name: string) {
 				</transition-group>
 				<van-empty v-else description="Ничего не найдено" />
 				
-				<van-cell
-					class="picker__create"
-					:title="'Создать упражнение'"
-					is-link
-					@click="openCreate"
-				/>
+				<button type="button" class="picker__create" @click="openCreate">
+					<van-icon name="plus" />
+					<span>Создать упражнение</span>
+				</button>
 			</div>
-			
+		</div>
+
+		<template v-if="!singleSelect" #footer>
 			<ActionButtons
-				v-if="!singleSelect"
+				inline
 				:actions="[
-					{ 
-						label: `Добавить выбранные${selectedIds.length ? ` (${selectedIds.length})` : ''}`, 
-						type: 'primary', 
+					{
+						label: `Добавить выбранные${selectedIds.length ? ` (${selectedIds.length})` : ''}`,
+						type: 'primary',
 						onClick: addSelected,
 						disabled: selectedIds.length === 0
 					}
 				]"
 			/>
-		</div>
+		</template>
 	</KeyboardPopup>
 </template>
 
@@ -308,21 +308,31 @@ async function removeExercise(id: number, name: string) {
 
 	&__content {
 		flex: 1;
+		min-height: 0;
 		overflow-y: auto;
 		-webkit-overflow-scrolling: touch;
-		padding-bottom: 110px; // Место под ActionButtons
+		padding-bottom: var(--space-3);
 	}
 
 	&__create {
-		margin-top: var(--space-4);
+		margin-top: var(--space-3);
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		padding: var(--space-3);
 		background: var(--color-surface);
-		border-radius: var(--radius-l);
-		box-shadow: var(--shadow-xs);
-		border: 1px solid var(--color-border);
-		
-		:deep(.van-cell__title) {
-			color: var(--color-accent);
-			font-weight: var(--fw-semibold);
+		border: 1px dashed var(--color-accent);
+		border-radius: var(--radius-m);
+		color: var(--color-accent);
+		font-size: var(--fs-md);
+		font-weight: var(--fw-semibold);
+		cursor: pointer;
+		transition: background var(--dur-2) var(--ease-std);
+
+		&:active {
+			background: var(--color-accent-soft);
 		}
 	}
 }
@@ -357,13 +367,8 @@ async function removeExercise(id: number, name: string) {
 	position: relative;
 	overflow: hidden;
 
-	&:hover {
-		box-shadow: var(--shadow-sm);
-		transform: translateY(-1px);
-	}
-
 	&:active {
-		transform: translateY(0);
+		transform: scale(0.995);
 		box-shadow: var(--shadow-xs);
 	}
 

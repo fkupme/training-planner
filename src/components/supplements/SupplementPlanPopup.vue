@@ -317,18 +317,21 @@ function onCalendarConfirm(val: any) {
 			</van-cell-group>
 		</div>
 
-		<ActionButtons
-			:actions="[
-				{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
-				{ label: 'Сохранить', type: 'primary', onClick: onSave },
-			]"
-		/>
+		<template #footer>
+			<ActionButtons
+				inline
+				:actions="[
+					{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
+					{ label: 'Сохранить', type: 'primary', onClick: onSave },
+				]"
+			/>
+		</template>
 	</KeyboardPopup>
 </template>
 <style scoped lang="scss">
 .supp-plan {
 	background: var(--color-bg);
-	padding: var(--space-3) var(--space-3) 110px var(--space-3);
+	padding: var(--space-3) var(--space-3) var(--space-4);
 	min-height: 100%;
 }
 

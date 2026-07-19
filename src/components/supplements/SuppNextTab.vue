@@ -51,6 +51,15 @@ const locks = computed(() =>
 const disabledAll = computed(() => locks.value.disable);
 const disableReason = computed(() => locks.value.reason);
 
+function pluralItems(n: number): string {
+  const num = Math.abs(n) % 100;
+  const d = num % 10;
+  if (num > 10 && num < 20) return 'добавок';
+  if (d > 1 && d < 5) return 'добавки';
+  if (d === 1) return 'добавка';
+  return 'добавок';
+}
+
 function onToggleItem(id: number) {
   if (disabledAll.value) return;
   emit('toggle-item', id);
@@ -67,127 +76,134 @@ function onToggleItemPrev(id: number) {
 
 <template>
   <div class="supp-next">
-    <van-cell-group
-      class="supp-next__group transparent-bg"
-      v-if="dayItemsLength > 0 || (prevIncomplete && prevIncomplete.length)"
-    >
-      <div class="supp-next__summary-wrap">
-        <van-cell
-          title="Сводка"
-          :label="`Приёмов: ${summary.uniqueSlots}  Записей: ${summary.totalIntakes}`"
-          class="supp-next__summary transparent-bg"
-        />
-        <van-cell
-          title="Дата"
-          :label="nextDateLabel"
-          class="supp-next__summary transparent-bg"
-        />
+    <template v-if="dayItemsLength > 0 || (prevIncomplete && prevIncomplete.length)">
+      <!-- Summary tiles -->
+      <div class="supp-next__summary">
+        <div class="supp-stat">
+          <span class="supp-stat__value">{{ summary.uniqueSlots }}</span>
+          <span class="supp-stat__label">приёмов</span>
+        </div>
+        <div class="supp-stat">
+          <span class="supp-stat__value">{{ summary.totalIntakes }}</span>
+          <span class="supp-stat__label">записей</span>
+        </div>
+        <div class="supp-stat supp-stat--date">
+          <span class="supp-stat__value-sm">{{ nextDateLabel }}</span>
+          <span class="supp-stat__label">ближайший день</span>
+        </div>
       </div>
 
-      <div v-if="disabledAll" class="supp-next__disabled-hint">
-        <van-icon name="warning-o" />
+      <div v-if="disabledAll" class="supp-next__hint">
+        <van-icon name="info-o" />
         <span>{{ disableReason }}</span>
       </div>
 
       <!-- Невыполненные за вчера -->
-      <template v-if="prevIncomplete && prevIncomplete.length">
-        <div class="supp-slot-card">
-          <div class="supp-slot-card__header">
-            <div class="supp-slot-card__title">Невыполнено ({{ prevDateLabel || 'вчера' }})</div>
-            <div class="supp-slot-card__meta">{{ prevIncomplete.length }} добав.</div>
+      <section
+        v-if="prevIncomplete && prevIncomplete.length"
+        class="slot-card slot-card--warn"
+      >
+        <header class="slot-card__head">
+          <div class="slot-card__title-wrap">
+            <span class="slot-card__badge slot-card__badge--warn">
+              <van-icon name="underway-o" />
+            </span>
+            <div class="slot-card__titles">
+              <h3 class="slot-card__title">Невыполнено</h3>
+              <p class="slot-card__sub">{{ prevDateLabel || 'вчера' }}</p>
+            </div>
           </div>
-          <div class="supp-slot-card__list">
-            <div
-              v-for="it in prevIncomplete"
-              :key="it.id"
-              class="supp-item-card"
-              :class="{ 'supp-item-card--done': (isCompletedPrev ? isCompletedPrev(it.id) : false) }"
-              @click="onToggleItemPrev(it.id)"
-            >
-              <div class="supp-item-card__check">
-                <van-checkbox
-                  :model-value="isCompletedPrev ? isCompletedPrev(it.id) : false"
-                  @click.stop="onToggleItemPrev(it.id)"
-                  icon-size="16px"
-                />
+          <span class="slot-card__count">{{ prevIncomplete.length }}</span>
+        </header>
+        <div class="slot-card__list">
+          <div
+            v-for="it in prevIncomplete"
+            :key="it.id"
+            class="dose-row"
+            :class="{ 'dose-row--done': isCompletedPrev ? isCompletedPrev(it.id) : false }"
+            @click="onToggleItemPrev(it.id)"
+          >
+            <van-checkbox
+              class="dose-row__check"
+              :model-value="isCompletedPrev ? isCompletedPrev(it.id) : false"
+              @click.stop="onToggleItemPrev(it.id)"
+              icon-size="18px"
+            />
+            <div class="dose-row__body">
+              <div class="dose-row__top">
+                <span class="dose-row__name">{{ it.supplement_name }}</span>
+                <span class="dose-row__dose" v-if="formatDose(it)">{{ formatDose(it) }}</span>
+                <span class="dose-row__dose dose-row__dose--empty" v-else>—</span>
               </div>
-              <div class="supp-item-card__content">
-                <div class="supp-item-card__main">
-                  <div class="supp-item-card__name">{{ it.supplement_name }}</div>
-                  <div class="supp-item-card__dose" v-if="formatDose(it)">{{ formatDose(it) }}</div>
-                  <div class="supp-item-card__dose supp-item-card__dose--empty" v-else>—</div>
-                </div>
-                <div class="supp-item-card__meta">
-                  <span class="supp-item-card__badge" v-if="it.optional_flag">необязательно</span>
-                  <div class="supp-item-card__note" v-if="it.note">{{ it.note }}</div>
-                </div>
+              <div class="dose-row__meta" v-if="it.optional_flag || it.note">
+                <span class="dose-row__badge" v-if="it.optional_flag">необязательно</span>
+                <span class="dose-row__note" v-if="it.note">{{ it.note }}</span>
               </div>
             </div>
           </div>
         </div>
-      </template>
+      </section>
 
-      <!-- Обычный режим (по одному дню) -->
+      <!-- Приёмы ближайшего дня -->
       <template v-if="dayItemsLength > 0">
-        <div
+        <section
           v-for="slot in sortedSlots"
           :key="slot"
-          class="supp-slot-card"
-          :class="{ 'supp-slot-card--disabled': disabledAll }"
+          class="slot-card"
+          :class="{ 'slot-card--disabled': disabledAll }"
         >
-          <div class="supp-slot-card__header">
-            <div class="supp-slot-card__title">Приём {{ slot + 1 }}</div>
-            <div style="display: flex; align-items: center; gap: 8px">
-              <div class="supp-slot-card__meta">
-                {{ grouped[slot].length }} добав.
+          <header class="slot-card__head">
+            <div class="slot-card__title-wrap">
+              <span class="slot-card__badge">{{ slot + 1 }}</span>
+              <div class="slot-card__titles">
+                <h3 class="slot-card__title">Приём {{ slot + 1 }}</h3>
+                <p class="slot-card__sub">
+                  {{ grouped[slot].length }} {{ pluralItems(grouped[slot].length) }}
+                </p>
               </div>
-              <van-checkbox
-                :model-value="grouped[slot].every(it => isCompleted(it.id))"
-                @click="onToggleSlot(slot)"
-                icon-size="20px"
-                class="supp-slot-card__check-all"
-              />
             </div>
-          </div>
-          <div class="supp-slot-card__list">
+            <van-checkbox
+              class="slot-card__check"
+              :model-value="grouped[slot].every(it => isCompleted(it.id))"
+              @click="onToggleSlot(slot)"
+              icon-size="22px"
+            />
+          </header>
+          <div class="slot-card__list">
             <div
               v-for="it in grouped[slot]"
               :key="it.id"
-              class="supp-item-card"
-              :class="{ 'supp-item-card--done': isCompleted(it.id) }"
+              class="dose-row"
+              :class="{ 'dose-row--done': isCompleted(it.id) }"
               @click="onToggleItem(it.id)"
             >
-              <div class="supp-item-card__check">
-                <van-checkbox
-                  :model-value="isCompleted(it.id)"
-                  @click.stop="onToggleItem(it.id)"
-                  icon-size="16px"
-                />
-              </div>
-              <div class="supp-item-card__content">
-                <div class="supp-item-card__main">
-                  <div class="supp-item-card__name">{{ it.supplement_name }}</div>
-                  <div class="supp-item-card__dose" v-if="formatDose(it)">
+              <van-checkbox
+                class="dose-row__check"
+                :model-value="isCompleted(it.id)"
+                @click.stop="onToggleItem(it.id)"
+                icon-size="18px"
+              />
+              <div class="dose-row__body">
+                <div class="dose-row__top">
+                  <span class="dose-row__name">{{ it.supplement_name }}</span>
+                  <span class="dose-row__dose" v-if="formatDose(it)">
                     {{ formatDose(it) }}
-                  </div>
-                  <div class="supp-item-card__dose supp-item-card__dose--empty" v-else>
-                    —
-                  </div>
+                  </span>
+                  <span class="dose-row__dose dose-row__dose--empty" v-else>—</span>
                 </div>
-                <div class="supp-item-card__meta">
-                  <span class="supp-item-card__badge" v-if="it.optional_flag">
+                <div class="dose-row__meta" v-if="it.optional_flag || it.note">
+                  <span class="dose-row__badge" v-if="it.optional_flag">
                     необязательно
                   </span>
-                  <div class="supp-item-card__note" v-if="it.note">
-                    {{ it.note }}
-                  </div>
+                  <span class="dose-row__note" v-if="it.note">{{ it.note }}</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
       </template>
-    </van-cell-group>
+    </template>
+
     <van-empty
       v-else
       description="Нет приёмов на ближайший день"
@@ -196,354 +212,297 @@ function onToggleItemPrev(id: number) {
   </div>
 </template>
 
-/* Adaptive Supplements Next Tab */
 <style scoped lang="scss">
 .supp-next {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-bg) 96%, transparent) 0%,
-    color-mix(in srgb, var(--color-bg) 90%, transparent) 100%
-  );
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-l);
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: saturate(120%) blur(4px);
-  
-  &__group {
-    background: transparent;
-  }
-  
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+
   &__summary {
-    .van-cell__label {
-      color: var(--color-text-muted);
-      opacity: 0.95;
-    }
-  }
-  
-  &__summary-wrap {
     display: flex;
+    gap: var(--space-2);
   }
-  
-  &__disabled-hint {
-    margin: 0 var(--space-3) var(--space-2) var(--space-3);
+
+  &__hint {
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     font-size: var(--fs-xs);
     color: var(--color-text-muted);
-    padding: var(--space-2) var(--space-3);
     border: 1px dashed var(--color-border);
     border-radius: var(--radius-m);
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-surface) 95%, transparent),
-      color-mix(in srgb, var(--color-elevated) 90%, transparent)
-    );
-    backdrop-filter: blur(2px);
-    
+    background: var(--color-surface);
+
     .van-icon {
-      color: var(--color-warning, #ff9500);
+      color: var(--color-warning);
+      flex-shrink: 0;
     }
   }
-  
+
   &__empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 200px;
     margin: var(--space-6) 0;
   }
 }
 
-/* Supplement Slot Cards */
-.supp-slot-card {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-elevated) 98%, transparent),
-    color-mix(in srgb, var(--color-surface) 95%, transparent)
-  );
-  margin: var(--space-3);
-  border-radius: var(--radius-l);
-  padding: var(--space-4);
-  box-shadow: var(--shadow-md);
+/* Summary tiles — match the Planner strip */
+.supp-stat {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  transition: all var(--dur-3) var(--ease-std);
-  backdrop-filter: blur(6px) saturate(110%);
-  
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-m);
+
+  &--date {
+    flex: 1.7;
   }
-  
-  &__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-4);
-    padding-bottom: var(--space-3);
-    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
-    position: relative;
-    
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: -1px;
-      left: 0;
-      width: 40px;
-      height: 2px;
-      background: var(--grad-1);
-      border-radius: var(--radius-pill);
-    }
-  }
-  
-  &__title {
+
+  &__value {
+    font-size: var(--fs-xl);
     font-weight: var(--fw-bold);
+    line-height: 1;
     color: var(--color-text);
-    font-size: var(--fs-lg);
-    letter-spacing: 0.3px;
+    font-variant-numeric: tabular-nums;
   }
-  
-  &__meta {
-    font-size: var(--fs-xs);
-    color: var(--color-text-muted);
-    opacity: 0.85;
+
+  &__value-sm {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+    line-height: var(--lh-title);
+    color: var(--color-text);
+  }
+
+  &__label {
+    font-size: var(--fs-xxs);
     font-weight: var(--fw-semibold);
-    padding: 4px 8px;
-    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-    border-radius: var(--radius-pill);
-    border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
-  }
-  
-  &__check-all {
-    margin-left: var(--space-2);
-    transition: transform var(--dur-2) var(--ease-std);
-    
-    &:active {
-      transform: scale(0.95);
-    }
-  }
-  
-  &__list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-  
-  &--disabled {
-    opacity: 0.55;
-    pointer-events: none;
-    filter: grayscale(0.2) blur(0.5px);
-    transform: scale(0.99);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
   }
 }
 
-/* Supplement Item Cards */
-.supp-item-card {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-surface) 98%, transparent),
-    color-mix(in srgb, var(--color-bg) 92%, transparent)
-  );
+/* Slot card */
+.slot-card {
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-l);
-  padding: var(--space-4);
-  transition: all var(--dur-2) var(--ease-std);
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 3px;
-    height: 100%;
-    background: var(--grad-1);
-    opacity: 0;
-    transition: opacity var(--dur-2) var(--ease-std);
+  box-shadow: var(--shadow-xs);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+
+  &--disabled {
+    opacity: 0.55;
+    pointer-events: none;
   }
-  
-  &:hover {
-    border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-surface) 100%, transparent),
-      color-mix(in srgb, var(--color-elevated) 95%, transparent)
-    );
-    transform: translateX(2px);
-    
-    &::before {
-      opacity: 1;
-    }
+
+  &--warn {
+    border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
   }
-  
-  &:active {
-    transform: translateX(2px) scale(0.99);
-    border-color: var(--color-accent);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
   }
-  
-  &--done {
-    opacity: 0.65;
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-bg) 95%, transparent),
-      color-mix(in srgb, var(--color-surface) 88%, transparent)
-    );
-    
-    &::before {
-      background: color-mix(in srgb, var(--color-success, var(--color-accent)) 80%, transparent);
-      opacity: 1;
-    }
-    
-    .supp-item-card__name {
-      text-decoration: line-through;
-      opacity: 0.7;
-    }
-    
-    .supp-item-card__dose {
-      opacity: 0.6;
-    }
+
+  &__title-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
   }
-  
-  &__check {
-    margin-top: 2px;
+
+  &__badge {
     flex-shrink: 0;
-    transition: transform var(--dur-2) var(--ease-std);
-    
-    &:active {
-      transform: scale(0.9);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-m);
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+
+    &--warn {
+      background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+      color: var(--color-warning);
     }
   }
-  
-  &__content {
-    flex: 1;
+
+  &__titles {
+    min-width: 0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: var(--fs-md);
+    font-weight: var(--fw-bold);
+    line-height: 1.2;
+    color: var(--color-text);
+  }
+
+  &__sub {
+    margin: 1px 0 0;
+    font-size: var(--fs-xs);
+    color: var(--color-text-muted);
+  }
+
+  &__count {
+    flex-shrink: 0;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+    color: var(--color-warning);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+  }
+
+  &__check {
+    flex-shrink: 0;
+  }
+
+  &__list {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    min-width: 0;
   }
-  
-  &__main {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--space-3);
+}
+
+/* Dose row */
+.dose-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-m);
+  background: var(--color-bg);
+  cursor: pointer;
+  transition: background var(--dur-2) var(--ease-std),
+    border-color var(--dur-2) var(--ease-std);
+
+  &:active {
+    background: var(--color-elevated);
   }
-  
-  &__name {
-    font-weight: var(--fw-semibold);
-    color: var(--color-text);
-    font-size: var(--fs-md);
-    line-height: var(--lh-body);
-    flex: 1;
-    letter-spacing: 0.2px;
-  }
-  
-  &__dose {
-    font-weight: var(--fw-bold);
-    color: var(--color-accent);
-    font-size: var(--fs-sm);
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-    padding: 6px 12px;
-    border-radius: var(--radius-l);
-    white-space: nowrap;
-    flex-shrink: 0;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-    box-shadow: var(--shadow-xs);
-    backdrop-filter: blur(2px);
-    
-    &--empty {
+
+  &--done {
+    background: color-mix(
+      in srgb,
+      var(--color-success, var(--color-accent)) 8%,
+      var(--color-bg)
+    );
+    border-color: color-mix(
+      in srgb,
+      var(--color-success, var(--color-accent)) 30%,
+      var(--color-border)
+    );
+
+    .dose-row__name {
+      text-decoration: line-through;
       color: var(--color-text-muted);
-      background: color-mix(in srgb, var(--color-bg) 95%, transparent);
-      border: 1px dashed var(--color-border);
-      font-weight: var(--fw-regular);
+    }
+
+    .dose-row__dose {
+      opacity: 0.55;
     }
   }
-  
-  &__meta {
+
+  &__check {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
   }
-  
+
+  &__top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  &__name {
+    min-width: 0;
+    font-size: var(--fs-md);
+    font-weight: var(--fw-semibold);
+    color: var(--color-text);
+    line-height: var(--lh-body);
+  }
+
+  &__dose {
+    flex-shrink: 0;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+    color: var(--color-accent);
+    background: var(--color-accent-soft);
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+
+    &--empty {
+      color: var(--color-text-muted);
+      background: transparent;
+      border: 1px dashed var(--color-border);
+      font-weight: var(--fw-regular);
+    }
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
   &__badge {
-    display: inline-block;
-    background: color-mix(in srgb, var(--color-warning, #ff9500) 15%, transparent);
-    color: var(--color-warning, #ff9500);
     font-size: var(--fs-xxs);
     font-weight: var(--fw-semibold);
-    padding: 3px 8px;
-    border-radius: var(--radius-pill);
-    align-self: flex-start;
-    border: 1px solid color-mix(in srgb, var(--color-warning, #ff9500) 30%, transparent);
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.03em;
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    padding: 2px 7px;
+    border-radius: var(--radius-pill);
   }
-  
+
   &__note {
     font-size: var(--fs-xs);
     color: var(--color-text-muted);
-    line-height: var(--lh-body);
-    opacity: 0.9;
     font-style: italic;
   }
 }
 
-/* Utility classes */
-.transparent-bg {
-  background: transparent;
-}
-
-/* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-  .supp-slot-card,
-  .supp-item-card,
-  .supp-item-card__check {
-    transition: none !important;
-  }
-  
-  .supp-slot-card:hover,
-  .supp-item-card:hover {
-    transform: none !important;
-  }
-}
-
-/* Mobile optimizations */
-@media (max-width: 420px) {
-  .supp-slot-card {
-    margin: var(--space-2);
-    padding: var(--space-3);
-    
-    &__header {
-      margin-bottom: var(--space-3);
-      padding-bottom: var(--space-2);
-    }
-    
-    &__title {
-      font-size: var(--fs-md);
-    }
-  }
-  
-  .supp-item-card {
-    padding: var(--space-3);
-    gap: var(--space-2);
-    
-    &__name {
-      font-size: var(--fs-sm);
-    }
-    
-    &__dose {
-      padding: 4px 8px;
-      font-size: var(--fs-xs);
-    }
+  .dose-row {
+    transition: none;
   }
 }
 </style>

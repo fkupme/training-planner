@@ -57,7 +57,20 @@ function lockScreenOrientation() {
 
 (async () => {
 	if (isTauri) {
-		await ensureSchema().catch(() => {});
+		// Don't swallow schema-init errors: a silently-missing table shows up
+		// much later as an unexplained "no such table" toast when logging a set.
+		try {
+			await ensureSchema();
+		} catch (e) {
+			console.error('[schema] ensureSchema failed — DB may be missing tables:', e);
+			try {
+				const { showNotify } = await import('vant');
+				showNotify({
+					type: 'danger',
+					message: 'Ошибка инициализации базы данных',
+				});
+			} catch {}
+		}
 	}
 
 	// Установка русской локализации для Vant

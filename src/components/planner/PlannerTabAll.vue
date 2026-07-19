@@ -134,7 +134,7 @@ const emit = defineEmits<{
 .cycle-header {
   background: var(--grad-1);
   color: var(--color-accent-contrast);
-  padding: var(--space-4) var(--space-4);
+  padding: var(--space-2) var(--space-4);
   margin: 0 0 0 0;
   display: flex;
   align-items: center;
@@ -145,7 +145,7 @@ const emit = defineEmits<{
   backdrop-filter: blur(8px);
   
   &__title {
-    font-size: var(--fs-lg);
+    font-size: var(--fs-md);
     font-weight: var(--fw-bold);
     letter-spacing: 0.3px;
   }

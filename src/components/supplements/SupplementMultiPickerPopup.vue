@@ -313,13 +313,15 @@ async function removeSupplement(id: number, name: string) {
 			</div>
 
 			<!-- Кнопка создать в конце списка как в упражнениях -->
-			<van-cell
+			<button
 				v-if="filteredList.length"
+				type="button"
 				class="supplement-picker__create"
-				title="Создать добавку"
-				is-link
 				@click="openCreate"
-			/>
+			>
+				<van-icon name="plus" />
+				<span>Создать добавку</span>
+			</button>
 
 			<!-- Пустое состояние -->
 			<van-empty v-if="!filteredList.length" description="Нет результатов">
@@ -329,15 +331,17 @@ async function removeSupplement(id: number, name: string) {
 			</van-empty>
 		</div>
 
-		<!-- Нижняя панель с ActionButtons -->
-		<ActionButtons 
-			:actions="[{
-				label: `Добавить${newSelectedCount ? ` (${newSelectedCount})` : ''}`,
-				type: 'primary',
-				disabled: !newSelectedCount,
-				onClick: addSelected
-			}]"
-		/>
+		<template #footer>
+			<ActionButtons
+				inline
+				:actions="[{
+					label: `Добавить${newSelectedCount ? ` (${newSelectedCount})` : ''}`,
+					type: 'primary',
+					disabled: !newSelectedCount,
+					onClick: addSelected
+				}]"
+			/>
+		</template>
 	</KeyboardPopup>
 </template>
 
@@ -357,29 +361,31 @@ async function removeSupplement(id: number, name: string) {
 
 	&__content {
 		flex: 1;
+		min-height: 0;
 		overflow-y: auto;
 		-webkit-overflow-scrolling: touch;
-		padding: 8px 16px 120px;
-		height: 66dvh;
-	}
-
-	&__footer {
-		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		padding: 16px;
-		background: var(--van-background);
-		border-top: 1px solid var(--van-border-color);
-		z-index: 10;
+		padding: var(--space-2) var(--space-4) var(--space-4);
 	}
 
 	&__create {
-		margin-top: 16px;
-		
-		:deep(.van-cell__title) {
-			color: var(--van-primary-color);
-			font-weight: 500;
+		margin-top: var(--space-3);
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		padding: var(--space-3);
+		background: var(--color-surface);
+		border: 1px dashed var(--color-accent);
+		border-radius: var(--radius-m);
+		color: var(--color-accent);
+		font-size: var(--fs-md);
+		font-weight: var(--fw-semibold);
+		cursor: pointer;
+		transition: background var(--dur-2) var(--ease-std);
+
+		&:active {
+			background: var(--color-accent-soft);
 		}
 	}
 }

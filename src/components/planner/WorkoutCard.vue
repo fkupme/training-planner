@@ -156,7 +156,7 @@ watch(
               <div class="exercise-info">
                 <div class="exercise-name">{{ exercise.exercise_name }}</div>
                 <div class="exercise-params">
-                  Подходов: {{ exercise.sets_count }}  Повторы: {{ Number(exercise.reps_json) || '' }}  {{ exercise.optional_flag ? 'необяз.' : '' }}
+                  {{ exercise.sets_count }}×{{ Number(exercise.reps_json) || '—' }}{{ exercise.optional_flag ? ' · необяз.' : '' }}
                 </div>
               </div>
               <div class="drag-handle">☰</div>
@@ -249,7 +249,7 @@ watch(
               <div class="exercise-info">
                 <div class="exercise-name">{{ exercise.exercise_name }}</div>
                 <div class="exercise-params">
-                  Подходов: {{ exercise.sets_count }}  Повторы: {{ Number(exercise.reps_json) || '' }}  {{ exercise.optional_flag ? 'необяз.' : '' }}
+                  {{ exercise.sets_count }}×{{ Number(exercise.reps_json) || '—' }}{{ exercise.optional_flag ? ' · необяз.' : '' }}
                 </div>
               </div>
               <div class="drag-handle">☰</div>
@@ -305,9 +305,9 @@ watch(
 
 /* Заголовок карточки */
 .workout-card__header {
-  background: var(--grad-1);
-  color: var(--color-accent-contrast);
-  padding: var(--space-3) var(--space-4);
+  background: color-mix(in srgb, var(--color-accent) 9%, var(--color-surface));
+  color: var(--color-accent);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -343,7 +343,7 @@ watch(
 
 .workout-card__description {
   font-size: var(--fs-sm);
-  color: var(--color-accent-contrast);
+  color: var(--color-text-muted);
   opacity: 0.9;
   line-height: 1.4;
 }
@@ -361,7 +361,7 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-accent-contrast);
+  color: var(--color-accent);
   cursor: pointer;
   
   &--secondary {
@@ -377,8 +377,8 @@ watch(
   font-weight: var(--fw-medium) !important;
   
   &--header {
-    background: rgba(255, 255, 255, 0.2) !important;
-    color: var(--color-accent-contrast) !important;
+    background: color-mix(in srgb, var(--color-accent) 15%, transparent) !important;
+    color: var(--color-accent) !important;
     backdrop-filter: blur(4px);
   }
 }

@@ -469,6 +469,43 @@ function getDisplayValuesForSet(exercise: any, setIndex: number): { reps: number
 	};
 }
 
+// Кол-во записанных подходов упражнения (по наличию строки — как в старом шаблоне)
+function completedSetsCount(exercise: any): number {
+	if (!exercise?.sets) return 0;
+	return exercise.sets.filter((s: any) => s != null).length;
+}
+
+// Индекс первого незаписанного подхода (для подсветки «текущего»)
+function nextPendingSetIndex(exercise: any): number {
+	if (!exercise?.sets) return 0;
+	for (let i = 0; i < (exercise.planned_sets || 0); i++) {
+		if (!exercise.sets[i]) return i;
+	}
+	return -1;
+}
+
+// Прогресс всей сессии по подходам (реальные данные)
+const totalPlannedSets = computed(() =>
+	sessions.sessionExercises.reduce(
+		(n: number, ex: any) => n + (ex.planned_sets || 0),
+		0
+	)
+);
+const totalCompletedSets = computed(() =>
+	sessions.sessionExercises.reduce(
+		(n: number, ex: any) => n + completedSetsCount(ex),
+		0
+	)
+);
+const sessionProgress = computed(() =>
+	totalPlannedSets.value
+		? Math.min(
+				100,
+				Math.round((totalCompletedSets.value / totalPlannedSets.value) * 100)
+		  )
+		: 0
+);
+
 function startRestTimer(seconds: number = 90) {
 	sessions.startRestTimer(seconds);
 	showToast(`Таймер отдыха: ${seconds}с`);
@@ -564,232 +601,267 @@ async function replaceExercise(newExerciseId: number) {
 <template>
 	<div class="session-page">
 		<div class="session">
-			<div class="session__scroll-container">
-				<!-- Шапка сессии -->
-			<van-cell-group class="session__header" inset>
-				<van-cell
-					:title="sessions.currentSession?.name || 'Тренировка'"
-					:label="`Длительность: ${sessionTimeDisplay}`"
-				>
-					<template #right-icon>
-						<van-button size="small" type="danger" plain @click="cancelSession">
-							Отмена
-						</van-button>
-					</template>
-				</van-cell>
-			</van-cell-group>
-
-			<!-- Таймер отдыха -->
-			<van-cell-group class="session__timer" inset>
-				<van-cell
-					title="Отдых"
-					:class="{ 'timer-running': sessions.restTimer.isRunning }"
-				>
-					<template #label>
-						<div class="timer-display">
-							<van-circle
-								v-if="sessions.restTimer.isRunning"
-								:current-rate="timerProgress"
-								:rate="100"
-								:speed="100"
-								:text="timeDisplay"
-								:stroke-width="106"
-								size="60px"
-								color="var(--color-accent)"
-							/>
-							<div v-else class="timer-text">{{ timeDisplay }}</div>
+			<div class="session__scroll">
+				<!-- Hero: session name + live stats + progress -->
+				<header class="session__hero">
+					<div class="session__hero-row">
+						<div class="session__hero-main">
+							<span class="session__eyebrow">Тренировка идёт</span>
+							<h1 class="session__name">
+								{{ sessions.currentSession?.name || 'Тренировка' }}
+							</h1>
 						</div>
-					</template>
-					<template #right-icon>
-						<van-space>
-							<van-button
-								size="small"
-								:type="sessions.restTimer.isRunning ? 'warning' : 'primary'"
-								@click="
-									sessions.restTimer.isRunning
-										? sessions.stopRestTimer()
-										: startRestTimer()
-								"
-							>
-								{{ sessions.restTimer.isRunning ? 'Стоп' : 'Старт' }}
-							</van-button>
-							<van-button size="small" @click="sessions.resetRestTimer()">
-								Сброс
-							</van-button>
-						</van-space>
-					</template>
-				</van-cell>
+						<button
+							class="session__cancel"
+							@click="cancelSession"
+							aria-label="Отменить тренировку"
+						>
+							<van-icon name="cross" />
+						</button>
+					</div>
+					<div class="session__stats">
+						<div class="session__stat">
+							<span class="session__stat-value">{{ sessionTimeDisplay }}</span>
+							<span class="session__stat-label">длительность</span>
+						</div>
+						<div class="session__stat">
+							<span class="session__stat-value">
+								{{ totalCompletedSets
+								}}<span class="session__stat-sub">/{{ totalPlannedSets }}</span>
+							</span>
+							<span class="session__stat-label">подходов</span>
+						</div>
+						<div class="session__stat">
+							<span class="session__stat-value">{{
+								sessions.sessionExercises.length
+							}}</span>
+							<span class="session__stat-label">упражнений</span>
+						</div>
+					</div>
+					<div
+						class="session__progress"
+						role="progressbar"
+						:aria-valuenow="sessionProgress"
+						aria-valuemin="0"
+						aria-valuemax="100"
+					>
+						<div
+							class="session__progress-fill"
+							:style="{ width: sessionProgress + '%' }"
+						></div>
+					</div>
+				</header>
 
-				<!-- Автотаймер -->
-				<van-cell>
-					<template #title>
-						<div class="auto-timer-title">
-							<span>Автотаймер</span>
+				<div class="session__body">
+					<!-- Rest timer -->
+					<section
+						class="rest-timer"
+						:class="{ 'rest-timer--running': sessions.restTimer.isRunning }"
+					>
+						<div class="rest-timer__row">
+							<div class="rest-timer__display">
+								<van-circle
+									v-if="sessions.restTimer.isRunning"
+									:current-rate="timerProgress"
+									:rate="100"
+									:speed="100"
+									:text="timeDisplay"
+									:stroke-width="90"
+									size="76px"
+									layer-color="var(--color-border)"
+									color="var(--color-accent)"
+								/>
+								<div v-else class="rest-timer__idle">
+									<span class="rest-timer__eyebrow">Отдых</span>
+									<span class="rest-timer__time">{{ timeDisplay }}</span>
+								</div>
+							</div>
+							<div class="rest-timer__controls">
+								<button
+									class="rest-timer__btn rest-timer__btn--primary"
+									@click="
+										sessions.restTimer.isRunning
+											? sessions.stopRestTimer()
+											: startRestTimer()
+									"
+								>
+									{{ sessions.restTimer.isRunning ? 'Стоп' : 'Старт' }}
+								</button>
+								<button
+									class="rest-timer__btn"
+									@click="sessions.resetRestTimer()"
+								>
+									Сброс
+								</button>
+							</div>
+						</div>
+						<div class="rest-timer__presets">
+							<button class="rest-timer__preset" @click="startRestTimer(60)">
+								1:00
+							</button>
+							<button class="rest-timer__preset" @click="startRestTimer(90)">
+								1:30
+							</button>
+							<button class="rest-timer__preset" @click="startRestTimer(120)">
+								2:00
+							</button>
+							<button class="rest-timer__preset" @click="startRestTimer(180)">
+								3:00
+							</button>
+						</div>
+						<div class="rest-timer__auto">
+							<div class="rest-timer__auto-text">
+								<span>Автотаймер</span>
+								<small>Запуск после подхода</small>
+							</div>
+							<van-stepper
+								v-if="autoTimerEnabled"
+								v-model="autoTimerSeconds"
+								min="30"
+								max="300"
+								step="15"
+								button-size="24px"
+							/>
 							<van-switch v-model="autoTimerEnabled" size="20" />
 						</div>
-					</template>
-					<template #value v-if="autoTimerEnabled">
-						<van-stepper 
-							v-model="autoTimerSeconds" 
-							min="30" 
-							max="300"
-							step="15"
-							button-size="24px"
-						/>
-					</template>
-					<template #label v-if="autoTimerEnabled">
-						Запуск после сохранения подхода
-					</template>
-				</van-cell>
+					</section>
 
-				<!-- Быстрые кнопки таймера -->
-				<van-row class="timer-presets" gutter="8">
-					<van-col span="6">
-						<van-button size="mini" @click="startRestTimer(60)">1м</van-button>
-					</van-col>
-					<van-col span="6">
-						<van-button size="mini" @click="startRestTimer(90)"
-							>1.5м</van-button
-						>
-					</van-col>
-					<van-col span="6">
-						<van-button size="mini" @click="startRestTimer(120)">2м</van-button>
-					</van-col>
-					<van-col span="6">
-						<van-button size="mini" @click="startRestTimer(180)">3м</van-button>
-					</van-col>
-				</van-row>
-			</van-cell-group>
-
-			<!-- Упражнения -->
-			<div class="session__exercises">
-				<template v-if="!sessions.currentSession">
-					<!-- Скелетоны при загрузке -->
-					<van-cell-group v-for="i in 3" :key="i" class="exercise-group" inset>
-						<van-cell class="exercise-header">
-							<div class="exercise-title">
-								<van-skeleton title :row="0" />
-								<van-space>
-									<van-skeleton title :row="0" width="60px" />
-									<van-skeleton title :row="0" width="50px" />
-								</van-space>
-							</div>
-						</van-cell>
-
-						<div class="sets-grid">
-							<div v-for="setIndex in 4" :key="setIndex" class="set-card">
+					<!-- Exercises -->
+					<section class="session__exercises">
+						<template v-if="!sessions.currentSession">
+							<div
+								v-for="i in 3"
+								:key="i"
+								class="exercise-card exercise-card--skeleton"
+							>
 								<van-skeleton title :row="2" />
 							</div>
-						</div>
-					</van-cell-group>
-				</template>
+						</template>
 
-				<template v-else-if="sessions.sessionExercises.length > 0">
-					<van-cell-group
-						v-for="exercise in sessions.sessionExercises"
-						:key="exercise.day_exercise_id"
-						class="exercise-group"
-						inset
-					>
-						<van-cell class="exercise-header">
-							<div class="exercise-title">
-								<div class="exercise-title-main">
-									<h4>{{ exercise.exercise_name }}</h4>
-									<van-icon 
-										name="exchange" 
-										class="replace-icon" 
-										@click.stop="openReplaceExercise(exercise)"
-										title="Заменить упражнение"
-									/>
-								</div>
-								<div class="exercise-tags">
-									<van-tag type="primary">
-										{{ exercise.planned_sets }} × {{ getPlannedReps(exercise) }}
-									</van-tag>
-									<van-tag v-if="exercise.work_weight" type="success">
-										{{ exercise.work_weight }} {{ unitLabel }}
-									</van-tag>
-								</div>
-							</div>
-						</van-cell>
-
-						<!-- Подходы -->
-						<div class="sets-grid">
-							<div
-								v-for="setIndex in exercise.planned_sets"
-								:key="setIndex"
-								class="set-card"
+						<template v-else-if="sessions.sessionExercises.length > 0">
+							<article
+								v-for="(exercise, exIdx) in sessions.sessionExercises"
+								:key="exercise.day_exercise_id"
+								class="exercise-card"
 							>
-								<div class="set-header">
-									<div class="set-number">{{ setIndex }}</div>
-									<template v-if="!exercise.sets[setIndex - 1]">
-										<div class="set-controls">
-											<van-icon name="edit" class="control-icon" @click.stop="openSetEditor(exercise, setIndex - 1)" />
-										</div>
-									</template>
+								<div class="exercise-card__head">
+									<span class="exercise-card__num">{{ exIdx + 1 }}</span>
+									<h3 class="exercise-card__name">
+										{{ exercise.exercise_name }}
+									</h3>
+									<button
+										class="exercise-card__replace"
+										@click.stop="openReplaceExercise(exercise)"
+										aria-label="Заменить упражнение"
+									>
+										<van-icon name="exchange" />
+									</button>
 								</div>
 
-								<template v-if="exercise.sets[setIndex - 1]">
-									<div class="set-content" @click="openSetEditor(exercise, setIndex - 1)">
-										<div class="set-chips">
-											<van-tag type="primary">
-												{{ exercise.sets[setIndex - 1].reps_completed || '-' }}×{{ exercise.sets[setIndex - 1].weight_used || '-' }} {{ unitLabel }}
-											</van-tag>
-											<van-tag v-if="exercise.sets[setIndex - 1].rpe_rir" type="success" class="rpe-tag">
-												{{ formatRPERIRForDisplay(exercise.sets[setIndex - 1].rpe_rir) }}
-											</van-tag>
-										</div>
+								<div class="exercise-card__meta">
+									<span class="exercise-card__plan">
+										{{ exercise.planned_sets }}×{{ getPlannedReps(exercise) }}
+									</span>
+									<span
+										v-if="exercise.work_weight"
+										class="exercise-card__weight"
+									>
+										{{ exercise.work_weight }} {{ unitLabel }}
+									</span>
+									<div class="exercise-card__pips" aria-hidden="true">
+										<span
+											v-for="s in exercise.planned_sets"
+											:key="s"
+											class="pip"
+											:class="{ 'pip--done': completedSetsCount(exercise) >= s }"
+										></span>
 									</div>
-								</template>
-								<template v-else>
-									<div class="set-placeholder-content" @click="quickAddSet(exercise, setIndex - 1)">
-										<div class="placeholder-chips">
-											<van-tag type="default" plain>
-												{{ getDisplayValuesForSet(exercise, setIndex - 1).reps }}×{{ getDisplayValuesForSet(exercise, setIndex - 1).weight }} {{ unitLabel }}
-											</van-tag>
-											<van-tag v-if="getDisplayValuesForSet(exercise, setIndex - 1).rpeRir" type="default" plain class="rpe-tag">
-												{{ formatRPERIRForDisplay(getDisplayValuesForSet(exercise, setIndex - 1).rpeRir) }}
-											</van-tag>
-										</div>
-									</div>
-								</template>
-							</div>
-						</div>
-					</van-cell-group>
-				</template>
+								</div>
 
-				<template v-else>
-					<van-empty
-						description="Упражнения для этого дня не найдены"
-						class="session__empty"
-					/>
-				</template>
+								<div class="set-tiles">
+									<button
+										v-for="setIndex in exercise.planned_sets"
+										:key="setIndex"
+										type="button"
+										class="set-tile"
+										:class="{
+											'set-tile--done': !!exercise.sets[setIndex - 1],
+											'set-tile--next':
+												nextPendingSetIndex(exercise) === setIndex - 1,
+										}"
+										@click="
+											exercise.sets[setIndex - 1]
+												? openSetEditor(exercise, setIndex - 1)
+												: quickAddSet(exercise, setIndex - 1)
+										"
+									>
+										<span class="set-tile__num">{{ setIndex }}</span>
+										<template v-if="exercise.sets[setIndex - 1]">
+											<span class="set-tile__value">
+												{{ exercise.sets[setIndex - 1].reps_completed || '—'
+												}}<i>×</i>{{
+													exercise.sets[setIndex - 1].weight_used || '—'
+												}}
+											</span>
+											<span
+												v-if="exercise.sets[setIndex - 1].rpe_rir"
+												class="set-tile__rpe"
+											>
+												{{
+													formatRPERIRForDisplay(
+														exercise.sets[setIndex - 1].rpe_rir
+													)
+												}}
+											</span>
+										</template>
+										<template v-else>
+											<span class="set-tile__value set-tile__value--ghost">
+												{{ getDisplayValuesForSet(exercise, setIndex - 1).reps
+												}}<i>×</i>{{
+													getDisplayValuesForSet(exercise, setIndex - 1).weight
+												}}
+											</span>
+										</template>
+									</button>
+								</div>
+							</article>
+						</template>
+
+						<template v-else>
+							<van-empty
+								description="Упражнения для этого дня не найдены"
+								class="session__empty"
+							/>
+						</template>
+					</section>
+
+					<!-- Notes -->
+					<section class="session__comments">
+						<label class="session__comments-label" for="session-notes">
+							Заметки к тренировке
+						</label>
+						<textarea
+							id="session-notes"
+							v-model="sessionComments"
+							class="session__comments-input"
+							placeholder="Как прошло? Самочувствие, прогресс…"
+							rows="3"
+							@blur="saveComments"
+						></textarea>
+					</section>
+				</div>
 			</div>
 
-			<!-- Комментарии к тренировке -->
-			<van-cell-group class="session__comments" inset>
-				<van-field
-					v-model="sessionComments"
-					type="textarea"
-					placeholder="Комментарии к тренировке..."
-					rows="3"
-					autosize
-					@blur="saveComments"
-					style="width: 100%;"
-				/>
-			</van-cell-group>
-
-			<!-- Завершение тренировки -->
+			<!-- Finish -->
 			<ActionButtons
 				:actions="[
 					{
 						label: 'Завершить тренировку',
 						type: 'primary',
-						onClick: completeSession
-					}
+						onClick: completeSession,
+					},
 				]"
 			/>
-			</div>
 		</div>
 
 		<!-- Попап редактирования подхода -->
@@ -829,384 +901,567 @@ async function replaceExercise(newExerciseId: number) {
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
-	padding-bottom: 40px;
 
-	&__scroll-container {
+	&__scroll {
 		flex: 1;
+		min-height: 0;
 		overflow-y: auto;
-		padding: var(--space-3);
-		
-		// Добавляем padding-bottom для последних элементов
-		padding-bottom: calc(var(--space-3) + 120px);
-	}
-	&__header,
-	&__timer,
-	&__comments {
-		margin-bottom: var(--space-4);
-	}
-
-	&__timer {
-		:deep(.van-cell-group) {
-			background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
-			border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
-		}
-
-		.timer-running {
-			:deep(.van-cell__label) {
-				color: var(--color-warning);
-				font-weight: var(--fw-semibold);
-			}
-		}
-
-		.timer-display {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			margin: var(--space-3) 0;
-		}
-
-		.timer-text {
-			font-size: var(--fs-2xl);
-			font-weight: var(--fw-bold);
-			color: var(--color-text);
-			font-variant-numeric: tabular-nums;
-			letter-spacing: 0.02em;
-		}
-
-		.auto-timer-title {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			width: 100%;
-		}
-	}
-
-	&__exercises {
-		margin-bottom: var(--space-4);
-	}
-
-	&__empty {
-		margin: var(--space-6) 0;
+		overflow-x: hidden;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior-y: contain;
+		/* clear the fixed finish bar */
+		padding-bottom: calc(96px + var(--safe-bottom));
 	}
 }
 
-// Улучшаем стилизацию групп ячеек
-.session :deep(.van-cell-group) {
-	background: var(--color-surface);
-	border-radius: var(--radius-l);
-	box-shadow: var(--shadow-xs);
-	border: 1px solid var(--color-border);
+/* ---------- Hero ---------- */
+.session__hero {
+	position: relative;
+	background: var(--grad-2);
+	color: var(--color-accent-contrast);
+	padding: calc(var(--space-4) + var(--safe-top)) var(--space-4) var(--space-4);
+	border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+	box-shadow: var(--shadow-lg);
+
+	&-row {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: var(--space-3);
+	}
+
+	&-main {
+		min-width: 0;
+	}
 }
 
-.session :deep(.van-cell-group.van-cell-group--inset) {
-	margin: 0 0 var(--space-4) 0;
+.session__eyebrow {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	font-size: var(--fs-xxs);
+	font-weight: var(--fw-bold);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	opacity: 0.85;
+
+	&::before {
+		content: '';
+		width: 7px;
+		height: 7px;
+		border-radius: var(--radius-pill);
+		background: currentColor;
+		box-shadow: 0 0 0 0 currentColor;
+		animation: session-pulse 1.8s var(--ease-std) infinite;
+	}
 }
 
-.session :deep(.van-cell) {
-	background: transparent;
+.session__name {
+	margin: var(--space-1) 0 0;
+	font-size: var(--fs-xl);
+	font-weight: var(--fw-bold);
+	line-height: var(--lh-title);
+	letter-spacing: -0.02em;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
-.session :deep(.van-cell:not(:last-child)::after) {
-	border-bottom: 1px solid var(--color-border);
-	opacity: 0.6;
-}
-
-.session :deep(.van-cell:first-child) {
-	border-top-left-radius: var(--radius-l);
-	border-top-right-radius: var(--radius-l);
-}
-
-.session :deep(.van-cell:last-child) {
-	border-bottom-left-radius: var(--radius-l);
-	border-bottom-right-radius: var(--radius-l);
-}
-
-.timer-presets {
-	padding: var(--space-2) var(--space-2);
+.session__cancel {
+	flex-shrink: 0;
+	width: 40px;
+	height: 40px;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	:deep(.van-button) {
-		background: var(--color-elevated);
-		border: 1px solid var(--color-border);
-		color: var(--color-text);
-		border-radius: var(--radius-s);
-		font-size: var(--fs-xs);
-		transition: all var(--dur-2) var(--ease-std);
-		
-	}
-
-	:deep(.van-col) {
-		padding: 0 4px;
-	}
-}
-
-.exercise-group {
-	margin-bottom: var(--space-4);
-	border-radius: var(--radius-l);
-	overflow: hidden;
-	box-shadow: var(--shadow-sm);
-	background: var(--color-surface);
-	border: 1px solid var(--color-border);
-}
-
-.exercise-header {
-	background: var(--color-elevated);
-	border-bottom: 1px solid var(--color-border);
-
-	.exercise-title {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-		width: 100%;
-		min-height: 40px;
-
-		&-main {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			width: 100%;
-
-			h4 {
-				margin: 0;
-				font-size: var(--fs-md);
-				font-weight: var(--fw-semibold);
-				color: var(--color-text);
-				flex: 1;
-			}
-
-			.replace-icon {
-				color: var(--color-accent);
-				font-size: 18px;
-				padding: var(--space-1);
-				border-radius: var(--radius-s);
-				cursor: pointer;
-				transition: all var(--dur-1) var(--ease-std);
-
-				&:hover {
-					background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-				}
-
-				&:active {
-					transform: scale(0.95);
-				}
-			}
-		}
-
-		&-tags {
-			display: flex;
-			gap: var(--space-1);
-			align-items: center;
-		}
-
-		:deep(.van-tag) {
-			border-radius: var(--radius-s);
-			font-size: var(--fs-xs);
-			
-			&.van-tag--primary {
-				background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-				color: var(--color-accent);
-				border-color: var(--color-accent);
-			}
-			
-			&.van-tag--success {
-				background: color-mix(in srgb, var(--color-success) 15%, transparent);
-				color: var(--color-success);
-				border-color: var(--color-success);
-			}
-		}
-	}
-}
-
-.sets-grid {
-	display: grid;
-	grid-template-columns: repeat(4, 1fr);
-	justify-content: space-between;
-	padding-block: var(--space-3);
-	padding-inline: var(--space-2);
-	background: var(--color-surface);
-	overflow-x: auto;
-}
-
-.set-card {
-	display: flex;
-	flex-direction: column;
-	aspect-ratio: 1 / 1;
-	width: 70px;
-	padding: var(--space-1);
-	border: 1px solid var(--color-border);
-	border-radius: var(--radius-m);
-	background: var(--color-bg);
+	justify-content: center;
+	border: none;
+	border-radius: var(--radius-pill);
+	background: rgba(255, 255, 255, 0.18);
+	color: var(--color-accent-contrast);
+	font-size: 18px;
 	cursor: pointer;
-	transition: all var(--dur-2) var(--ease-std);
-	position: relative;
-	
-	&:hover {
-		background: var(--color-elevated);
-		border-color: var(--color-accent);
-		transform: translateY(-2px);
-		box-shadow: var(--shadow-sm);
-	}
+	transition: transform var(--dur-2) var(--ease-std),
+		background var(--dur-2) var(--ease-std);
 
 	&:active {
-		transform: translateY(0);
-		box-shadow: var(--shadow-xs);
+		transform: scale(0.92);
+		background: rgba(255, 255, 255, 0.28);
 	}
+}
 
-	.set-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: var(--space-2);
-	}
+.session__stats {
+	display: flex;
+	gap: var(--space-2);
+	margin-top: var(--space-4);
+}
 
-	.set-number {
+.session__stat {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-m);
+	background: rgba(255, 255, 255, 0.14);
+
+	&-value {
+		font-size: var(--fs-xl);
 		font-weight: var(--fw-bold);
-		color: var(--color-accent);
-		font-size: var(--fs-xs);
-		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-		padding: 2px 6px;
-		border-radius: var(--radius-s);
-		min-width: 20px;
-		text-align: center;
+		line-height: 1.1;
+		font-variant-numeric: tabular-nums;
 	}
 
-	.set-controls {
+	&-sub {
+		font-size: var(--fs-md);
+		font-weight: var(--fw-semibold);
+		opacity: 0.7;
+	}
+
+	&-label {
+		margin-top: 2px;
+		font-size: var(--fs-xxs);
+		font-weight: var(--fw-semibold);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		opacity: 0.8;
+	}
+}
+
+.session__progress {
+	height: 6px;
+	margin-top: var(--space-3);
+	border-radius: var(--radius-pill);
+	background: rgba(255, 255, 255, 0.25);
+	overflow: hidden;
+
+	&-fill {
+		height: 100%;
+		border-radius: inherit;
+		background: var(--color-accent-contrast);
+		transition: width var(--dur-4) var(--ease-std);
+	}
+}
+
+/* ---------- Body ---------- */
+.session__body {
+	padding: var(--space-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+}
+
+/* ---------- Rest timer ---------- */
+.rest-timer {
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-l);
+	box-shadow: var(--shadow-xs);
+	padding: var(--space-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	transition: border-color var(--dur-3) var(--ease-std),
+		background var(--dur-3) var(--ease-std);
+
+	&--running {
+		border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+		background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+	}
+
+	&__row {
 		display: flex;
-		gap: var(--space-1);
+		align-items: center;
+		gap: var(--space-4);
 	}
 
-	.control-icon {
-		font-size: 16px;
-		color: var(--color-accent);
-		padding: 4px;
-		border-radius: var(--radius-s);
-		transition: all var(--dur-1) var(--ease-std);
-		cursor: pointer;
-
-		&:hover {
-			background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-		}
-	}
-
-	.set-content {
-		flex: 1;
+	&__display {
+		flex-shrink: 0;
+		min-width: 76px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
 
-	.set-chips {
+	&__idle {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1);
-		align-items: center;
-
-		:deep(.van-tag) {
-			font-size: var(--fs-xs);
-			padding: 2px 8px;
-			
-			&.van-tag--primary {
-				background: var(--color-accent);
-				color: var(--color-accent-contrast);
-				border-color: var(--color-accent);
-			}
-			
-			&.van-tag--success {
-				background: var(--color-success);
-				color: var(--color-success-contrast, #fff);
-				border-color: var(--color-success);
-			}
-		}
-
-		
 	}
-// Специальный стиль для RPE/RIR - меньший шрифт
-		:deep(.rpe-tag) {
-			font-size: calc(var(--fs-xs) * 0.8) !important;
-			padding: 1px 4px !important;
-			line-height: 1.2 !important;
-		}
-	.set-placeholder-content {
+
+	&__eyebrow {
+		font-size: var(--fs-xxs);
+		font-weight: var(--fw-bold);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--color-text-muted);
+	}
+
+	&__time {
+		font-size: var(--fs-2xl);
+		font-weight: var(--fw-bold);
+		line-height: 1.05;
+		color: var(--color-text);
+		font-variant-numeric: tabular-nums;
+		letter-spacing: 0.01em;
+	}
+
+	&__controls {
 		flex: 1;
+		display: flex;
+		gap: var(--space-2);
+	}
+
+	&__btn {
+		flex: 1;
+		height: 44px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-m);
+		background: var(--color-elevated);
+		color: var(--color-text);
+		font-size: var(--fs-md);
+		font-weight: var(--fw-semibold);
+		cursor: pointer;
+		transition: transform var(--dur-2) var(--ease-std);
+
+		&:active {
+			transform: scale(0.97);
+		}
+
+		&--primary {
+			background: var(--grad-1);
+			border-color: transparent;
+			color: var(--color-accent-contrast);
+		}
+	}
+
+	&__presets {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: var(--space-2);
+	}
+
+	&__preset {
+		height: 36px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-s);
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-semibold);
+		font-variant-numeric: tabular-nums;
+		cursor: pointer;
+		transition: all var(--dur-2) var(--ease-std);
+
+		&:active {
+			background: var(--color-accent-soft);
+			border-color: var(--color-accent);
+			color: var(--color-accent);
+			transform: scale(0.96);
+		}
+	}
+
+	&__auto {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		padding-top: var(--space-3);
+		border-top: 1px solid var(--color-border);
+	}
+
+	&__auto-text {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+
+		span {
+			font-size: var(--fs-sm);
+			font-weight: var(--fw-semibold);
+			color: var(--color-text);
+		}
+
+		small {
+			font-size: var(--fs-xs);
+			color: var(--color-text-muted);
+		}
+	}
+
+	:deep(.van-circle__text) {
+		color: var(--color-text);
+		font-weight: var(--fw-bold);
+		font-size: var(--fs-md);
+		font-variant-numeric: tabular-nums;
+	}
+}
+
+/* ---------- Exercise cards ---------- */
+.session__exercises {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+}
+
+.exercise-card {
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-l);
+	box-shadow: var(--shadow-xs);
+	padding: var(--space-4);
+
+	&--skeleton {
+		opacity: 0.6;
+	}
+
+	&__head {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+	}
+
+	&__num {
+		flex-shrink: 0;
+		width: 30px;
+		height: 30px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		text-align: center;
+		border-radius: var(--radius-m);
+		background: var(--color-accent-soft);
+		color: var(--color-accent);
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-bold);
+		font-variant-numeric: tabular-nums;
+	}
+
+	&__name {
+		flex: 1;
+		min-width: 0;
+		margin: 0;
+		font-size: var(--fs-md);
+		font-weight: var(--fw-bold);
+		line-height: var(--lh-title);
+		color: var(--color-text);
+	}
+
+	&__replace {
+		flex-shrink: 0;
+		width: 34px;
+		height: 34px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		border-radius: var(--radius-m);
+		background: transparent;
+		color: var(--color-text-muted);
+		font-size: 18px;
 		cursor: pointer;
-		
-		.placeholder-chips {
-			opacity: 0.7;
-			
-			:deep(.van-tag) {
-				font-size: var(--fs-xs);
-				
-				&.van-tag--default {
-					background: transparent;
-					color: var(--color-text-muted);
-					border: 1px dashed var(--color-border);
-				}
-			}
+		transition: all var(--dur-2) var(--ease-std);
+
+		&:active {
+			transform: scale(0.9);
+			background: var(--color-accent-soft);
+			color: var(--color-accent);
 		}
 	}
-}
 
-.nav-icon {
-	font-size: 20px;
-	color: var(--color-accent);
-	cursor: pointer;
-	padding: var(--space-1);
-	border-radius: var(--radius-s);
-	transition: all var(--dur-1) var(--ease-std);
-	
-	&:hover {
-		background: var(--color-elevated);
+	&__meta {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin-top: var(--space-3);
+	}
+
+	&__plan {
+		font-size: var(--fs-md);
+		font-weight: var(--fw-bold);
+		color: var(--color-text);
+		font-variant-numeric: tabular-nums;
+	}
+
+	&__weight {
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-semibold);
+		color: var(--color-text-muted);
+	}
+
+	&__pips {
+		margin-left: auto;
+		display: flex;
+		gap: 5px;
 	}
 }
 
-// Улучшаем поля ввода
-.session :deep(.van-field__control) {
-	color: var(--color-text);
-	background: transparent;
-}
+.pip {
+	width: 16px;
+	height: 4px;
+	border-radius: var(--radius-pill);
+	background: var(--color-border);
+	transition: background var(--dur-2) var(--ease-std);
 
-.session :deep(.van-field__label) {
-	color: var(--color-text);
-	font-weight: var(--fw-medium);
-}
-
-// Улучшаем кнопки
-.session :deep(.van-button) {
-	border-radius: var(--radius-m);
-	font-weight: var(--fw-medium);
-	transition: all var(--dur-2) var(--ease-std);
-	
-	&.van-button--danger.van-button--plain {
-		color: var(--color-danger);
-		border-color: var(--color-danger);
-		background: color-mix(in srgb, var(--color-danger) 5%, transparent);
-		
-		&:hover {
-			background: var(--color-danger);
-			color: var(--color-danger-contrast, #fff);
-		}
-	}
-	
-	&.van-button--primary {
+	&--done {
 		background: var(--color-accent);
-		border-color: var(--color-accent);
-		color: var(--color-accent-contrast);
-	}
-	
-	&.van-button--warning {
-		background: var(--color-warning);
-		border-color: var(--color-warning);
-		color: var(--color-warning-contrast, #fff);
 	}
 }
 
-// Скелетоны
-.session :deep(.van-skeleton) {
-	background: var(--color-elevated);
+/* ---------- Set tiles ---------- */
+.set-tiles {
+	margin-top: var(--space-3);
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+	gap: var(--space-2);
+}
+
+.set-tile {
+	position: relative;
+	min-height: 52px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1px;
+	padding: 14px 4px 6px;
+	border: 1px dashed var(--color-border);
+	border-radius: var(--radius-m);
+	background: var(--color-bg);
+	color: var(--color-text-muted);
+	cursor: pointer;
+	text-align: center;
+	overflow: hidden;
+	transition: transform var(--dur-2) var(--ease-std),
+		border-color var(--dur-2) var(--ease-std),
+		background var(--dur-2) var(--ease-std);
+
+	&:active {
+		transform: scale(0.97);
+	}
+
+	&__num {
+		position: absolute;
+		top: 4px;
+		left: 6px;
+		font-size: var(--fs-xxs);
+		font-weight: var(--fw-bold);
+		line-height: 1;
+		color: var(--color-text-muted);
+		opacity: 0.55;
+	}
+
+	&__value {
+		max-width: 100%;
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-bold);
+		line-height: 1.15;
+		letter-spacing: -0.02em;
+		white-space: nowrap;
+		color: var(--color-text);
+		font-variant-numeric: tabular-nums;
+
+		i {
+			font-style: normal;
+			font-weight: var(--fw-regular);
+			opacity: 0.5;
+			margin: 0 1px;
+		}
+
+		&--ghost {
+			color: var(--color-text-muted);
+			font-weight: var(--fw-semibold);
+		}
+	}
+
+	&__rpe {
+		font-size: var(--fs-xxs);
+		font-weight: var(--fw-semibold);
+		line-height: 1;
+		color: var(--color-accent);
+		letter-spacing: 0.01em;
+	}
+
+	/* Logged set */
+	&--done {
+		border-style: solid;
+		border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+		background: var(--color-accent-soft);
+	}
+
+	/* Next set to log — highlight; the accent value signals "do this" */
+	&--next:not(.set-tile--done) {
+		border-style: solid;
+		border-color: var(--color-accent);
+		background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg));
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent);
+
+		.set-tile__value {
+			color: var(--color-accent);
+		}
+
+		.set-tile__num {
+			color: var(--color-accent);
+			opacity: 0.8;
+		}
+	}
+}
+
+/* ---------- Notes ---------- */
+.session__comments {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+
+	&-label {
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-semibold);
+		color: var(--color-text-muted);
+	}
+
+	&-input {
+		width: 100%;
+		min-height: 84px;
+		padding: var(--space-3);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-m);
+		background: var(--color-surface);
+		color: var(--color-text);
+		font-family: var(--font-sans);
+		font-size: var(--fs-md);
+		line-height: var(--lh-body);
+		resize: vertical;
+
+		&::placeholder {
+			color: var(--color-text-muted);
+		}
+
+		&:focus {
+			outline: none;
+			border-color: var(--color-accent);
+			box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 16%, transparent);
+		}
+	}
+}
+
+.session__empty {
+	margin: var(--space-6) 0;
+}
+
+@keyframes session-pulse {
+	0% {
+		box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent);
+	}
+	70% {
+		box-shadow: 0 0 0 6px transparent;
+	}
+	100% {
+		box-shadow: 0 0 0 0 transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.session__eyebrow::before {
+		animation: none;
+	}
+	.set-tile,
+	.session__cancel,
+	.rest-timer__btn,
+	.rest-timer__preset,
+	.session__progress-fill {
+		transition: none;
+	}
 }
 </style>

@@ -12,7 +12,14 @@ async function createDb(): Promise<SqlLike> {
 }
 
 export function getDb() {
-	if (!dbPromise) dbPromise = createDb();
+	if (!dbPromise) {
+		// If DB init fails, reset the cached promise so a later call can retry
+		// instead of the whole app staying bricked on a permanently-rejected promise.
+		dbPromise = createDb().catch(err => {
+			dbPromise = null;
+			throw err;
+		});
+	}
 	return dbPromise;
 }
 

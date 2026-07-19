@@ -4,6 +4,7 @@ import KeyboardPopup from "@/components/ui/KeyboardPopup.vue";
 import ActionButtons from '@/components/ui/ActionButtons.vue';
 import RPERIRPicker from '@/components/ui/RPERIRPicker.vue';
 import { useNumberInput } from '@/composables/useNumberInput';
+import { usePlannerStore } from '@/stores/planner';
 import { parseRPERIR, formatRPERIR, getRPERIRDisplayText } from '@/utils/rpeRirParser';
 import { computed, ref, watch } from "vue";
 
@@ -32,6 +33,12 @@ const modelShow = computed({
 	get: () => props.show,
 	set: (v: boolean) => emit("update:show", v),
 });
+
+// Единицы веса из программы (кг/фунты) — вместо хардкода
+const planner = usePlannerStore();
+const unitLabel = computed(() =>
+	planner.currentProgram?.units === 'lb' ? 'lb' : 'кг'
+);
 
 // Композабл для работы с числовыми полями
 const { selectOnClick, selectOnFocus, setupStepperSelection } = useNumberInput();
@@ -270,80 +277,87 @@ function onCancel() {
 <template>
 	<KeyboardPopup
 		v-model:show="modelShow"
-		:title="`${exerciseName || 'Упражнение'} - Подход ${setNumber || 1}`"
+		:title="exerciseName || 'Упражнение'"
+		:subtitle="`Подход ${setNumber || 1}`"
 		height="fit-content"
 	>
 		<div class="set-editor">
-			<van-cell-group inset>
-				<!-- Счетчик повторений -->
-				<van-cell>
-					<template #title>
-						<span v-if="plannedReps">Повторений (план: {{ plannedReps }})</span>
-						<span v-else>Повторений</span>
-					</template>
-					<template #value>
-						<van-stepper 
-							ref="repsStepper"
-							v-model="setForm.reps" 
-							min="0" 
-						>
-							<template #input>
-								<input 
-									:value="setForm.reps || 0" 
-									@input="(e: any) => setForm.reps = parseInt(e.target.value) || 0"
-									@click="selectOnClick"
-									@focus="selectOnFocus"
-									class="van-stepper__input"
-									type="number"
-									min="0"
-								/>
-							</template>
-						</van-stepper>
-					</template>
-				</van-cell>
+			<!-- Повторения + вес -->
+			<div class="set-editor__grid">
+				<div class="num-box">
+					<div class="num-box__label">
+						<span>Повторения</span>
+						<span v-if="plannedReps" class="num-box__hint">план {{ plannedReps }}</span>
+					</div>
+					<van-stepper
+						ref="repsStepper"
+						v-model="setForm.reps"
+						min="0"
+						input-width="46px"
+						button-size="40px"
+					>
+						<template #input>
+							<input
+								:value="setForm.reps || 0"
+								@input="(e: any) => setForm.reps = parseInt(e.target.value) || 0"
+								@click="selectOnClick"
+								@focus="selectOnFocus"
+								class="van-stepper__input"
+								type="number"
+								min="0"
+							/>
+						</template>
+					</van-stepper>
+				</div>
 
-				<!-- Вес -->
-				<van-cell title="Вес (кг)">
-					<template #value>
-						<van-field
-							v-model="setForm.weight"
-							type="digit"
-							placeholder="Рабочий вес"
-							input-align="right"
-							@click="selectOnClick"
-						/>
-					</template>
-				</van-cell>
-
-				<!-- RPE/RIR -->
-				<van-cell 
-					is-link
-					title="RPE/RIR"
-					:label="rpeRirDisplayText"
-					@click="showRPERIRPicker = true"
-				/>
-
-				<!-- Заметки -->
-				<!-- Заметки -->
-				<van-cell>
+				<div class="num-box">
+					<div class="num-box__label">
+						<span>Вес</span>
+						<span class="num-box__hint">{{ unitLabel }}</span>
+					</div>
 					<van-field
-						v-model="setForm.notes"
-						type="textarea"
-						label="Заметки"
-						placeholder="Комментарии к подходу..."
-						rows="2"
-						autosize
+						v-model="setForm.weight"
+						type="number"
+						placeholder="0"
+						input-align="center"
+						class="num-box__field"
+						@click="selectOnClick"
 					/>
-				</van-cell>
-			</van-cell-group>
+				</div>
+			</div>
+
+			<!-- RPE/RIR -->
+			<button type="button" class="set-editor__row" @click="showRPERIRPicker = true">
+				<span class="set-editor__row-label">RPE / RIR</span>
+				<span class="set-editor__row-value">
+					{{ rpeRirDisplayText }}
+					<van-icon name="arrow" />
+				</span>
+			</button>
+
+			<!-- Заметки -->
+			<div class="set-editor__notes">
+				<div class="num-box__label"><span>Заметки</span></div>
+				<van-field
+					v-model="setForm.notes"
+					type="textarea"
+					placeholder="Комментарии к подходу…"
+					rows="2"
+					autosize
+					class="set-editor__notes-field"
+				/>
+			</div>
 		</div>
 
-		<ActionButtons
-			:actions="[
-				{ label: 'Отмена', type: 'secondary', onClick: onCancel },
-				{ label: 'Сохранить', type: 'primary', onClick: onSave },
-			]"
-		/>
+		<template #footer>
+			<ActionButtons
+				inline
+				:actions="[
+					{ label: 'Отмена', type: 'secondary', onClick: onCancel },
+					{ label: 'Сохранить', type: 'primary', onClick: onSave },
+				]"
+			/>
+		</template>
 	</KeyboardPopup>
 
 	<!-- RPE/RIR Picker -->
@@ -357,50 +371,118 @@ function onCancel() {
 
 <style lang="scss" scoped>
 .set-editor {
-	background: var(--color-bg);
-	padding: var(--space-3) var(--space-3) 110px var(--space-3);
-	min-height: 100%;
+	padding: var(--space-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+
+	&__grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-3);
+	}
+
+	&__row {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		padding: var(--space-3) var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-m);
+		cursor: pointer;
+		transition: background var(--dur-2) var(--ease-std);
+
+		&:active {
+			background: var(--color-elevated);
+		}
+
+		&-label {
+			font-size: var(--fs-md);
+			font-weight: var(--fw-semibold);
+			color: var(--color-text);
+		}
+
+		&-value {
+			display: inline-flex;
+			align-items: center;
+			gap: var(--space-1);
+			font-size: var(--fs-sm);
+			font-weight: var(--fw-semibold);
+			color: var(--color-accent);
+
+			.van-icon {
+				color: var(--color-text-muted);
+			}
+		}
+	}
+
+	&__notes {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+
+	&__notes-field {
+		background: var(--color-bg) !important;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-m);
+		padding: var(--space-1) var(--space-2);
+
+		:deep(.van-field__control) {
+			text-align: left;
+			color: var(--color-text);
+		}
+	}
 }
 
-// Улучшаем визуальную иерархию для групп ячеек
-.set-editor :deep(.van-cell-group) {
+/* Number boxes */
+.num-box {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	padding: var(--space-3);
 	background: var(--color-surface);
-	border-radius: var(--radius-l);
-	box-shadow: var(--shadow-xs);
 	border: 1px solid var(--color-border);
-	margin-bottom: var(--space-4);
-}
+	border-radius: var(--radius-m);
 
-.set-editor :deep(.van-cell-group.van-cell-group--inset) {
-	margin: 0 0 var(--space-4) 0;
-}
+	&__label {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--space-2);
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-semibold);
+		color: var(--color-text);
+	}
 
-.set-editor :deep(.van-cell) {
-	background: transparent;
-}
+	&__hint {
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-regular);
+		color: var(--color-text-muted);
+	}
 
-.set-editor :deep(.van-cell:not(:last-child)::after) {
-	border-bottom: 1px solid var(--color-border);
-	opacity: 0.6;
-}
+	:deep(.van-stepper) {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
 
-.set-editor :deep(.van-cell:first-child) {
-	border-top-left-radius: var(--radius-l);
-	border-top-right-radius: var(--radius-l);
-}
+	&__field {
+		background: var(--color-bg) !important;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-s);
+		padding: 0;
 
-.set-editor :deep(.van-cell:last-child) {
-	border-bottom-left-radius: var(--radius-l);
-	border-bottom-right-radius: var(--radius-l);
-}
-
-// Улучшаем поля ввода
-.set-editor :deep(.van-field__label) {
-	color: var(--color-text);
-	font-weight: var(--fw-semibold);
-}
-
-.set-editor :deep(.van-field__control) {
-	color: var(--color-text);
+		:deep(.van-field__control) {
+			text-align: center;
+			font-size: var(--fs-lg);
+			font-weight: var(--fw-bold);
+			color: var(--color-text);
+			padding: var(--space-2);
+		}
+	}
 }
 </style>

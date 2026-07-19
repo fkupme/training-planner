@@ -130,15 +130,10 @@ const slotArray = (n: number) => Array.from({ length: n }, (_, i) => i);
 	min-height: 0;
 	overflow-y: auto;
 	overflow-x: hidden;
-	background: linear-gradient(
-		135deg,
-		color-mix(in srgb, var(--color-bg) 96%, transparent) 0%,
-		color-mix(in srgb, var(--color-bg) 90%, transparent) 100%
-	);
-	border: 1px solid var(--color-border);
-	border-radius: var(--radius-l);
-	box-shadow: var(--shadow-sm);
-	backdrop-filter: saturate(120%) blur(4px);
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior-y: contain;
+	background: transparent;
+	padding-bottom: var(--space-4);
 
 	&::-webkit-scrollbar {
 		width: 4px;

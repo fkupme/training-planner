@@ -162,177 +162,177 @@ async function onSave() {
 		height="fit-content"
 		title="Редактирование тренировки"
 	>
-		<div class="workout-edit">
-			<van-cell-group inset>
-				<van-cell
-					is-link
-					title="Мышечные группы"
-					:label="musclesLabel"
-					@click="showMuscleSheet = true"
+		<div class="sheet-form">
+			<button type="button" class="sheet-row" @click="showMuscleSheet = true">
+				<span class="sheet-row__label">Мышцы</span>
+				<span class="sheet-row__value sheet-row__value--muted">
+					<span class="sheet-row__text">{{ musclesLabel }}</span>
+					<van-icon name="arrow" />
+				</span>
+			</button>
+			<button type="button" class="sheet-row" @click="showTypeSheet = true">
+				<span class="sheet-row__label">Тип</span>
+				<span class="sheet-row__value">
+					{{ typeLabel }}
+					<van-icon name="arrow" />
+				</span>
+			</button>
+			<div class="sheet-notes">
+				<div class="num-box__label"><span>Описание</span></div>
+				<van-field
+					v-model="description"
+					type="textarea"
+					rows="3"
+					autosize
+					placeholder="Краткое описание тренировки"
+					class="sheet-notes__field"
 				/>
-				<van-cell
-					is-link
-					title="Тип"
-					:label="typeLabel"
-					@click="showTypeSheet = true"
-				/>
-				<van-cell title="Описание">
-					<van-field
-						v-model="description"
-						type="textarea"
-						rows="3"
-						placeholder="Краткое описание тренировки"
-					/>
-				</van-cell>
-			</van-cell-group>
-		</div>
-
-		<ActionButtons
-			:actions="[
-				{ label: 'Отмена', type: 'secondary', onClick: () => emit('update:show', false) },
-				{ label: 'Сохранить', type: 'primary', onClick: onSave },
-			]"
-		/>
-	</KeyboardPopup>
-
-	<!-- Мультивыбор мышц через ActionSheet кастомным контентом -->
-	<van-action-sheet v-model:show="showMuscleSheet" title="Мышечные группы">
-		<div class="sheet-body">
-			<div
-				v-for="a in muscleActions"
-				:key="a.id"
-				class="sheet-item"
-				@click="toggleMuscle(a.id)"
-			>
-				<van-checkbox
-					:model-value="chosenMuscleIds.includes(a.id)"
-					shape="square"
-					>{{ a.name }}</van-checkbox
-				>
 			</div>
 		</div>
-		<ActionButtons
-			:actions="[
-				{ label: 'Готово', type: 'primary', onClick: () => (showMuscleSheet = false) },
-			]"
-		/>
+
+		<template #footer>
+			<ActionButtons
+				inline
+				:actions="[
+					{ label: 'Отмена', type: 'secondary', onClick: () => emit('update:show', false) },
+					{ label: 'Сохранить', type: 'primary', onClick: onSave },
+				]"
+			/>
+		</template>
+	</KeyboardPopup>
+
+	<!-- Мультивыбор мышц -->
+	<van-action-sheet v-model:show="showMuscleSheet" title="Мышечные группы">
+		<div class="muscle-picker">
+			<button
+				v-for="a in muscleActions"
+				:key="a.id"
+				type="button"
+				class="chip"
+				:class="{ 'chip--on': chosenMuscleIds.includes(a.id) }"
+				@click="toggleMuscle(a.id)"
+			>
+				{{ a.name }}
+			</button>
+		</div>
+		<div class="muscle-picker__footer">
+			<ActionButtons
+				inline
+				:actions="[
+					{ label: 'Готово', type: 'primary', onClick: () => (showMuscleSheet = false) },
+				]"
+			/>
+		</div>
 	</van-action-sheet>
 
-	<!-- Выбор типа (одиночный) через ActionSheet -->
+	<!-- Выбор типа -->
 	<van-action-sheet v-model:show="showTypeSheet" title="Тип тренировки">
-		<van-radio-group v-model="type">
-			<van-cell-group inset>
-				<van-cell
-					v-for="a in typeActions"
-					:key="a.value"
-					clickable
-					@click="onPickType(a.value)"
-				>
-					<template #title>{{ a.name }}</template>
-					<template #right-icon>
-						<van-radio :name="a.value" />
-					</template>
-				</van-cell>
-			</van-cell-group>
-		</van-radio-group>
+		<div class="type-picker">
+			<button
+				v-for="a in typeActions"
+				:key="a.value"
+				type="button"
+				class="type-picker__item"
+				:class="{ 'type-picker__item--on': type === a.value }"
+				@click="onPickType(a.value)"
+			>
+				<span>{{ a.name }}</span>
+				<van-icon v-if="type === a.value" name="success" />
+			</button>
+		</div>
 	</van-action-sheet>
 </template>
 
 <style lang="scss" scoped>
-.workout-edit {
-	background: var(--color-bg);
-	padding: var(--space-3) var(--space-3) 70px var(--space-3);
-	min-height: 100%;
+.sheet-notes {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
 }
 
-// Улучшаем визуальную иерархию для групп ячеек
-.workout-edit :deep(.van-cell-group) {
-	background: var(--color-surface);
-	border-radius: var(--radius-l);
-	box-shadow: var(--shadow-xs);
+.sheet-notes__field {
+	background: var(--color-bg) !important;
 	border: 1px solid var(--color-border);
-	margin-bottom: var(--space-4);
-}
+	border-radius: var(--radius-m);
+	padding: var(--space-1) var(--space-2);
 
-.workout-edit :deep(.van-cell-group.van-cell-group--inset) {
-	margin: 0 0 var(--space-4) 0;
-}
-
-.workout-edit :deep(.van-cell) {
-	background: transparent;
-}
-
-.workout-edit :deep(.van-cell:not(:last-child)::after) {
-	border-bottom: 1px solid var(--color-border);
-	opacity: 0.6;
-}
-
-.workout-edit :deep(.van-cell:first-child) {
-	border-top-left-radius: var(--radius-l);
-	border-top-right-radius: var(--radius-l);
-}
-
-.workout-edit :deep(.van-cell:last-child) {
-	border-bottom-left-radius: var(--radius-l);
-	border-bottom-right-radius: var(--radius-l);
-}
-
-// Улучшаем поля ввода
-.workout-edit :deep(.van-field__label) {
-	color: var(--color-text);
-	font-weight: var(--fw-semibold);
-}
-
-.workout-edit :deep(.van-field__control) {
-	color: var(--color-text);
-}
-
-.workout-edit__sheet-body {
-	max-height: 50vh;
-	overflow: auto;
-	padding: var(--space-2) var(--space-3) var(--space-3) var(--space-3);
-}
-
-.workout-edit__sheet-item {
-	padding: 6px 0;
-}
-
-.workout-edit__sheet-actions {
-	background-color: var(--color-surface);
-	border-top: 1px solid var(--color-border);
-	padding: var(--space-2) var(--space-3) var(--space-3) var(--space-3);
-}
-
-.sheet-body {
-	max-height: 50vh;
-	overflow: auto;
-	padding: var(--space-2) var(--space-3) 90px var(--space-3);
-}
-
-.sheet-item {
-	padding: 6px 0;
-}
-
-.sheet-actions {
-	background-color: var(--color-surface);
-	border-top: 1px solid var(--color-border);
-	padding: var(--space-2) var(--space-3) var(--space-3) var(--space-3);
-}
-
-// Стилизация чекбоксов в ActionSheet - используем правильные CSS переменные Vant
-:deep(.van-action-sheet) {
-	--van-checkbox-checked-icon-color: var(--color-accent) !important;
-	--van-checkbox-label-color: var(--color-text) !important;
-	
-	.van-checkbox__label {
-		color: var(--color-text) !important;
-		font-weight: var(--fw-medium) !important;
+	:deep(.van-field__control) {
+		text-align: left;
+		color: var(--color-text);
 	}
 }
 
-// Исправляем стили для текста чекбоксов, не затрагивая сам чекбокс
-.sheet-item :deep(.van-checkbox__label) {
-	color: var(--color-text) !important;
-	font-weight: var(--fw-medium) !important;
+/* Muscle chips */
+.muscle-picker {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+	padding: var(--space-4);
+	max-height: 46vh;
+	overflow-y: auto;
+
+	&__footer {
+		border-top: 1px solid var(--color-border);
+		background: var(--color-surface);
+	}
+}
+
+.chip {
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-pill);
+	border: 1px solid var(--color-border);
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-semibold);
+	cursor: pointer;
+	transition: all var(--dur-2) var(--ease-std);
+
+	&--on {
+		background: var(--color-accent-soft);
+		border-color: var(--color-accent);
+		color: var(--color-accent);
+	}
+
+	&:active {
+		transform: scale(0.96);
+	}
+}
+
+/* Type list */
+.type-picker {
+	padding: var(--space-3) var(--space-4) var(--space-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.type-picker__item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--space-3) var(--space-4);
+	border-radius: var(--radius-m);
+	border: 1px solid var(--color-border);
+	background: var(--color-surface);
+	color: var(--color-text);
+	font-size: var(--fs-md);
+	font-weight: var(--fw-semibold);
+	cursor: pointer;
+	transition: all var(--dur-2) var(--ease-std);
+
+	&--on {
+		border-color: var(--color-accent);
+		background: var(--color-accent-soft);
+		color: var(--color-accent);
+	}
+
+	.van-icon {
+		color: var(--color-accent);
+	}
+
+	&:active {
+		transform: scale(0.99);
+	}
 }
 </style>

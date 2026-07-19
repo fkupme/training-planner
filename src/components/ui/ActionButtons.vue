@@ -8,7 +8,12 @@ interface ActionButton {
 	disabled?: boolean;
 }
 
-const props = defineProps<{ actions: ActionButton[]; loading?: boolean }>();
+const props = defineProps<{
+	actions: ActionButton[];
+	loading?: boolean;
+	/** Anchor inside a sheet footer (static) instead of fixed to the viewport */
+	inline?: boolean;
+}>();
 const emit = defineEmits<{ (e: 'action', index: number): void }>();
 
 function handle(action: ActionButton, idx: number) {
@@ -20,7 +25,7 @@ function handle(action: ActionButton, idx: number) {
 </script>
 
 <template>
-	<div class="action-buttons">
+	<div class="action-buttons" :class="{ 'action-buttons--inline': inline }">
 		<button
 			v-for="(a, i) in actions"
 			:key="i"
@@ -54,7 +59,14 @@ function handle(action: ActionButton, idx: number) {
 	left: 0;
 	right: 0;
 	z-index: 100;
-	
+
+	/* Inside a sheet footer: sit in flow at the sheet bottom, not fixed to the viewport */
+	&--inline {
+		position: static;
+		box-shadow: none;
+		padding-bottom: calc(var(--safe-bottom) + var(--space-3));
+	}
+
 	&__button {
 		flex: 1;
 		height: 48px;

@@ -335,10 +335,29 @@ html {
 
 .van-action-sheet {
 	background: var(--color-surface) !important;
-	
+	border-radius: var(--radius-xl) var(--radius-xl) 0 0 !important;
+
+	/* Grab handle to match the new bottom-sheet language */
+	&::before {
+		content: '';
+		position: absolute;
+		top: 8px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 40px;
+		height: 4px;
+		border-radius: var(--radius-pill);
+		background: color-mix(in srgb, var(--color-text-muted) 40%, transparent);
+		z-index: 2;
+		pointer-events: none;
+	}
+
 	&__header {
 		background: var(--color-surface) !important;
 		border-bottom: 1px solid var(--color-border) !important;
+		padding-top: calc(var(--space-4) + 6px) !important;
+		font-weight: var(--fw-bold) !important;
+		font-size: var(--fs-lg) !important;
 	}
 	
 	&__item {
@@ -967,11 +986,244 @@ html {
 			background: var(--color-surface) !important;
 			color: var(--color-text) !important;
 			border-color: var(--color-border) !important;
-			
+
 			&:active {
 				background: var(--color-elevated) !important;
 				transform: scale(0.96) !important;
 			}
 		}
 	}
+}
+
+/* ============================================================
+   Shared bottom-sheet form primitives (B language)
+   Used across the redesigned sheets so form layout is consistent.
+   ============================================================ */
+.sheet-form {
+	padding: var(--space-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+}
+
+.sheet-form__grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--space-3);
+}
+
+.num-box {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	padding: var(--space-3);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-m);
+
+	&__label {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--space-2);
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-semibold);
+		color: var(--color-text);
+	}
+
+	&__hint {
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-regular);
+		color: var(--color-text-muted);
+	}
+
+	.van-stepper {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
+
+	&__field {
+		background: var(--color-bg) !important;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-s);
+		padding: 0;
+
+		.van-field__control {
+			text-align: center !important;
+			font-size: var(--fs-lg);
+			font-weight: var(--fw-bold);
+			color: var(--color-text);
+			padding: var(--space-2);
+		}
+	}
+}
+
+.sheet-row {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-4);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-m);
+	cursor: pointer;
+	transition: background var(--dur-2) var(--ease-std);
+
+	&:active {
+		background: var(--color-elevated);
+	}
+
+	&--static {
+		cursor: default;
+
+		&:active {
+			background: var(--color-surface);
+		}
+	}
+
+	&__label {
+		flex-shrink: 0;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
+		font-size: var(--fs-md);
+		font-weight: var(--fw-semibold);
+		color: var(--color-text);
+	}
+
+	&__value {
+		min-width: 0;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-semibold);
+		color: var(--color-accent);
+
+		.van-icon {
+			flex-shrink: 0;
+			color: var(--color-text-muted);
+		}
+
+		&--muted {
+			color: var(--color-text-muted);
+			font-weight: var(--fw-regular);
+		}
+	}
+
+	&__text {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+}
+
+/* Labeled input box (left-aligned, for text fields) */
+.field-box {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+
+	&__label {
+		font-size: var(--fs-sm);
+		font-weight: var(--fw-semibold);
+		color: var(--color-text);
+	}
+
+	&__input {
+		background: var(--color-bg) !important;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-m);
+		padding: var(--space-1) var(--space-2);
+
+		.van-field__control {
+			text-align: left !important;
+			color: var(--color-text);
+		}
+	}
+}
+
+/* Chips (tag inputs, quick-picks) */
+.chip-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-pill);
+	border: 1px solid var(--color-border);
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-semibold);
+	cursor: pointer;
+	transition: all var(--dur-2) var(--ease-std);
+
+	&:active {
+		transform: scale(0.96);
+	}
+
+	.van-icon {
+		font-size: 14px;
+	}
+
+	&--on {
+		background: var(--color-accent-soft);
+		border-color: var(--color-accent);
+		color: var(--color-accent);
+	}
+
+	&--success {
+		background: color-mix(in srgb, var(--color-success) 12%, transparent);
+		border-color: var(--color-success);
+		color: var(--color-success);
+	}
+
+	&--accent {
+		background: var(--color-accent);
+		border-color: var(--color-accent);
+		color: var(--color-accent-contrast);
+	}
+
+	&--add {
+		background: transparent;
+		border-style: dashed;
+		border-color: var(--color-accent);
+		color: var(--color-accent);
+	}
+}
+
+.chip-input {
+	min-width: 110px;
+	padding: var(--space-2) var(--space-3);
+	border: 1px solid var(--color-accent);
+	border-radius: var(--radius-pill);
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-size: var(--fs-sm);
+	font-family: var(--font-sans);
+
+	&:focus {
+		outline: none;
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 16%, transparent);
+	}
+}
+
+/* Grab handle for direct van-popup sheets that don't use KeyboardPopup */
+.sheet-handle {
+	flex-shrink: 0;
+	width: 40px;
+	height: 4px;
+	margin: var(--space-3) auto var(--space-1);
+	border-radius: var(--radius-pill);
+	background: color-mix(in srgb, var(--color-text-muted) 40%, transparent);
 }

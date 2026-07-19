@@ -187,141 +187,140 @@ async function save() {
 		:title="props.id ? 'Редактировать добавку' : 'Новая добавка'"
 		height="90%"
 	>
-		<div class="supplement-edit">
-			<van-cell-group inset>
+		<div class="sheet-form">
+			<div class="field-box">
+				<label class="field-box__label">Название</label>
 				<van-field
 					v-model="name"
-					label="Название"
 					placeholder="Например: Креатин"
-					required
+					class="field-box__input"
 				/>
+			</div>
+			<div class="field-box">
+				<label class="field-box__label">Описание</label>
 				<van-field
 					v-model="description"
 					type="textarea"
 					rows="2"
-					label="Описание"
+					autosize
 					placeholder="Кратко о добавке"
+					class="field-box__input"
 				/>
-			</van-cell-group>
+			</div>
 
-			<van-cell-group inset>
-				<van-cell
-					title="Форма выпуска"
-					is-link
-					readonly
-					:value="
-						form ? formOptions.find(f => f.value === form)?.label : 'выбрать'
-					"
-					@click="showFormSheet = true"
-				/>
-				<van-cell
-					title="Единица измерения"
-					is-link
-					readonly
-					:value="default_unit || 'выбрать'"
-					@click="showUnitSheet = true"
-				/>
-			</van-cell-group>
+			<button type="button" class="sheet-row" @click="showFormSheet = true">
+				<span class="sheet-row__label">Форма выпуска</span>
+				<span class="sheet-row__value">
+					{{ form ? formOptions.find(f => f.value === form)?.label : 'выбрать' }}
+					<van-icon name="arrow" />
+				</span>
+			</button>
+			<button type="button" class="sheet-row" @click="showUnitSheet = true">
+				<span class="sheet-row__label">Единица</span>
+				<span class="sheet-row__value">
+					{{ default_unit || 'выбрать' }}
+					<van-icon name="arrow" />
+				</span>
+			</button>
 
-			<van-cell-group inset>
-				<van-field
-					v-model="defaultAmountStr"
-					type="number"
-					label="Дозировка"
-					placeholder="Количество"
-					input-align="right"
-				/>
-				<!-- Quick dosage presets -->
-				<van-cell v-if="dosagePresets.length" title="Быстрый выбор">
-					<template #default>
-						<div class="dosage-presets">
-							<van-tag
-								v-for="d in dosagePresets"
-								:key="d"
-								type="primary"
-								plain
-								@click="applyPreset(d)"
-							>
-								{{ d }} {{ default_unit || '' }}
-							</van-tag>
-						</div>
-					</template>
-				</van-cell>
-				<van-field
-					v-model="courseDaysStr"
-					type="number"
-					label="Длительность курса (дни)"
-					placeholder="например 30"
-					input-align="right"
-				/>
-			</van-cell-group>
+			<div class="sheet-form__grid">
+				<div class="num-box">
+					<div class="num-box__label"><span>Дозировка</span></div>
+					<van-field
+						v-model="defaultAmountStr"
+						type="number"
+						placeholder="0"
+						input-align="center"
+						class="num-box__field"
+					/>
+				</div>
+				<div class="num-box">
+					<div class="num-box__label"><span>Курс, дней</span></div>
+					<van-field
+						v-model="courseDaysStr"
+						type="number"
+						placeholder="—"
+						input-align="center"
+						class="num-box__field"
+					/>
+				</div>
+			</div>
 
-			<van-cell-group inset>
-				<van-cell title="Эффекты">
-					<template #default>
-						<div class="effects-container">
-							<div class="chip-row">
-								<van-tag
-									v-for="(e, i) in effects"
-									:key="e + i"
-									type="primary"
-									closeable
-									@close="effects.splice(i, 1)"
-								>
-									{{ e }}
-								</van-tag>
-								<van-tag type="default" @click="addEffect">
-									<van-icon name="plus" size="12" />
-								</van-tag>
-							</div>
-							<van-field
-								v-if="addingEffect"
-								v-model="newEffect"
-								placeholder="новый эффект"
-								@blur="commitEffect"
-								@keyup.enter.prevent="commitEffect"
-							/>
-						</div>
-					</template>
-				</van-cell>
-				<van-cell title="Альтернативные названия">
-					<template #default>
-						<div class="effects-container">
-							<div class="chip-row">
-								<van-tag
-									v-for="(a, i) in alt_names"
-									:key="a + i"
-									type="success"
-									closeable
-									@close="alt_names.splice(i, 1)"
-								>
-									{{ a }}
-								</van-tag>
-								<van-tag type="default"  @click="addAlt">
-									<van-icon name="plus" size="12" />
-								</van-tag>
-							</div>
-							<van-field
-								v-if="addingAlt"
-								v-model="newAltName"
-								placeholder="новое название"
-								@blur="commitAlt"
-								@keyup.enter.prevent="commitAlt"
-							/>
-						</div>
-					</template>
-				</van-cell>
-			</van-cell-group>
+			<div v-if="dosagePresets.length" class="chip-row">
+				<button
+					v-for="d in dosagePresets"
+					:key="d"
+					type="button"
+					class="chip chip--accent"
+					@click="applyPreset(d)"
+				>
+					{{ d }} {{ default_unit || '' }}
+				</button>
+			</div>
+
+			<div class="field-box">
+				<label class="field-box__label">Эффекты</label>
+				<div class="chip-row">
+					<span v-for="(e, i) in effects" :key="e + i" class="chip chip--on">
+						{{ e }}
+						<van-icon name="cross" @click.stop="effects.splice(i, 1)" />
+					</span>
+					<input
+						v-if="addingEffect"
+						v-model="newEffect"
+						class="chip-input"
+						placeholder="новый эффект"
+						@blur="commitEffect"
+						@keyup.enter.prevent="commitEffect"
+					/>
+					<button
+						v-else
+						type="button"
+						class="chip chip--add"
+						@click="addEffect"
+					>
+						<van-icon name="plus" />
+					</button>
+				</div>
+			</div>
+
+			<div class="field-box">
+				<label class="field-box__label">Альтернативные названия</label>
+				<div class="chip-row">
+					<span
+						v-for="(a, i) in alt_names"
+						:key="a + i"
+						class="chip chip--success"
+					>
+						{{ a }}
+						<van-icon name="cross" @click.stop="alt_names.splice(i, 1)" />
+					</span>
+					<input
+						v-if="addingAlt"
+						v-model="newAltName"
+						class="chip-input"
+						placeholder="новое название"
+						@blur="commitAlt"
+						@keyup.enter.prevent="commitAlt"
+					/>
+					<button v-else type="button" class="chip chip--add" @click="addAlt">
+						<van-icon name="plus" />
+					</button>
+				</div>
+			</div>
 		</div>
 
-		<ActionButtons
-			:actions="[
-				{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
-				{ label: 'Сохранить', type: 'primary', onClick: save, disabled: !name.trim() },
-			]"
-		/>
+		<template #footer>
+			<ActionButtons
+				inline
+				:actions="[
+					{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
+					{ label: 'Сохранить', type: 'primary', onClick: save, disabled: !name.trim() },
+				]"
+			/>
+		</template>
 	</KeyboardPopup>
-	
+
 	<ThemeActionSheet
 		v-model:show="showFormSheet"
 		title="Форма выпуска"
@@ -347,148 +346,5 @@ async function save() {
 </template>
 
 <style lang="scss" scoped>
-.supplement-edit {
-	background: var(--color-bg);
-	padding: var(--space-3) var(--space-3) 110px var(--space-3);
-	min-height: 100%;
-}
-
-// Улучшаем визуальную иерархию для групп ячеек
-.supplement-edit :deep(.van-cell-group) {
-	background: var(--color-surface);
-	border-radius: var(--radius-l);
-	box-shadow: var(--shadow-xs);
-	border: 1px solid var(--color-border);
-	margin-bottom: var(--space-4);
-}
-
-.supplement-edit :deep(.van-cell-group.van-cell-group--inset) {
-	margin: 0 0 var(--space-4) 0;
-}
-
-.supplement-edit :deep(.van-cell) {
-	background: transparent;
-}
-
-.supplement-edit :deep(.van-cell:not(:last-child)::after) {
-	border-bottom: 1px solid var(--color-border);
-	opacity: 0.6;
-}
-
-.supplement-edit :deep(.van-cell:first-child) {
-	border-top-left-radius: var(--radius-l);
-	border-top-right-radius: var(--radius-l);
-}
-
-.supplement-edit :deep(.van-cell:last-child) {
-	border-bottom-left-radius: var(--radius-l);
-	border-bottom-right-radius: var(--radius-l);
-}
-
-// Улучшаем поля ввода
-.supplement-edit :deep(.van-field__label) {
-	color: var(--color-text);
-	font-weight: var(--fw-semibold);
-}
-
-.supplement-edit :deep(.van-field__control) {
-	color: var(--color-text);
-}
-
-// Стили для чипов дозировки - ЯРКИЕ сразу для мобилки
-.dosage-presets {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--space-2);
-}
-
-.dosage-presets :deep(.van-tag) {
-	font-size: var(--fs-xs);
-	padding: 4px 4px;
-	border-radius: var(--radius-m);
-	cursor: pointer;
-	transition: all var(--dur-1) var(--ease-std);
-	
-	// ЯРКИЕ сразу - без ховера для мобилки
-	background: var(--color-accent);
-	color: var(--color-accent-contrast);
-	border: 2px solid var(--color-accent);
-	box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 25%, transparent);
-	
-	&:active {
-		transform: scale(0.95);
-		opacity: 0.8;
-	}
-}
-
-.effects-container {
-	width: 100%;
-}
-
-.chip-row {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--space-2);
-	margin-bottom: var(--space-3);
-}
-
-// Все van-tag стили через :deep
-.chip-row :deep(.van-tag) {
-	cursor: pointer;
-	transition: all var(--dur-1) var(--ease-std);
-	border-radius: var(--radius-m);
-	font-weight: var(--fw-medium);
-	padding: 8px 14px;
-	
-	&:active {
-		transform: scale(0.95);
-		opacity: 0.8;
-	}
-}
-
-// Цветные чипы
-.chip-row :deep(.van-tag--primary) {
-	background: color-mix(in srgb, var(--color-accent) 20%, transparent);
-	color: var(--color-accent);
-	border: 2px solid var(--color-accent);
-}
-
-.chip-row :deep(.van-tag--success) {
-	background: color-mix(in srgb, var(--color-success) 20%, transparent);
-	color: var(--color-success);
-	border: 2px solid var(--color-success);
-}
-
-// КНОПКА ПЛЮС - через van-tag--default
-.chip-row :deep(.van-tag--default) {
-	background: var(--color-accent) !important;
-	color: var(--color-accent-contrast) !important;
-	border: 2px solid var(--color-accent) !important;
-	font-weight: var(--fw-semibold) !important;
-	font-size: var(--fs-s) !important;
-	padding: 4px 4px !important;
-	display: flex !important;
-	align-items: center !important;
-	justify-content: center !important;
-	box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 25%, transparent) !important;
-	
-	&:active {
-		transform: scale(0.95) !important;
-		box-shadow: 0 1px 4px color-mix(in srgb, var(--color-accent) 20%, transparent) !important;
-	}
-}
-
-.chip-row :deep(.van-tag--default .van-icon) {
-	font-size: 16px !important;
-	color: var(--color-accent-contrast) !important;
-}
-
-// Стили для полей в чипах
-.effects-container :deep(.van-field) {
-	margin-top: var(--space-2);
-	background: var(--color-elevated);
-	border-radius: var(--radius-m);
-	padding: 0 var(--space-2);
-	border: 1px solid var(--color-border);
-}
+/* form primitives are global (themes.scss) */
 </style>

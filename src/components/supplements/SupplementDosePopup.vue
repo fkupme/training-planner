@@ -93,42 +93,62 @@ async function onSave() {
 	}
 }
 </script>
+
 <template>
 	<KeyboardPopup v-model:show="modelShow" height="fit-content" title="Дозировка">
-		<div class="dose-edit">
-			<van-cell-group inset>
-				<van-field
-					v-model.number="amount"
-					type="number"
-					label="Количество"
-					placeholder="число"
-				/>
-				<van-cell
-					is-link
-					title="Единица"
-					:value="unit || 'выбрать'"
+		<div class="sheet-form">
+			<div class="sheet-form__grid">
+				<div class="num-box">
+					<div class="num-box__label"><span>Количество</span></div>
+					<van-field
+						v-model.number="amount"
+						type="number"
+						placeholder="0"
+						input-align="center"
+						class="num-box__field"
+					/>
+				</div>
+				<div
+					class="num-box num-box--tap"
+					role="button"
+					tabindex="0"
 					@click="showUnitSheet = true"
-				/>
+				>
+					<div class="num-box__label">
+						<span>Единица</span>
+						<van-icon name="arrow" />
+					</div>
+					<div class="num-box__pick">{{ unit || 'выбрать' }}</div>
+				</div>
+			</div>
+
+			<div class="sheet-notes">
+				<div class="num-box__label"><span>Заметка</span></div>
 				<van-field
 					v-model="note"
 					type="textarea"
 					rows="2"
-					label="Заметка"
+					autosize
+					placeholder="Комментарий к приёму…"
+					class="sheet-notes__field"
 				/>
-				<van-field label="Необязательное">
-					<template #input>
-						<van-switch v-model="optional" size="20" />
-					</template>
-				</van-field>
-			</van-cell-group>
+			</div>
+
+			<div class="sheet-row sheet-row--static">
+				<span class="sheet-row__label">Необязательное</span>
+				<van-switch v-model="optional" size="22" />
+			</div>
 		</div>
 
-		<ActionButtons
-			:actions="[
-				{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
-				{ label: 'Сохранить', type: 'primary', onClick: onSave, loading: loading },
-			]"
-		/>
+		<template #footer>
+			<ActionButtons
+				inline
+				:actions="[
+					{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
+					{ label: 'Сохранить', type: 'primary', onClick: onSave, loading: loading },
+				]"
+			/>
+		</template>
 
 		<ThemeActionSheet
 			v-model:show="showUnitSheet"
@@ -139,77 +159,40 @@ async function onSave() {
 		/>
 	</KeyboardPopup>
 </template>
+
 <style scoped lang="scss">
-.dose-edit {
-	background: var(--color-bg);
-	padding: var(--space-3) var(--space-3) 110px var(--space-3);
-	min-height: 100%;
+.sheet-notes {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
 }
 
-// Улучшаем визуальную иерархию для групп ячеек
-.dose-edit :deep(.van-cell-group) {
-	background: var(--color-surface);
-	border-radius: var(--radius-l);
-	box-shadow: var(--shadow-xs);
+.sheet-notes__field {
+	background: var(--color-bg) !important;
 	border: 1px solid var(--color-border);
-	margin-bottom: var(--space-4);
-}
+	border-radius: var(--radius-m);
+	padding: var(--space-1) var(--space-2);
 
-.dose-edit :deep(.van-cell-group.van-cell-group--inset) {
-	margin: 0 0 var(--space-4) 0;
-}
-
-.dose-edit :deep(.van-cell) {
-	background: transparent;
-}
-
-.dose-edit :deep(.van-cell:not(:last-child)::after) {
-	border-bottom: 1px solid var(--color-border);
-	opacity: 0.6;
-}
-
-.dose-edit :deep(.van-cell:first-child) {
-	border-top-left-radius: var(--radius-l);
-	border-top-right-radius: var(--radius-l);
-}
-
-.dose-edit :deep(.van-cell:last-child) {
-	border-bottom-left-radius: var(--radius-l);
-	border-bottom-right-radius: var(--radius-l);
-}
-
-// Улучшаем поля ввода
-.dose-edit :deep(.van-field__label) {
-	color: var(--color-text);
-	font-weight: var(--fw-semibold);
-}
-
-.dose-edit :deep(.van-field__control) {
-	color: var(--color-text);
-}
-
-// Улучшаем textarea
-.dose-edit :deep(.van-field__control--textarea) {
-	background: var(--color-elevated);
-	border-radius: var(--radius-s);
-	padding: var(--space-2);
-	border: 1px solid var(--color-border);
-	resize: none;
-	
-	&:focus {
-		border-color: var(--color-accent);
-		outline: none;
-		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
+	:deep(.van-field__control) {
+		text-align: left;
+		color: var(--color-text);
 	}
 }
 
-// Улучшаем свитчи
-.dose-edit :deep(.van-switch--on) {
-	background: var(--color-accent);
+.num-box--tap {
+	cursor: pointer;
+	transition: background var(--dur-2) var(--ease-std);
+
+	&:active {
+		background: var(--color-elevated);
+	}
 }
 
-// Улучшаем ActionSheet
-.dose-edit :deep(.van-action-sheet__button) {
-	background: var(--color-elevated);
+.num-box__pick {
+	text-align: center;
+	font-size: var(--fs-lg);
+	font-weight: var(--fw-bold);
+	color: var(--color-text);
+	padding: var(--space-2);
 }
 </style>

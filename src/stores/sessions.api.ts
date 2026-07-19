@@ -983,7 +983,7 @@ export const useSessionsApiStore = defineStore('sessionsApi', {
 					`SELECT ts.id, p.name as program_name, ts.day_index, ts.cycle_type,
 					        ts.completed_at, ts.duration_minutes, ts.comments,
 					        COUNT(DISTINCT pde.id) as exercises_count,
-					        COUNT(ses.id) as total_sets
+					        COUNT(DISTINCT ses.id) as total_sets
 					 FROM training_sessions ts
 					 JOIN programs p ON p.id = ts.program_id
 					 LEFT JOIN program_day_exercises pde ON pde.program_id = ts.program_id 

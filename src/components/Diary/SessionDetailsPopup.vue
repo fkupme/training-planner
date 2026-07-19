@@ -8,6 +8,7 @@
 		@closed="$emit('close')"
 	>
 		<div class="session-details" v-if="session">
+			<div class="sheet-handle" aria-hidden="true"></div>
 			<!-- Header -->
 			<div class="session-details__header">
 				<button class="back-btn" @click="closePopup">

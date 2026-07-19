@@ -201,6 +201,32 @@ const heroMeta = computed(() => {
 	return [goal, freq].filter(Boolean).join(' · ');
 });
 
+// Прогресс текущей недели для геро (реальные сессии)
+function planWeekStart(d: Date) {
+	const x = new Date(d);
+	const dow = (x.getDay() + 6) % 7; // Пн=0
+	x.setHours(0, 0, 0, 0);
+	x.setDate(x.getDate() - dow);
+	return x;
+}
+const weekProgress = computed(() => {
+	const c: any = cfg.value;
+	let target = 0;
+	if (c?.cycleType === 'weekly' && Array.isArray(c.weekly?.days))
+		target = (c.weekly.days as number[]).filter(v => v > 0).length;
+	const ws = planWeekStart(new Date()).getTime();
+	const we = ws + 7 * 86400000;
+	const done = ((sessions as any).trainingHistory || []).filter((s: any) => {
+		const t = s.completed_at || s.started_at;
+		return t && t >= ws && t < we;
+	}).length;
+	return {
+		done,
+		target,
+		pct: target ? Math.min(100, Math.round((done / target) * 100)) : 0,
+	};
+});
+
 // Component state
 const showNewPlan = ref(false);
 const editProgramId = ref<number | null>(null);
@@ -616,6 +642,7 @@ async function loadPlannerData() {
 		// КРИТИЧНО: сначала загружаем смещенную программу через sessions store
 		await sessions.loadShiftedProgram();
 		await sessions.loadNextWorkout();
+		await sessions.loadTrainingHistory();
 		await reloadDayItems();
 		
 		// подгрузка для вкладки "Весь план"
@@ -704,10 +731,18 @@ async function onExerciseEdited() {
 					<h1 class="planner__title">
 						{{ planner.currentProgram?.name || 'План тренировок' }}
 					</h1>
-					<p class="planner__subtitle" v-if="createdAtLabel">
-						{{ createdAtLabel }}
-					</p>
 					<p class="planner__meta" v-if="heroMeta">{{ heroMeta }}</p>
+					<div class="planner__week" v-if="weekProgress.target">
+						<div class="planner__week-track">
+							<span
+								class="planner__week-fill"
+								:style="{ width: weekProgress.pct + '%' }"
+							></span>
+						</div>
+						<span class="planner__week-label"
+							>{{ weekProgress.done }}/{{ weekProgress.target }} за неделю</span
+						>
+					</div>
 				</div>
 				<div class="planner__hero-actions">
 					<button 
@@ -866,8 +901,8 @@ async function onExerciseEdited() {
 	&__hero {
 		flex-shrink: 0;
 		background: var(--grad-2);
-		padding: var(--space-4) var(--space-4) 0;
-		padding-top: calc(var(--space-4) + var(--safe-top, 0px));
+		padding: var(--space-3) var(--space-4) 0;
+		padding-top: calc(var(--space-3) + var(--safe-top, 0px));
 		box-shadow: var(--shadow-lg);
 		position: relative;
 		z-index: 2;
@@ -891,7 +926,7 @@ async function onExerciseEdited() {
 			justify-content: space-between;
 			gap: var(--space-3);
 			max-width: 100%;
-			margin-bottom: var(--space-4);
+			margin-bottom: var(--space-2);
 		}
 
 		&-main {
@@ -907,8 +942,8 @@ async function onExerciseEdited() {
 	}
 
 	&__title {
-		font-size: var(--fs-2xl);
-		letter-spacing: -0.02em;
+		font-size: var(--fs-xl);
+		letter-spacing: -0.01em;
 		font-weight: var(--fw-bold);
 		line-height: var(--lh-title);
 		color: var(--color-accent-contrast);
@@ -935,6 +970,38 @@ async function onExerciseEdited() {
 		font-size: var(--fs-xs);
 		font-weight: var(--fw-semibold);
 		letter-spacing: 0.02em;
+	}
+
+	&__week {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin-top: var(--space-2);
+		max-width: 280px;
+	}
+
+	&__week-track {
+		flex: 1;
+		height: 6px;
+		border-radius: var(--radius-pill);
+		background: rgba(255, 255, 255, 0.25);
+		overflow: hidden;
+	}
+
+	&__week-fill {
+		display: block;
+		height: 100%;
+		border-radius: var(--radius-pill);
+		background: var(--color-accent-contrast);
+		transition: width var(--dur-4) var(--ease-std);
+	}
+
+	&__week-label {
+		font-size: var(--fs-xxs);
+		font-weight: var(--fw-semibold);
+		color: var(--color-accent-contrast);
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
 	}
 
 	// Integrated Tab Buttons

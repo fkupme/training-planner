@@ -361,7 +361,7 @@ function onShiftCycle() {
 		min-height: 0;
 		overflow-y: auto;
 		overflow-x: hidden;
-		padding-bottom: 0;
+		padding: 4px var(--space-3) 0;
 	}
 	&__summary .van-cell__label {
 		color: var(--color-text-muted);
