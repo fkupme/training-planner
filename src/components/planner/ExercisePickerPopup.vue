@@ -205,9 +205,9 @@ async function removeExercise(id: number, name: string) {
 						:class="{ 'picker-card--existing': existingSet.has(item.id) }"
 						@click="toggleSelect(item.id)"
 					>
-						<div class="picker-card__thumb">
+						<div class="picker-card__thumb" v-if="item.media_path">
 							<van-image
-								:src="item.media_path || undefined"
+								:src="item.media_path"
 								width="100%"
 								height="100%"
 								fit="cover"
@@ -353,8 +353,7 @@ async function removeExercise(id: number, name: string) {
 
 /* Карточки упражнений */
 .picker-card {
-	display: grid;
-	grid-template-columns: 80px 1fr;
+	display: flex;
 	gap: var(--space-3);
 	padding: var(--space-3);
 	background: var(--color-surface);
@@ -373,8 +372,9 @@ async function removeExercise(id: number, name: string) {
 	}
 
 	&__thumb {
-		width: 80px;
-		height: 80px;
+		flex-shrink: 0;
+		width: 72px;
+		height: 72px;
 		border-radius: var(--radius-m);
 		overflow: hidden;
 		background: var(--color-elevated);
@@ -411,6 +411,7 @@ async function removeExercise(id: number, name: string) {
 	}
 
 	&__body {
+		flex: 1;
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
@@ -420,7 +421,7 @@ async function removeExercise(id: number, name: string) {
 	&__header {
 		display: grid;
 		grid-template-columns: auto 1fr auto;
-		align-items: center;
+		align-items: flex-start;
 		gap: var(--space-2);
 	}
 
@@ -429,9 +430,13 @@ async function removeExercise(id: number, name: string) {
 		font-size: var(--fs-md);
 		color: var(--color-text);
 		min-width: 0;
+		line-height: 1.25;
+		/* показываем имя целиком (до 2 строк), а не обрезаем в одну */
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
 		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 
 	&__actions {

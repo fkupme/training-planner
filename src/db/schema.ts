@@ -635,8 +635,11 @@ export async function ensureSchema() {
     duration_minutes INTEGER,
     status TEXT NOT NULL DEFAULT 'planned', -- planned | in_progress | completed | cancelled
     created_at INTEGER NOT NULL,
+    target_date INTEGER, -- запланированная дата тренировки (мс, начало дня): для «выполнено ли на этой неделе», чтобы досрочная тренировка закрывала слот
     FOREIGN KEY(program_id) REFERENCES programs(id) ON DELETE CASCADE
   )`);
+
+	await ensureColumn('training_sessions', 'target_date', 'INTEGER');
 
 	// Выполненные подходы в рамках сессии
 	await exec(`CREATE TABLE IF NOT EXISTS session_exercise_sets (

@@ -606,19 +606,22 @@ function cycleDayCustomAt(dayIdx: number, setIdx: number) {
 			</van-cell-group>
 		</div>
 
-		<ActionButtons
-			:actions="[
-				{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
-				{ label: 'Сохранить', type: 'primary', onClick: onSave, disabled: !canSave },
-			]"
-		/>
+		<template #footer>
+			<ActionButtons
+				inline
+				:actions="[
+					{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
+					{ label: 'Сохранить', type: 'primary', onClick: onSave, disabled: !canSave },
+				]"
+			/>
+		</template>
 	</KeyboardPopup>
 </template>
 
 <style lang="scss" scoped>
 .plan-new {
 	background: var(--color-bg);
-	padding: var(--space-3) var(--space-3) 110px var(--space-3);
+	padding: var(--space-3) var(--space-3) var(--space-4);
 	min-height: 100%;
 }
 

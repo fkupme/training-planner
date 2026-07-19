@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { exec, query } from '@/db/client';
 import { usePlannerStore } from './planner';
+import { resolveProgramDay } from '@/utils/cycleShift';
 
 export interface TrainingSession {
 	id: number;
@@ -276,7 +277,8 @@ export const useSessionsApiStore = defineStore('sessionsApi', {
 			cycle_type: 'weekly' | 'custom',
 			day_index: number,
 			session_slot: number = 0,
-			name?: string
+			name?: string,
+			target_date?: number | null
 		): Promise<number> {
 			console.log('=== CREATE SESSION START ===');
 			console.log('Params:', { program_id, cycle_type, day_index, session_slot, name });
@@ -285,8 +287,8 @@ export const useSessionsApiStore = defineStore('sessionsApi', {
 			
 			try {
 				const insertResult = await exec(
-					`INSERT INTO training_sessions (program_id, cycle_type, day_index, session_slot, name, status, created_at, started_at) 
-					 VALUES (?, ?, ?, ?, ?, 'in_progress', ?, ?)`,
+					`INSERT INTO training_sessions (program_id, cycle_type, day_index, session_slot, name, status, created_at, started_at, target_date)
+					 VALUES (?, ?, ?, ?, ?, 'in_progress', ?, ?, ?)`,
 					[
 						program_id,
 						cycle_type,
@@ -295,6 +297,7 @@ export const useSessionsApiStore = defineStore('sessionsApi', {
 						name || null,
 						now,
 						now,
+						target_date ?? null,
 					]
 				);
 				console.log('Insert exec result:', insertResult);
@@ -370,8 +373,17 @@ export const useSessionsApiStore = defineStore('sessionsApi', {
 					? 'pde.position >= 1000'
 					: '(pde.position < 1000 OR pde.position IS NULL)';
 
+			// Сессия хранит КАЛЕНДАРНЫЙ (логический) день, а упражнения лежат на
+			// сдвинутом program day. Тот же единый маппинг, что и в loadShiftedProgram
+			// и в превью «Ближайшая». При dayOffset=0 -> тот же день (инвариант).
+			const planner = usePlannerStore();
+			const programDay = resolveProgramDay(
+				planner.currentProgram?.config,
+				this.currentSession.day_index
+			);
+
 			const exercises = await query<any>(
-				`SELECT pde.id as day_exercise_id, e.name as exercise_name, 
+				`SELECT pde.id as day_exercise_id, e.name as exercise_name,
 				        pde.sets_count as planned_sets, pde.reps_json as planned_reps,
 				        pde.work_weight, e.primary_muscle_id
 				 FROM program_day_exercises pde
@@ -382,7 +394,7 @@ export const useSessionsApiStore = defineStore('sessionsApi', {
 				[
 					this.currentSession.program_id,
 					this.currentSession.cycle_type,
-					this.currentSession.day_index,
+					programDay,
 				]
 			);
 
@@ -883,12 +895,18 @@ export const useSessionsApiStore = defineStore('sessionsApi', {
 
 			console.log('🔍 All sessions for this day/slot:', allSessions);
 
+			// target_date = запланированная дата (мс, начало дня). Досрочная/опоздавшая
+			// тренировка закрывает именно свой слот недели. Старые сессии (target_date IS
+			// NULL) — фолбэк на прежнее окно completed_at.
 			const sessions = await query<any>(
-				`SELECT id, status, completed_at FROM training_sessions 
+				`SELECT id, status, completed_at, target_date FROM training_sessions
 				 WHERE program_id = ? AND cycle_type = ? AND day_index = ? AND session_slot = ?
 				 AND status = 'completed'
-				 AND completed_at >= ? AND completed_at < ?`,
-				[programId, cycleType, dayIndex, sessionSlot, startOfDay, endOfDay]
+				 AND (
+				   target_date = ?
+				   OR (target_date IS NULL AND completed_at >= ? AND completed_at < ?)
+				 )`,
+				[programId, cycleType, dayIndex, sessionSlot, startOfDay, startOfDay, endOfDay]
 			);
 
 			console.log('🔍 Found completed sessions:', sessions.length, sessions);
@@ -962,12 +980,28 @@ export const useSessionsApiStore = defineStore('sessionsApi', {
 		async startNextWorkout() {
 			if (!this.nextWorkout) return;
 
+			// Запланированная дата (мс, начало дня) — чтобы досрочная тренировка закрывала
+			// именно этот слот недели, а следующая шла по расписанию.
+			const iso = (this.nextWorkout as any).workoutDateISO as string | undefined;
+			let targetMs: number | null = null;
+			if (iso) {
+				const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+				if (m) {
+					targetMs = new Date(
+						Number(m[1]),
+						Number(m[2]) - 1,
+						Number(m[3])
+					).getTime();
+				}
+			}
+
 			const sessionId = await this.createSession(
 				this.nextWorkout.program_id,
 				this.nextWorkout.cycle_type,
 				this.nextWorkout.day_index,
 				this.nextWorkout.session_slot,
-				`Тренировка - ${this.nextWorkout.day_name}`
+				`Тренировка - ${this.nextWorkout.day_name}`,
+				targetMs
 			);
 
 			return sessionId;
@@ -1000,8 +1034,12 @@ export const useSessionsApiStore = defineStore('sessionsApi', {
 				this.trainingHistory = historyRows.map((row: any) => ({
 					id: row.id,
 					program_name: row.program_name,
-					day_name: row.cycle_type === 'weekly' 
-						? ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][row.day_index]
+					// День недели в дневнике = ФАКТИЧЕСКИЙ день выполнения (completed_at),
+					// а не запланированный day_index. Сделал Пн-тренировку в Вс -> в дневнике «Воскресенье».
+					day_name: row.cycle_type === 'weekly'
+						? ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][
+								(new Date(row.completed_at).getDay() + 6) % 7
+						  ]
 						: `День ${row.day_index + 1}`,
 					completed_at: row.completed_at,
 					duration_minutes: row.duration_minutes,
@@ -1183,40 +1221,24 @@ export const useSessionsApiStore = defineStore('sessionsApi', {
 				const shiftedData: Record<number, any[]> = {};
 
 				// Разреженная ротация: строим список активных трен-дней (есть сессии)
-				const activeDays = weeklyDays
-					.map((cnt, idx) => (cnt > 0 ? idx : -1))
-					.filter((idx) => idx >= 0);
-				const activeLen = activeDays.length;
-				const trainingShift = activeLen > 0 ? (dayOffset % activeLen + activeLen) % activeLen : 0;
-
 				// Для каждого календарного дня недели
 				for (let calendarDay = 0; calendarDay < 7; calendarDay++) {
 					const sessionsCount = weeklyDays[calendarDay] || 0;
-					if (sessionsCount <= 0 || activeLen === 0) {
+					if (sessionsCount <= 0) {
 						// День отдыха остаётся днём отдыха
 						shiftedData[calendarDay] = [];
 						continue;
 					}
 
-					// Найдём позицию календарного дня среди активных
-					const k = activeDays.indexOf(calendarDay);
-					if (k === -1) {
-						// На всякий случай, но по условию сюда не попадём
-						shiftedData[calendarDay] = [];
-						continue;
-					}
+					// Единый маппинг (utils/cycleShift): календарный день -> сдвинутый program day
+					const programDay = resolveProgramDay(config, calendarDay);
+					console.log(`🔍 [sparse] Calendar day ${calendarDay} <- program day ${programDay}`);
 
-					// Источник контента для этого календарного дня — следующий по trainingShift активный день
-					const programDay = activeDays[(k + trainingShift) % activeLen];
-					console.log(`🔍 [sparse] Calendar day ${calendarDay} <- program day ${programDay} (trainingShift: ${trainingShift}, active=${JSON.stringify(activeDays)})`);
-
-					const exercisesForDay = await exercises.listExercisesForDayDetailed(
+					shiftedData[calendarDay] = await exercises.listExercisesForDayDetailed(
 						program.id,
 						'weekly',
 						programDay
 					);
-
-					shiftedData[calendarDay] = exercisesForDay;
 				}
 
 				this.shiftedProgram = shiftedData;
@@ -1230,34 +1252,22 @@ export const useSessionsApiStore = defineStore('sessionsApi', {
 				const exercises = useExercisesStore();
 				const shiftedData: Record<number, any[]> = {};
 
-				const activeDays = customDays
-					.map((cnt: number, idx: number) => (cnt > 0 ? idx : -1))
-					.filter((idx: number) => idx >= 0);
-				const activeLen = activeDays.length;
-				const trainingShift = activeLen > 0 ? (dayOffset % activeLen + activeLen) % activeLen : 0;
-
 				for (let logical = 0; logical < cycleLen; logical++) {
 					const sessionsCount = customDays[logical] || 0;
-					if (sessionsCount <= 0 || activeLen === 0) {
+					if (sessionsCount <= 0) {
 						shiftedData[logical] = [];
 						continue;
 					}
 
-					const k = activeDays.indexOf(logical);
-					if (k === -1) {
-						shiftedData[logical] = [];
-						continue;
-					}
+					// Единый маппинг (utils/cycleShift): логический день -> сдвинутый program day
+					const programDay = resolveProgramDay(config, logical);
+					console.log(`🔍 [sparse/custom] Logical day ${logical} <- program day ${programDay}`);
 
-					const programDay = activeDays[(k + trainingShift) % activeLen];
-					console.log(`🔍 [sparse/custom] Logical day ${logical} <- program day ${programDay} (trainingShift: ${trainingShift}, active=${JSON.stringify(activeDays)})`);
-
-					const exercisesForDay = await exercises.listExercisesForDayDetailed(
+					shiftedData[logical] = await exercises.listExercisesForDayDetailed(
 						program.id,
 						'custom',
 						programDay
 					);
-					shiftedData[logical] = exercisesForDay;
 				}
 
 				this.shiftedProgram = shiftedData;

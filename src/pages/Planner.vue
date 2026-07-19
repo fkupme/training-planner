@@ -52,7 +52,6 @@ const {
 	allExercisesWeekly,
 	allExercisesCustom,
 	cfg,
-	createdAtLabel,
 	getExerciseWeight,
 	loadAllExercisesForWeekly,
 	loadAllExercisesForCustom,

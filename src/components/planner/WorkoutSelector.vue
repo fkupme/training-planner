@@ -21,9 +21,9 @@
 				>
 					<div class="workout-option__left">
 						<div class="workout-option__icon">
-							<van-icon v-if="option.isCompleted" name="checked" color="#07c160" size="20" />
-							<van-icon v-else-if="option.isCurrent" name="play-circle" color="#1989fa" size="20" />
-							<van-icon v-else name="clock" color="#969799" size="20" />
+							<van-icon v-if="option.isCompleted" name="checked" color="var(--color-success)" size="20" />
+							<van-icon v-else-if="option.isCurrent" name="play-circle" color="var(--color-accent)" size="20" />
+							<van-icon v-else name="clock" color="var(--color-text-muted)" size="20" />
 						</div>
 					</div>
 
@@ -374,38 +374,37 @@ function closeSelector() {
 
 <style lang="scss" scoped>
 .workout-selector {
-	padding: 16px;
+	padding: var(--space-4);
 }
 
 .workout-selector__section {
-	margin-bottom: 24px;
+	margin-bottom: var(--space-6);
 }
 
 .workout-selector__title {
-	font-size: 16px;
-	font-weight: 600;
-	margin: 0 0 12px 0;
-	color: var(--van-text-color);
+	font-size: var(--fs-md);
+	font-weight: var(--fw-semibold);
+	margin: 0 0 var(--space-3) 0;
+	color: var(--color-text);
 }
 
 .workout-selector__list {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .workout-option {
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding: 16px;
-	margin-bottom: 8px;
+	gap: var(--space-3);
+	padding: var(--space-4);
 	background: var(--color-surface);
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius-m);
-	
+
 	cursor: pointer;
-	transition: all 0.2s ease;
+	transition: transform var(--dur-2) var(--ease-std);
 	
 	&--current {
 		background: color-mix(in srgb, var(--van-primary-color) 8%, var(--color-surface));
@@ -460,13 +459,13 @@ function closeSelector() {
 	&__title { 
 		font-weight: var(--fw-semibold); 
 		color: var(--color-text); 
-		font-size: var(--fs-base); 
+		font-size: var(--fs-md); 
 		line-height: 1.2;
 	}
 	
 	&__session {
 		color: var(--color-text-muted);
-		font-weight: var(--fw-normal);
+		font-weight: var(--fw-regular);
 	}
 	
 	&__description {

@@ -227,25 +227,26 @@ async function hasWorkoutBetween(fromDate: Date, toDate: Date): Promise<boolean>
 
 <style lang="scss" scoped>
 .workout-shift {
-	padding: 16px;
+	padding: var(--space-4);
 }
 
 .workout-shift__options {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .shift-option {
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding: 16px;
+	gap: var(--space-3);
+	padding: var(--space-4);
 	background: var(--color-surface);
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius-m);
 	cursor: pointer;
-	transition: all 0.2s ease;
+	transition: transform var(--dur-2) var(--ease-std),
+		background var(--dur-2) var(--ease-std);
 
 	&:active {
 		transform: scale(0.98);

@@ -162,277 +162,241 @@ async function save() {
 </script>
 
 <template>
-	<KeyboardPopup v-model:show="modelShow" height="90%">
-		<van-nav-bar title="Новое упражнение" />
-		<div class="exercise-create">
-			<van-cell-group inset>
+	<KeyboardPopup v-model:show="modelShow" height="90%" title="Новое упражнение">
+		<div class="sheet-form">
+			<div class="field-box">
+				<label class="field-box__label">Название</label>
 				<van-field
 					v-model="name"
-					label="Название"
 					placeholder="Напр. Жим лёжа"
+					class="field-box__input"
 				/>
+			</div>
+			<div class="field-box">
+				<label class="field-box__label">Описание</label>
 				<van-field
 					v-model="description"
 					type="textarea"
 					rows="2"
-					label="Описание"
+					autosize
 					placeholder="опционально"
+					class="field-box__input"
 				/>
+			</div>
 
-				<van-cell
-					is-link
-					title="Основная мышца"
-					:label="primaryLabel"
-					@click="showPrimarySheet = true"
-				/>
-				<van-cell
-					is-link
-					title="Вторичные мышцы"
-					:label="secondaryLabel"
-					@click="showSecondarySheet = true"
-				/>
+			<button type="button" class="sheet-row" @click="showPrimarySheet = true">
+				<span class="sheet-row__label">Основная мышца</span>
+				<span class="sheet-row__value">
+					<span class="sheet-row__text">{{ primaryLabel }}</span>
+					<van-icon name="arrow" />
+				</span>
+			</button>
+			<button type="button" class="sheet-row" @click="showSecondarySheet = true">
+				<span class="sheet-row__label">Вторичные</span>
+				<span class="sheet-row__value sheet-row__value--muted">
+					<span class="sheet-row__text">{{ secondaryLabel }}</span>
+					<van-icon name="arrow" />
+				</span>
+			</button>
+			<button type="button" class="sheet-row" @click="showEquipmentSheet = true">
+				<span class="sheet-row__label">Оборудование</span>
+				<span class="sheet-row__value">
+					<span class="sheet-row__text">{{ equipmentLabel }}</span>
+					<van-icon name="arrow" />
+				</span>
+			</button>
+			<button type="button" class="sheet-row" @click="showAnalogSheet = true">
+				<span class="sheet-row__label">Аналоги</span>
+				<span class="sheet-row__value sheet-row__value--muted">
+					<span class="sheet-row__text">{{ analogsLabel }}</span>
+					<van-icon name="arrow" />
+				</span>
+			</button>
 
-				<van-cell
-					is-link
-					title="Оборудование"
-					:label="equipmentLabel"
-					@click="showEquipmentSheet = true"
-				/>
-
-				<van-cell
-					is-link
-					title="Аналоги"
-					:label="analogsLabel"
-					@click="showAnalogSheet = true"
-				/>
-
-				<van-field label="Медиа (gif/video)">
-					<template #input>
-						<van-uploader
-							:max-count="1"
-							:after-read="onAfterRead"
-							v-model="uploaderFiles"
-							class="custom-uploader"
-							upload-text="Загрузить медиа"
-							:show-upload="uploaderFiles.length === 0"
-						>
-							<template #default>
-								<div class="uploader-placeholder">
-									<van-icon name="plus" class="uploader-placeholder__icon" />
-									<span class="uploader-placeholder__text">Добавить GIF/видео</span>
-									<span class="uploader-placeholder__hint">Для демонстрации техники</span>
-								</div>
-							</template>
-						</van-uploader>
+			<div class="field-box">
+				<label class="field-box__label">Медиа (gif/video)</label>
+				<van-uploader
+					:max-count="1"
+					:after-read="onAfterRead"
+					v-model="uploaderFiles"
+					class="custom-uploader"
+					:show-upload="uploaderFiles.length === 0"
+				>
+					<template #default>
+						<div class="uploader-placeholder">
+							<van-icon name="plus" class="uploader-placeholder__icon" />
+							<span class="uploader-placeholder__text">Добавить GIF/видео</span>
+							<span class="uploader-placeholder__hint">Для демонстрации техники</span>
+						</div>
 					</template>
-				</van-field>
-			</van-cell-group>
+				</van-uploader>
+			</div>
 		</div>
 
-		<ActionButtons
-			:actions="[
-				{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
-				{ label: 'Сохранить', type: 'primary', onClick: save, disabled: !canSave },
-			]"
-		/>
+		<template #footer>
+			<ActionButtons
+				inline
+				:actions="[
+					{ label: 'Отмена', type: 'secondary', onClick: () => (modelShow = false) },
+					{ label: 'Сохранить', type: 'primary', onClick: save, disabled: !canSave },
+				]"
+			/>
+		</template>
 	</KeyboardPopup>
 
-	<!-- ActionSheet: Основная мышца (одиночный выбор) -->
+	<!-- Основная мышца (одиночный выбор) -->
 	<van-action-sheet v-model:show="showPrimarySheet" title="Основная мышца">
-		<van-cell-group inset>
-			<van-cell
+		<div class="pick-list">
+			<button
 				v-for="m in ex.muscles"
 				:key="m.id"
-				clickable
+				type="button"
+				class="pick-list__item"
+				:class="{ 'pick-list__item--on': primaryMuscleId === m.id }"
 				@click="pickPrimary(m.id)"
 			>
-				<template #title>{{ m.name }}</template>
-			</van-cell>
-		</van-cell-group>
+				<span>{{ m.name }}</span>
+				<van-icon v-if="primaryMuscleId === m.id" name="success" />
+			</button>
+		</div>
 	</van-action-sheet>
 
-	<!-- ActionSheet: Вторичные мышцы (мультивыбор) -->
+	<!-- Вторичные мышцы (мультивыбор — чипы) -->
 	<van-action-sheet v-model:show="showSecondarySheet" title="Вторичные мышцы">
-		<div class="sheet-body">
-			<div
+		<div class="chip-grid">
+			<button
 				v-for="m in ex.muscles"
 				:key="m.id"
-				class="sheet-item"
+				type="button"
+				class="chip"
+				:class="{ 'chip--on': secondaryIds.includes(m.id) }"
 				@click="toggleSecondary(m.id)"
 			>
-				<van-checkbox
-					:model-value="secondaryIds.includes(m.id)"
-					shape="square"
-					>{{ m.name }}</van-checkbox
-				>
-			</div>
+				{{ m.name }}
+			</button>
 		</div>
-		<ActionButtons
-			:actions="[
-				{ label: 'Готово', type: 'primary', onClick: () => (showSecondarySheet = false) },
-			]"
-		/>
+		<div class="picker-footer">
+			<ActionButtons
+				inline
+				:actions="[
+					{ label: 'Готово', type: 'primary', onClick: () => (showSecondarySheet = false) },
+				]"
+			/>
+		</div>
 	</van-action-sheet>
 
-	<!-- ActionSheet: Оборудование (одиночный выбор) -->
+	<!-- Оборудование (одиночный выбор) -->
 	<van-action-sheet v-model:show="showEquipmentSheet" title="Оборудование">
-		<van-cell-group inset>
-			<van-cell
+		<div class="pick-list">
+			<button
 				v-for="opt in EQUIPMENT_OPTIONS"
 				:key="opt.value"
-				clickable
+				type="button"
+				class="pick-list__item"
+				:class="{ 'pick-list__item--on': equipment === opt.value }"
 				@click="chooseEquipment(opt.value)"
 			>
-				<template #title>{{ opt.label }}</template>
-			</van-cell>
-		</van-cell-group>
+				<span>{{ opt.label }}</span>
+				<van-icon v-if="equipment === opt.value" name="success" />
+			</button>
+		</div>
 	</van-action-sheet>
 
-	<!-- ActionSheet: Аналоги (мультивыбор) -->
+	<!-- Аналоги (мультивыбор — список) -->
 	<van-action-sheet v-model:show="showAnalogSheet" title="Аналоги упражнений">
-		<div class="sheet-body">
-			<div
+		<div class="pick-list">
+			<button
 				v-for="e in ex.list"
 				:key="e.id"
-				class="sheet-item"
+				type="button"
+				class="pick-list__item"
+				:class="{ 'pick-list__item--on': chosenAnalogIds.includes(e.id) }"
 				@click="toggleAnalog(e.id)"
 			>
-				<van-checkbox
-					:model-value="chosenAnalogIds.includes(e.id)"
-					shape="square"
-					>{{ e.name }}</van-checkbox
-				>
-			</div>
+				<span>{{ e.name }}</span>
+				<van-icon v-if="chosenAnalogIds.includes(e.id)" name="success" />
+			</button>
 		</div>
-		<ActionButtons
-			:actions="[
-				{ label: 'Готово', type: 'primary', onClick: () => (showAnalogSheet = false) },
-			]"
-		/>
+		<div class="picker-footer">
+			<ActionButtons
+				inline
+				:actions="[
+					{ label: 'Готово', type: 'primary', onClick: () => (showAnalogSheet = false) },
+				]"
+			/>
+		</div>
 	</van-action-sheet>
 </template>
 
 <style lang="scss" scoped>
-.exercise-create {
-	background: var(--color-bg);
-	padding: var(--space-3) var(--space-3) 110px var(--space-3);
-	min-height: 100%;
+/* Single/multi select list inside action-sheets */
+.pick-list {
+	max-height: 60vh;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	padding: var(--space-3) var(--space-4) var(--space-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
 }
 
-// Улучшаем визуальную иерархию для групп ячеек
-.exercise-create :deep(.van-cell-group) {
-	background: var(--color-surface);
-	border-radius: var(--radius-l);
-	box-shadow: var(--shadow-xs);
+.pick-list__item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-4);
+	border-radius: var(--radius-m);
 	border: 1px solid var(--color-border);
-	margin-bottom: var(--space-4);
-}
-
-.exercise-create :deep(.van-cell-group.van-cell-group--inset) {
-	margin: 0 0 var(--space-4) 0;
-}
-
-.exercise-create :deep(.van-cell) {
-	background: transparent;
-}
-
-.exercise-create :deep(.van-cell:not(:last-child)::after) {
-	border-bottom: 1px solid var(--color-border);
-	opacity: 0.6;
-}
-
-.exercise-create :deep(.van-cell:first-child) {
-	border-top-left-radius: var(--radius-l);
-	border-top-right-radius: var(--radius-l);
-}
-
-.exercise-create :deep(.van-cell:last-child) {
-	border-bottom-left-radius: var(--radius-l);
-	border-bottom-right-radius: var(--radius-l);
-}
-
-// Улучшаем поля ввода
-.exercise-create :deep(.van-field__label) {
+	background: var(--color-surface);
 	color: var(--color-text);
+	font-size: var(--fs-md);
 	font-weight: var(--fw-semibold);
-}
+	text-align: left;
+	cursor: pointer;
+	transition: all var(--dur-2) var(--ease-std);
 
-.exercise-create :deep(.van-field__control) {
-	color: var(--color-text);
-}
+	&--on {
+		border-color: var(--color-accent);
+		background: var(--color-accent-soft);
+		color: var(--color-accent);
+	}
 
-.exercise-create__sheet-body {
-	max-height: 50vh;
-	overflow: auto;
-	padding: var(--space-2) var(--space-3) var(--space-3) var(--space-3);
-}
+	.van-icon {
+		flex-shrink: 0;
+		color: var(--color-accent);
+	}
 
-.exercise-create__sheet-item {
-	padding: 6px 0;
-}
-
-.exercise-create__sheet-actions {
-	background-color: var(--color-surface);
-	border-top: 1px solid var(--color-border);
-	padding: var(--space-2) var(--space-3) var(--space-3) var(--space-3);
-}
-
-.sheet-body {
-	max-height: 50vh;
-	overflow: auto;
-	padding: var(--space-2) var(--space-3) 80px var(--space-3);
-}
-
-.sheet-item {
-	padding: 6px 0;
-}
-
-.sheet-actions {
-	background-color: var(--color-surface);
-	border-top: 1px solid var(--color-border);
-	padding: var(--space-2) var(--space-3) var(--space-3) var(--space-3);
-}
-
-// Стилизация чекбоксов в ActionSheet - используем правильные CSS переменные Vant
-:deep(.van-action-sheet) {
-	--van-checkbox-checked-icon-color: var(--color-accent) !important;
-	--van-checkbox-label-color: var(--color-text) !important;
-	
-	.van-checkbox__label {
-		color: var(--color-text) !important;
-		font-weight: var(--fw-medium) !important;
+	&:active {
+		transform: scale(0.99);
 	}
 }
 
-// Исправляем стили для текста чекбоксов, не затрагивая сам чекбокс
-.sheet-item :deep(.van-checkbox__label) {
-	color: var(--color-text) !important;
-	font-weight: var(--fw-medium) !important;
+.chip-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+	padding: var(--space-4);
+	max-height: 50vh;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
 }
 
-// Стилизация аплодера
-.exercise-create :deep(.custom-uploader) {
-	.van-uploader__wrapper {
+.picker-footer {
+	border-top: 1px solid var(--color-border);
+	background: var(--color-surface);
+}
+
+/* Media uploader */
+.custom-uploader {
+	:deep(.van-uploader__wrapper) {
 		display: flex;
 		gap: var(--space-2);
 	}
-	
-	.van-uploader__preview {
-		position: relative;
-		
-		.van-uploader__preview-image {
-			border-radius: var(--radius-m);
-			border: 1px solid var(--color-border);
-		}
-		
-		.van-uploader__preview-delete {
-			background: var(--color-danger);
-			border-radius: 50%;
-			width: 20px;
-			height: 20px;
-			top: -8px;
-			right: -8px;
-		}
+
+	:deep(.van-uploader__preview-image) {
+		border-radius: var(--radius-m);
+		border: 1px solid var(--color-border);
 	}
 }
 
@@ -445,29 +409,27 @@ async function save() {
 	padding: var(--space-4);
 	border: 2px dashed var(--color-border);
 	border-radius: var(--radius-m);
-	background: var(--color-elevated);
-	transition: all var(--dur-2) var(--ease-std);
+	background: var(--color-bg);
 	cursor: pointer;
 	min-height: 100px;
-	
-	&:hover {
+	transition: border-color var(--dur-2) var(--ease-std);
+
+	&:active {
 		border-color: var(--color-accent);
-		background: color-mix(in srgb, var(--color-accent) 5%, var(--color-elevated));
-		transform: translateY(-1px);
 	}
-	
+
 	&__icon {
 		font-size: 24px;
 		color: var(--color-accent);
 		opacity: 0.8;
 	}
-	
+
 	&__text {
 		font-size: var(--fs-sm);
-		font-weight: var(--fw-medium);
+		font-weight: var(--fw-semibold);
 		color: var(--color-text);
 	}
-	
+
 	&__hint {
 		font-size: var(--fs-xs);
 		color: var(--color-text-muted);
