@@ -5,6 +5,7 @@ import ExercisePickerPopup from '@/components/planner/ExercisePickerPopup.vue';
 import ActionButtons from '@/components/ui/ActionButtons.vue';
 import { useSessionsStore } from '@/stores/sessions';
 import { useExercisesStore } from '@/stores/exercises';
+import { usePlannerStore } from '@/stores/planner';
 import { parseRPERIR } from '@/utils/rpeRirParser';
 import { showDialog, showNotify, showToast } from 'vant';
 import {
@@ -21,6 +22,12 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 const sessions = useSessionsStore();
 const exercises = useExercisesStore();
+const planner = usePlannerStore();
+
+// Единицы веса из программы (кг/фунты) — вместо хардкода
+const unitLabel = computed(() =>
+	planner.currentProgram?.units === 'lb' ? 'lb' : 'кг'
+);
 
 // Система для передачи действий в хедер
 const setHeaderActions = inject('setHeaderActions') as
@@ -700,7 +707,7 @@ async function replaceExercise(newExerciseId: number) {
 										{{ exercise.planned_sets }} × {{ getPlannedReps(exercise) }}
 									</van-tag>
 									<van-tag v-if="exercise.work_weight" type="success">
-										{{ exercise.work_weight }} кг
+										{{ exercise.work_weight }} {{ unitLabel }}
 									</van-tag>
 								</div>
 							</div>
@@ -726,7 +733,7 @@ async function replaceExercise(newExerciseId: number) {
 									<div class="set-content" @click="openSetEditor(exercise, setIndex - 1)">
 										<div class="set-chips">
 											<van-tag type="primary">
-												{{ exercise.sets[setIndex - 1].reps_completed || '-' }}×{{ exercise.sets[setIndex - 1].weight_used || '-' }}кг
+												{{ exercise.sets[setIndex - 1].reps_completed || '-' }}×{{ exercise.sets[setIndex - 1].weight_used || '-' }} {{ unitLabel }}
 											</van-tag>
 											<van-tag v-if="exercise.sets[setIndex - 1].rpe_rir" type="success" class="rpe-tag">
 												{{ formatRPERIRForDisplay(exercise.sets[setIndex - 1].rpe_rir) }}
@@ -738,7 +745,7 @@ async function replaceExercise(newExerciseId: number) {
 									<div class="set-placeholder-content" @click="quickAddSet(exercise, setIndex - 1)">
 										<div class="placeholder-chips">
 											<van-tag type="default" plain>
-												{{ getDisplayValuesForSet(exercise, setIndex - 1).reps }}×{{ getDisplayValuesForSet(exercise, setIndex - 1).weight }}кг
+												{{ getDisplayValuesForSet(exercise, setIndex - 1).reps }}×{{ getDisplayValuesForSet(exercise, setIndex - 1).weight }} {{ unitLabel }}
 											</van-tag>
 											<van-tag v-if="getDisplayValuesForSet(exercise, setIndex - 1).rpeRir" type="default" plain class="rpe-tag">
 												{{ formatRPERIRForDisplay(getDisplayValuesForSet(exercise, setIndex - 1).rpeRir) }}
@@ -810,7 +817,8 @@ async function replaceExercise(newExerciseId: number) {
 
 <style lang="scss" scoped>
 .session-page {
-	height: 100dvh;
+	flex: 1 1 auto;
+	min-height: 0;
 	background: var(--color-bg);
 	display: flex;
 	flex-direction: column;
@@ -838,6 +846,11 @@ async function replaceExercise(newExerciseId: number) {
 	}
 
 	&__timer {
+		:deep(.van-cell-group) {
+			background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+			border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+		}
+
 		.timer-running {
 			:deep(.van-cell__label) {
 				color: var(--color-warning);
@@ -848,14 +861,16 @@ async function replaceExercise(newExerciseId: number) {
 		.timer-display {
 			display: flex;
 			align-items: center;
-			justify-content: flex-start;
-			margin: var(--space-2) 0;
+			justify-content: center;
+			margin: var(--space-3) 0;
 		}
 
 		.timer-text {
-			font-size: var(--fs-xl);
+			font-size: var(--fs-2xl);
 			font-weight: var(--fw-bold);
 			color: var(--color-text);
+			font-variant-numeric: tabular-nums;
+			letter-spacing: 0.02em;
 		}
 
 		.auto-timer-title {

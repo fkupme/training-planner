@@ -177,6 +177,30 @@ const nextWorkoutDateLabel = computed(() => {
 	return fullDateFormat.charAt(0).toUpperCase() + fullDateFormat.slice(1);
 });
 
+// Мета для геро (цель + частота тренировок) — из реального конфига
+const goalLabels: Record<string, string> = {
+	cut: 'Сушка',
+	maintain: 'Поддержание',
+	bulk: 'Набор массы',
+	strength: 'Сила',
+	endurance: 'Выносливость',
+	rest: 'Отдых',
+};
+const heroMeta = computed(() => {
+	const c: any = cfg.value;
+	if (!c) return '';
+	const goal = goalLabels[c.goal] || '';
+	let freq = '';
+	if (c.cycleType === 'weekly' && Array.isArray(c.weekly?.days)) {
+		const n = (c.weekly.days as number[]).filter(v => v > 0).length;
+		if (n) freq = `${n}×/нед`;
+	} else if (c.cycleType === 'custom' && Array.isArray(c.custom?.days)) {
+		const n = (c.custom.days as number[]).filter(v => v > 0).length;
+		if (n) freq = `${n} трен/цикл`;
+	}
+	return [goal, freq].filter(Boolean).join(' · ');
+});
+
 // Component state
 const showNewPlan = ref(false);
 const editProgramId = ref<number | null>(null);
@@ -683,6 +707,7 @@ async function onExerciseEdited() {
 					<p class="planner__subtitle" v-if="createdAtLabel">
 						{{ createdAtLabel }}
 					</p>
+					<p class="planner__meta" v-if="heroMeta">{{ heroMeta }}</p>
 				</div>
 				<div class="planner__hero-actions">
 					<button 
@@ -830,7 +855,8 @@ async function onExerciseEdited() {
 <style lang="scss" scoped>
 // Planner Layout - Modern Adaptive Design
 .planner {
-	min-height: 100vh;
+	flex: 1 1 auto;
+	min-height: 0;
 	background: var(--color-bg);
 	display: flex;
 	flex-direction: column;
@@ -838,7 +864,8 @@ async function onExerciseEdited() {
 
 	// Hero Section - Premium Header Design with Integrated Tabs
 	&__hero {
-		background: var(--grad-1);
+		flex-shrink: 0;
+		background: var(--grad-2);
 		padding: var(--space-4) var(--space-4) 0;
 		padding-top: calc(var(--space-4) + var(--safe-top, 0px));
 		box-shadow: var(--shadow-lg);
@@ -880,7 +907,8 @@ async function onExerciseEdited() {
 	}
 
 	&__title {
-		font-size: var(--fs-xl);
+		font-size: var(--fs-2xl);
+		letter-spacing: -0.02em;
 		font-weight: var(--fw-bold);
 		line-height: var(--lh-title);
 		color: var(--color-accent-contrast);
@@ -894,6 +922,19 @@ async function onExerciseEdited() {
 		opacity: 0.8;
 		margin: 0;
 		font-weight: var(--fw-regular);
+	}
+
+	&__meta {
+		display: inline-flex;
+		align-items: center;
+		margin-top: var(--space-2);
+		padding: 3px 10px;
+		border-radius: var(--radius-pill);
+		background: rgba(255, 255, 255, 0.18);
+		color: var(--color-accent-contrast);
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-semibold);
+		letter-spacing: 0.02em;
 	}
 
 	// Integrated Tab Buttons
@@ -1009,12 +1050,14 @@ async function onExerciseEdited() {
 
 	// Main Content Area - Minimized Padding
 	&__content {
-		flex: 1;
+		flex: 1 1 auto;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
 		position: relative;
 		z-index: 1;
 		background: var(--color-bg);
 		padding-top: var(--space-4);
-		min-height: 60vh;
 	}
 
 	// Empty State - Engaging Onboarding
@@ -1094,8 +1137,11 @@ async function onExerciseEdited() {
 
 	// Direct Tab Content - No Extra Container
 	&__tab-content {
+		flex: 1 1 auto;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
 		padding: 0 var(--space-4) var(--space-4);
-		min-height: 400px;
 	}
 }
 

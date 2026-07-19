@@ -66,6 +66,21 @@ const planCreatedAtLabel = computed(() => {
 	}
 });
 
+// Мета для геро (частота приёма) — из реального конфига добавок
+const suppMeta = computed(() => {
+	const c: any = cfgSupp.value;
+	if (!c) return '';
+	if (c.cycleType === 'weekly' && Array.isArray(c.weekly?.days)) {
+		const n = (c.weekly.days as number[]).filter(v => v > 0).length;
+		return n ? `${n}×/нед` : '';
+	}
+	if (c.cycleType === 'custom' && Array.isArray(c.custom?.days)) {
+		const n = (c.custom.days as number[]).filter(v => v > 0).length;
+		return n ? `${n} дн/цикл` : '';
+	}
+	return '';
+});
+
 // Состояние выполненности (id записи -> done) сохраняем локально (без изменения БД)
 const completedSet = ref<Set<number>>(new Set());
 function storageKey() {
@@ -453,6 +468,7 @@ watch(
 					<p class="supplements__subtitle" v-if="planCreatedAtLabel">
 						{{ planCreatedAtLabel }}
 					</p>
+					<p class="supplements__meta" v-if="suppMeta">{{ suppMeta }}</p>
 				</div>
 				<div class="supplements__hero-actions">
 					<button 
@@ -570,7 +586,8 @@ watch(
 <style lang="scss" scoped>
 // Supplements Layout - Modern Adaptive Design (based on Planner)
 .supplements {
-	min-height: 100vh;
+	flex: 1 1 auto;
+	min-height: 0;
 	background: var(--color-bg);
 	display: flex;
 	flex-direction: column;
@@ -578,7 +595,8 @@ watch(
 
 	// Hero Section - Premium Header Design with Integrated Tabs
 	&__hero {
-		background: var(--grad-1);
+		flex-shrink: 0;
+		background: var(--grad-2);
 		padding: var(--space-4) var(--space-4) 0;
 		padding-top: calc(var(--space-4) + var(--safe-top, 0px));
 		box-shadow: var(--shadow-lg);
@@ -620,7 +638,8 @@ watch(
 	}
 
 	&__title {
-		font-size: var(--fs-xl);
+		font-size: var(--fs-2xl);
+		letter-spacing: -0.02em;
 		font-weight: var(--fw-bold);
 		line-height: var(--lh-title);
 		color: var(--color-accent-contrast);
@@ -634,6 +653,19 @@ watch(
 		opacity: 0.8;
 		margin: 0;
 		font-weight: var(--fw-regular);
+	}
+
+	&__meta {
+		display: inline-flex;
+		align-items: center;
+		margin-top: var(--space-2);
+		padding: 3px 10px;
+		border-radius: var(--radius-pill);
+		background: rgba(255, 255, 255, 0.18);
+		color: var(--color-accent-contrast);
+		font-size: var(--fs-xs);
+		font-weight: var(--fw-semibold);
+		letter-spacing: 0.02em;
 	}
 
 	// Integrated Tab Buttons
@@ -754,7 +786,7 @@ watch(
 		z-index: 1;
 		background: var(--color-bg);
 		padding-top: var(--space-4);
-		min-height: 60vh;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
@@ -838,7 +870,7 @@ watch(
 	// Direct Tab Content - No Extra Container
 	&__tab-content {
 		padding: 0 var(--space-4) var(--space-4);
-		min-height: 400px;
+		min-height: 0;
 		flex: 1;
 		overflow: hidden;
 		display: flex;

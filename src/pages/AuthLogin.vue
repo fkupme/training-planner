@@ -138,7 +138,8 @@ async function onSubmit() {
 }
 
 .auth {
-	min-height: 100vh;
+	flex: 1 1 auto;
+	min-height: 0;
 	display: flex;
 	flex-direction: column;
 	&__row {

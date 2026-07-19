@@ -175,98 +175,71 @@ function onShiftCycle() {
 		</div>
 
 		<van-cell-group class="planner-next__group transparent-bg">
-			<div style="display: flex" v-if="hasItems">
-				<van-cell
-					title="Сводка"
-					:label="`Подходы: ${nextSummary.totalSets}  Объём: ${nextSummary.totalReps} повт.`"
-					class="planner-next__summary transparent-bg"
-				/>
-				<van-cell
-					title="Дата"
-					:label="nextDateLabel"
-					class="planner-next__summary transparent-bg"
-				/>
+			<div class="next-summary" v-if="hasItems">
+				<div class="next-summary__head">
+					<span class="next-summary__eyebrow">Ближайшая</span>
+					<span class="next-summary__date">{{ nextDateLabel }}</span>
+				</div>
+				<div class="next-summary__stats">
+					<div class="next-summary__stat">
+						<b>{{ dayItems.length }}</b><span>упр.</span>
+					</div>
+					<div class="next-summary__stat">
+						<b>{{ nextSummary.totalSets }}</b><span>подх.</span>
+					</div>
+					<div class="next-summary__stat">
+						<b>{{ nextSummary.totalReps }}</b><span>повт.</span>
+					</div>
+				</div>
 			</div>
 
 			<template v-if="hasItems">
 				<van-swipe-cell
-					v-for="it in dayItems"
+					v-for="(it, i) in dayItems"
 					:key="it.id"
 					class="planner-next__item transparent-bg"
 				>
 					<div class="next-card">
-						<div class="next-card__thumb">
-							<van-image
-								:src="exerciseInfoMap[it.exercise_id]?.media_path || ''"
-								width="100%"
-								height="100%"
-								fit="cover"
-								:show-error="false"
-								:show-loading="false"
-							>
-								<template #error>
-									<div class="next-card__media-placeholder">
-										<van-icon name="video-o" />
-										<span>GIF</span>
-									</div>
-								</template>
-							</van-image>
-						</div>
+						<div class="next-card__idx">{{ i + 1 }}</div>
 						<div class="next-card__body">
-							<div class="next-card__header">
-								<div class="next-card__title">{{ it.exercise_name }}</div>
+							<div class="next-card__title">
+								{{ it.exercise_name }}
+								<span v-if="it.optional_flag" class="next-card__opt">необяз.</span>
 							</div>
-							<div class="next-card__meta">
-								<van-tag class="next-card__chip"
-									>Подходы: {{ it.sets_count }}</van-tag
+							<div class="next-card__stats">
+								<span class="next-card__figure"
+									>{{ it.sets_count }}×{{ Number(it.reps_json) || '—' }}</span
 								>
-								<van-tag class="next-card__chip"
-									>Повторы: {{ Number(it.reps_json) || '' }}</van-tag
+								<span v-if="getExerciseWeight(it)" class="next-card__weight"
+									>{{ getExerciseWeight(it) }} {{ currentUnits }}</span
 								>
-								<van-tag v-if="getExerciseWeight(it)" class="next-card__chip"
-									>Вес: {{ getExerciseWeight(it) }} {{ currentUnits }}</van-tag
-								>
-								<span
-									v-if="it.optional_flag"
-									class="next-card__chip next-card__chip--muted"
-									>необяз.</span
-								>
+								<span v-if="it.intensity" class="next-card__rpe">{{
+									it.intensity
+								}}</span>
+								<span class="next-card__pips">
+									<i v-for="n in Number(it.sets_count) || 0" :key="n"></i>
+								</span>
 							</div>
 							<div class="next-card__tags">
-								<van-tag class="next-card__tag" plain type="primary">
-									{{
-										pmName(
-											exerciseInfoMap[it.exercise_id]?.primary_muscle_id || null
-										)
-									}}
-								</van-tag>
-								<van-tag
+								<span class="next-card__tag next-card__tag--primary">{{
+									pmName(
+										exerciseInfoMap[it.exercise_id]?.primary_muscle_id || null
+									)
+								}}</span>
+								<span
 									v-for="sec in secondaryNames(it.exercise_id)"
 									:key="sec"
 									class="next-card__tag"
-									plain
-									type="success"
-									>{{ sec }}</van-tag
+									>{{ sec }}</span
 								>
-								<van-tag
+								<span
 									v-if="exerciseInfoMap[it.exercise_id]?.equipment"
 									class="next-card__tag"
-									plain
-									type="warning"
 									>{{
 										equipmentLabel(exerciseInfoMap[it.exercise_id]?.equipment)
-									}}</van-tag
+									}}</span
 								>
 							</div>
-							<van-text-ellipsis
-								:content="
-									exerciseInfoMap[it.exercise_id]?.description ||
-									'Описание отсутствует'
-								"
-								class="next-card__desc"
-								expand-text="..."
-								collapse-text="свернуть"
-							/>
 						</div>
 					</div>
 					<template #left>
@@ -340,7 +313,10 @@ function onShiftCycle() {
 
 <style lang="scss" scoped>
 .planner-next {
-	height: calc(67dvh - var(--safe-bottom, env(safe-area-inset-bottom)) - var(--tabbar-height, 54px));
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
 	position: relative;
 	overflow: hidden;
 	background: linear-gradient(
@@ -381,9 +357,11 @@ function onShiftCycle() {
 	
 	&__group {
 		background: transparent;
-		height: calc(100% - 40px); // Оставляем место для кнопки
-		overflow: auto;
-		padding-bottom: 0; // Дополнительный отступ для контента
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
+		padding-bottom: 0;
 	}
 	&__summary .van-cell__label {
 		color: var(--color-text-muted);
@@ -395,10 +373,7 @@ function onShiftCycle() {
 	}
 	
 	&__action-footer {
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		right: 0;
+		flex-shrink: 0;
 		z-index: 10;
 		background: var(--color-bg);
 		border-top: 1px solid var(--color-border);
@@ -438,79 +413,183 @@ function onShiftCycle() {
 .transparent-bg {
 	background: transparent;
 }
-.next-card {
-	--_gap: 10px;
-	display: grid;
-	grid-template-columns: 33% 1fr;
-	gap: var(--_gap);
-	padding: 10px 0 12px;
+.next-summary {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 8px 2px 14px;
 	border-bottom: 1px solid var(--color-border);
-	position: relative;
-	&:last-child { border-bottom: none; }
-	
-	&__thumb { 
-		width: 100%; 
-		aspect-ratio: 1; 
-		border-radius: var(--radius-l); 
-		overflow: hidden; 
-		background: var(--color-surface); 
-		border: 1px solid var(--color-border); 
-		box-shadow: var(--shadow-xs); 
+
+	&__head {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding-right: 84px; // место под плавающие иконки ⇄/▦
 	}
-	
-	&__media-placeholder {
-		width: 100%;
-		height: 100%;
+
+	&__eyebrow {
+		font-size: var(--fs-xxs);
+		font-weight: var(--fw-semibold);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-accent);
+	}
+
+	&__date {
+		font-size: var(--fs-md);
+		font-weight: var(--fw-bold);
+		color: var(--color-text);
+		letter-spacing: -0.01em;
+	}
+
+	&__stats {
+		display: flex;
+		gap: 8px;
+	}
+
+	&__stat {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		gap: var(--space-1);
-		background: linear-gradient(135deg, var(--color-elevated) 0%, var(--color-surface) 100%);
-		color: var(--color-text-muted);
-		font-size: var(--fs-xs);
-		font-weight: var(--fw-medium);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		
-		.van-icon {
-			font-size: 20px;
-			color: var(--color-accent);
-			opacity: 0.7;
+		padding: 7px 8px;
+		border-radius: var(--radius-m);
+		background: var(--color-elevated);
+		border: 1px solid var(--color-border);
+
+		b {
+			font-size: var(--fs-lg);
+			font-weight: var(--fw-bold);
+			color: var(--color-text);
+			font-variant-numeric: tabular-nums;
+			line-height: 1;
 		}
-		
+
 		span {
-			opacity: 0.8;
+			font-size: var(--fs-xxs);
+			color: var(--color-text-muted);
+			margin-top: 4px;
 		}
 	}
-	
-	&__avatar-fallback { 
-		width: 100%; 
-		height: 100%; 
-		display: flex; 
-		align-items: center; 
-		justify-content: center; 
-		color: var(--color-text-muted); 
-		font-size: var(--fs-xs); 
+}
+.next-card {
+	display: grid;
+	grid-template-columns: 34px 1fr;
+	gap: 12px;
+	align-items: start;
+	padding: 12px 2px 14px;
+	border-bottom: 1px solid var(--color-border);
+	&:last-child { border-bottom: none; }
+
+	&__idx {
+		width: 34px;
+		height: 34px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: var(--radius-m);
+		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+		color: var(--color-accent);
+		font-weight: var(--fw-bold);
+		font-size: var(--fs-md);
+		font-variant-numeric: tabular-nums;
 	}
-	&__title { font-weight: var(--fw-semibold); color: var(--color-text); font-size: var(--fs-sm); letter-spacing: .3px; }
-	&__meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
-	&__chip { 
-		border: 1px solid var(--color-border); 
-		border-radius: var(--radius-s); 
-		padding: 2px 6px; 
-		background: var(--color-elevated); 
-		font-size: var(--fs-xxs); 
-		color: var(--color-text-muted); 
-		line-height: 1.1; 
-		backdrop-filter: blur(2px); 
+
+	&__body {
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
 	}
-	&__chip--muted { opacity: 0.65; font-style: italic; }
-	&__tags { display: flex; flex-wrap: wrap; column-gap: 4px; row-gap: 2px; margin-top: 4px; }
-	&__tag { font-size: var(--fs-xxs); background: var(--color-surface); border-radius: var(--radius-pill); }
-	&__body { display: flex; flex-direction: column; min-width: 0; }
-	&__desc { color: var(--color-text-muted); margin-top: 4px; font-size: var(--fs-xxs); line-height: 1.3; }
-	&__delete, &__edit { height: 100%; border-radius: 0; }
+
+	&__title {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 8px;
+		font-weight: var(--fw-semibold);
+		color: var(--color-text);
+		font-size: var(--fs-md);
+		line-height: var(--lh-title);
+	}
+
+	&__opt {
+		font-size: var(--fs-xxs);
+		font-weight: var(--fw-semibold);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--color-text-muted);
+		background: var(--color-elevated);
+		padding: 2px 6px;
+		border-radius: var(--radius-s);
+	}
+
+	&__stats {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	&__figure {
+		font-weight: var(--fw-bold);
+		font-size: var(--fs-md);
+		color: var(--color-text);
+		font-variant-numeric: tabular-nums;
+	}
+
+	&__weight {
+		font-weight: var(--fw-semibold);
+		font-size: var(--fs-sm);
+		color: var(--color-text-muted);
+		font-variant-numeric: tabular-nums;
+	}
+
+	&__rpe {
+		font-size: var(--fs-xxs);
+		font-weight: var(--fw-semibold);
+		color: var(--color-accent);
+		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+		padding: 2px 7px;
+		border-radius: var(--radius-pill);
+	}
+
+	&__pips {
+		display: inline-flex;
+		gap: 3px;
+		margin-left: auto;
+	}
+
+	&__pips i {
+		width: 12px;
+		height: 5px;
+		border-radius: 3px;
+		background: var(--color-accent);
+		opacity: 0.85;
+		display: block;
+	}
+
+	&__tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	&__tag {
+		font-size: var(--fs-xxs);
+		font-weight: var(--fw-semibold);
+		padding: 3px 8px;
+		border-radius: var(--radius-pill);
+		background: var(--color-elevated);
+		color: var(--color-text-muted);
+		border: 1px solid var(--color-border);
+	}
+
+	&__tag--primary {
+		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+		color: var(--color-accent);
+		border-color: transparent;
+	}
 }
 .swipe-actions {
 	display: flex;

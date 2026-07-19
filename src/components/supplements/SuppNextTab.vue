@@ -199,8 +199,10 @@ function onToggleItemPrev(id: number) {
 /* Adaptive Supplements Next Tab */
 <style scoped lang="scss">
 .supp-next {
-  height: calc(68dvh - var(--safe-bottom, env(safe-area-inset-bottom)) - var(--tabbar-height, 54px));
-  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: linear-gradient(
     135deg,
     color-mix(in srgb, var(--color-bg) 96%, transparent) 0%,

@@ -309,7 +309,8 @@ function handleBiometricToggle() {
 <style lang="scss" scoped>
 .settings {
 	background: var(--color-bg);
-	height: 100vh;
+	flex: 1 1 auto;
+	min-height: 0;
 	padding: var(--space-4) var(--space-3) var(--space-8);
 	overflow-y: auto;
 

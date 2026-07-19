@@ -126,10 +126,10 @@ const slotArray = (n: number) => Array.from({ length: n }, (_, i) => i);
 /* Adaptive Supplements All Tab - Based on Planner Style */
 
 .supp-all {
-	flex: 1;
+	flex: 1 1 auto;
+	min-height: 0;
 	overflow-y: auto;
 	overflow-x: hidden;
-	max-height: calc(66dvh - var(--safe-bottom, env(safe-area-inset-bottom)) - var(--tabbar-height, 54px));
 	background: linear-gradient(
 		135deg,
 		color-mix(in srgb, var(--color-bg) 96%, transparent) 0%,

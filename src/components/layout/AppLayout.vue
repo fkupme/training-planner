@@ -97,10 +97,10 @@ const showHeader = computed(() => {
 });
 
 // Табы для навигации
+// «Результаты» убран из таббара (тупик — его роль играет Дневник, BRD OQ-GLOBAL-2 → 4 таба)
 const tabItems = [
 	{ path: '/planner', icon: 'fitness-center-o', label: 'План' },
 	{ path: '/diary', icon: 'book-o', label: 'Дневник' },
-	{ path: '/results', icon: 'bar-chart-o', label: 'Результаты' },
 	{ path: '/supplements', icon: 'medication-o', label: 'Добавки' },
 	{ path: '/settings', icon: 'setting-o', label: 'Настройки' },
 ];
@@ -142,6 +142,7 @@ function handleBack() {
 		<ThemedTabbar
 			v-if="currentPageConfig.showTabbar"
 			route
+			:fixed="false"
 			class="app-layout__tabbar"
 		>
 			<ThemedTabbarItem
@@ -216,13 +217,16 @@ function handleBack() {
 	}
 
 	&__content {
-		flex: 1;
+		flex: 1 1 auto;
+		min-height: 0;
 		overflow: hidden;
 		position: relative;
 	}
 
 	&__page {
 		height: 100%;
+		display: flex;
+		flex-direction: column;
 		overflow-y: hidden;
 		overflow-x: hidden;
 		background: var(--color-surface);

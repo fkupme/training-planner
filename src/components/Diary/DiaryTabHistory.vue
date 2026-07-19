@@ -271,8 +271,11 @@ function formatSessionInfo(session: TrainingHistory) {
 <style lang="scss" scoped>
 .diary-history {
 	padding: 0 var(--space-4);
-	height: 100%;
-	overflow-y: auto;
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 }
 
 .search-section {
@@ -422,7 +425,8 @@ function formatSessionInfo(session: TrainingHistory) {
 
 // Timeline Styles
 .sessions-timeline {
-	height: calc(100vh - 300px);
+	flex: 1 1 auto;
+	min-height: 0;
 	overflow-y: auto;
 	margin: 0 calc(-1 * var(--space-4));
 	padding: 0 var(--space-4) 0 var(--space-1);

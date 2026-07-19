@@ -102,7 +102,8 @@ const emit = defineEmits<{
 <style lang="scss" scoped>
 /* Adaptive Planner All Tab */
 .planner-all {
-  height: calc(67dvh - var(--safe-bottom, env(safe-area-inset-bottom)) - var(--tabbar-height, 54px));
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   background: linear-gradient(

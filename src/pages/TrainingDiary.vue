@@ -371,7 +371,8 @@ onMounted(async () => {
 <style lang="scss" scoped>
 // Training Diary Layout - Modern Adaptive Design like Planner
 .training-diary {
-	min-height: 100vh;
+	flex: 1 1 auto;
+	min-height: 0;
 	background: var(--color-bg);
 	display: flex;
 	flex-direction: column;
@@ -379,7 +380,8 @@ onMounted(async () => {
 
 	// Hero Section - Premium Header Design with Integrated Tabs
 	&__hero {
-		background: var(--grad-1);
+		flex-shrink: 0;
+		background: var(--grad-2);
 		padding: var(--space-4) var(--space-4) 0;
 		padding-top: calc(var(--space-4) + var(--safe-top, 0px));
 		box-shadow: var(--shadow-lg);
@@ -415,7 +417,8 @@ onMounted(async () => {
 	}
 
 	&__title {
-		font-size: var(--fs-xl);
+		font-size: var(--fs-2xl);
+		letter-spacing: -0.02em;
 		font-weight: var(--fw-bold);
 		line-height: var(--lh-title);
 		color: var(--color-accent-contrast);
@@ -490,12 +493,14 @@ onMounted(async () => {
 
 	// Main Content Area - Minimized Padding
 	&__content {
-		flex: 1;
+		flex: 1 1 auto;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
 		position: relative;
 		z-index: 1;
 		background: var(--color-bg);
 		padding-top: var(--space-4);
-		min-height: 60vh;
 	}
 
 	// Empty State - Engaging Onboarding
@@ -535,8 +540,10 @@ onMounted(async () => {
 	// Direct Tab Content - No Extra Container
 	&__tab-content {
 		padding: 0 var(--space-4) var(--space-4);
-		min-height: 400px;
-		height: calc(100vh - 200px); // Фиксированная высота для скролла
+		flex: 1 1 auto;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
 		overflow: hidden; // Контролируем скролл внутри компонентов
 		&:first-child{
 			padding: 0;
